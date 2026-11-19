@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Sequence
 from typing import Literal
 
@@ -30,7 +31,9 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
     ) -> PagedResponse[ChartScheduledCalculationResponse]:
         return PagedResponse[ChartScheduledCalculationResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ChartScheduledCalculationRequest]) -> list[ChartScheduledCalculationResponse]:
+    def create(
+        self, items: Sequence[ChartScheduledCalculationRequest]
+    ) -> builtins.list[ChartScheduledCalculationResponse]:
         """Create chart scheduled calculations in CDF.
 
         Args:
@@ -42,7 +45,7 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[ChartScheduledCalculationResponse]:
+    ) -> builtins.list[ChartScheduledCalculationResponse]:
         """Retrieve chart scheduled calculations by internal or external ID.
 
         Args:
@@ -66,7 +69,7 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
 
     def update(
         self, items: Sequence[ChartScheduledCalculationRequest], mode: Literal["replace"] = "replace"
-    ) -> list[ChartScheduledCalculationResponse]:
+    ) -> builtins.list[ChartScheduledCalculationResponse]:
         """Update chart scheduled calculations.
 
         Args:
@@ -78,7 +81,7 @@ class ChartScheduledCalculationsAPI(CDFResourceAPI[ChartScheduledCalculationResp
         """
         return self._update(items, mode=mode)
 
-    def list(self) -> list[ChartScheduledCalculationListResponse]:
+    def list(self) -> builtins.list[ChartScheduledCalculationListResponse]:
         """List chart scheduled calculations in CDF.
 
         Returns:

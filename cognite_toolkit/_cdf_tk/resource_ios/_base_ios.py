@@ -1,9 +1,10 @@
-import sys
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Callable, Hashable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
+from types import GenericAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from typing_extensions import TypeForm
@@ -18,18 +19,16 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 T_YamlResource = TypeVar("T_YamlResource")
+WarningHandler: TypeAlias = Callable[[ToolkitWarning], None]
 
 
 class ReadExtra(BaseModel):
@@ -37,7 +36,11 @@ class ReadExtra(BaseModel):
 
 
 class FailedReadExtra(ReadExtra):
-    code: Literal["MISSING", "SYNTAX-ERROR"]
+    code: Literal[
+        "MISSING-REFERENCED-FILE",
+        "MISSING-REFERENCED-DIRECTORY",
+        "INVALID-FILE-CONTENT",
+    ]
     error: str
 
 
@@ -150,8 +153,8 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
         cls,
     ) -> TypeAdapter[list[T_YamlResource]]:
         """Returns a TypeAdapter for a list of yaml_cls. This is used to validate the user input."""
-        # We know that cls.yaml_cls is defined.
-        return TypeAdapter[list[T_YamlResource]](list[cls.yaml_cls])  # type: ignore[name-defined]
+        # yaml_cls is a class attribute, so the list type has to be built at runtime.
+        return TypeAdapter[list[T_YamlResource]](GenericAlias(list, (cls.yaml_cls,)))
 
     @classmethod
     @abstractmethod
@@ -192,20 +195,28 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return BuildVariable.substitute(content, variables, ".yaml")
 
 
+@dataclass
+class CrudResource(Generic[T_Identifier]):
+    raw: dict[str, Any]
+    identifier: T_Identifier
+    type_: ResourceType
+    validated: ToolkitResource | None = None
+
+
 class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
-        """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
-        the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
+    def to_crud_types(
+        cls, raw: dict[str, Any], source_file: Path, resource: T_YamlResource | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
+        raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
-        """Converts the CRUD resource to the raw type. This is used to convert the resource from the CRUD format to
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
+        """Converts the CRUD resources to the raw type. This is used to convert the resource from the CRUD format to
         the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"from_crud_type must be implemented for {cls.__name__}.")
+        raise NotImplementedError(f"from_crud_types must be implemented for {cls.__name__}.")
 
 
 class ResourceIO(
@@ -222,8 +233,8 @@ class ResourceIO(
     All resources supported by the cognite_toolkit should implement a CRUD.
 
     Class attributes:
-        resource_write_cls: The API write data class for the resource.
-        resource_cls: The API read data class for the resource.
+        resource_write_cls: The API write data class for the resource. Annotated unions are allowed.
+        resource_cls: The API read data class for the resource. Annotated unions are allowed.
         yaml_cls: The File format for this resource. This is used to validate the user input.
         folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
         kind: The stem of the resource type
@@ -238,9 +249,9 @@ class ResourceIO(
             to determine if the iterate method should return any resources when filtering by parent ids.
     """
 
-    # Must be set in the subclass
-    resource_write_cls: type[T_RequestResource]
-    resource_cls: type[T_ResponseResource]
+    # Must be set in the subclass. TypeForm allows Annotated unions, which hosted extractor sources use.
+    resource_write_cls: TypeForm[T_RequestResource]
+    resource_cls: TypeForm[T_ResponseResource]
 
     # Optional to set in the subclass
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
@@ -254,9 +265,13 @@ class ResourceIO(
     # the resource type does not have a parent resource.
     parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
         self.client = client
         self.console = client.console
+        self.on_warning = on_warning or self._print_warning
+
+    def _print_warning(self, warning: ToolkitWarning) -> None:
+        warning.print_warning(console=self.console)
 
     @classmethod
     def as_crud_type(cls) -> ResourceType:
@@ -265,7 +280,7 @@ class ResourceIO(
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_RequestResource | T_ResponseResource | dict) -> T_Identifier:
+    def get_id(cls, item: T_RequestResource | T_ResponseResource | T_Identifier | dict) -> T_Identifier:
         raise NotImplementedError
 
     @classmethod
@@ -291,18 +306,18 @@ class ResourceIO(
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
-    def create(self, items: Sequence[T_RequestResource]) -> Sized:
+    def create(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError
 
     @abstractmethod
     def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_RequestResource]) -> Sized:
+    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
-    def delete(self, ids: Sequence[T_Identifier]) -> int:
+    def delete(self, ids: Sequence[T_Identifier]) -> Sequence[T_Identifier]:
         raise NotImplementedError
 
     def iterate(
@@ -353,16 +368,20 @@ class ResourceIO(
         Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_RequestResource:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
-        return self.resource_write_cls._load(resource)
+        # Subclasses that store an Annotated union override this and load through a TypeAdapter.
+        write_cls = cast(type[T_RequestResource], self.resource_write_cls)
+        return write_cls._load(resource)
 
     def dump_resource(self, resource: T_ResponseResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
@@ -429,11 +448,7 @@ class ResourceIO(
         return
         yield
 
-    @classmethod
-    def create_io(cls, client: ToolkitClient) -> Self:
-        return cls(client)
-
-        # Helper methods
+    # Helper methods
 
     @property
     def display_name(self) -> str:
@@ -480,15 +495,18 @@ class ResourceIO(
         return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
 
     @classmethod
-    def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | dict]) -> list[T_Identifier]:
+    def get_ids(
+        cls, items: Sequence[T_RequestResource | T_ResponseResource | T_Identifier | dict]
+    ) -> list[T_Identifier]:
         return [cls.get_id(item) for item in items]
 
     @classmethod
-    def as_str(cls, id: T_Identifier) -> str:
+    def as_filename(cls, id: T_Identifier) -> str:
+        """Converts the identifier to a filename. This is used to create the filename for the resource in the build"""
         if isinstance(id, str):
             return sanitize_filename(id)
         raise NotImplementedError(
-            f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
+            f"Bug in CogniteToolkit 'as_filename' is not implemented for {cls.__name__.removesuffix('Loader')}."
         )
 
     def load_resource_files(

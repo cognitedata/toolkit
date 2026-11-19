@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -201,3 +203,81 @@ variable4: "value with #in it" # But a comment after
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
         assert loaded["variables"]["modules"]["infield"]["shared_variable"] == long_default_value
+
+    @pytest.mark.parametrize(
+        "existing_config_content",
+        [
+            pytest.param(
+                """environment:
+  project: my_project
+  validation-type: prod
+  selected:
+    - modules/
+""",
+                id="No Variables section",
+            ),
+            pytest.param(
+                """environment:
+  project: my_project
+  validation-type: prod
+  selected:
+  - modules/
+
+variables:
+""",
+                id="Empty Variables section",
+            ),
+        ],
+    )
+    def test_add_variables_to_no_variables(self, existing_config_content: str) -> None:
+        new_default_config_file = """readwrite_source_id: <change_me>
+readonly_source_id: <change_me>"""
+
+        my_org, package_modules = self.mock_package(new_default_config_file)
+
+        config = InitConfigYAML.load_existing(existing_config_content, my_org, build_env_name="prod").load_defaults(
+            package_modules, {Path("."), Path("common"), Path("common/cdf_auth_readwrite_all")}
+        )
+        assert (
+            config.dump_yaml_with_comments()
+            == """environment:
+  name: prod
+  project: my_project
+  validation-type: prod
+  selected:
+  - modules/
+
+variables:
+  modules:
+    common:
+      readwrite_source_id: <change_me>
+      readonly_source_id: <change_me>
+"""
+        )
+
+    @staticmethod
+    def mock_package(new_default_config_file: str) -> tuple[MagicMock, MagicMock]:
+        # Mock the organization directory so the "selected" module path validation in
+        # load_existing passes (organization_dir / "modules/models" must exist and be a dir).
+        selected_dir = MagicMock(spec=Path)
+        selected_dir.exists.return_value = True
+        selected_dir.is_dir.return_value = True
+        my_org = MagicMock(spec=Path)
+        my_org.__truediv__.return_value = selected_dir
+
+        # Mock the default.config.yaml file that load_defaults will discover and read.
+        default_config_file = MagicMock(spec=Path)
+        default_config_file.read_text.return_value = new_default_config_file
+        # file.relative_to(root) is used for filtering (parent must be in selected_paths) and sorting.
+        default_config_file.relative_to.return_value = Path("common/default.config.yaml")
+        # file.parent.relative_to(root).parts drives the variable key path -> ("common",).
+        default_config_file.parent.relative_to.return_value = Path("common")
+
+        # Mock the "<root> / <root_module>" directory that is globbed for default config files.
+        root_module_dir = MagicMock(spec=Path)
+        root_module_dir.exists.return_value = True
+        root_module_dir.glob.return_value = [default_config_file]
+
+        package_modules = MagicMock(spec=Path)
+        package_modules.__truediv__.return_value = root_module_dir
+        return my_org, package_modules

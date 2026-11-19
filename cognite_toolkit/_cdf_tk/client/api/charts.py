@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Sequence
 from typing import Any
 
@@ -41,7 +42,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[ChartResponse]:
         return PagedResponse[ChartResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ChartRequest]) -> list[ChartResponse]:
+    def create(self, items: Sequence[ChartRequest]) -> builtins.list[ChartResponse]:
         """Create charts in CDF.
 
         Args:
@@ -51,7 +52,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId]) -> list[ChartResponse]:
+    def retrieve(self, items: Sequence[ExternalId]) -> builtins.list[ChartResponse]:
         """Retrieve charts from CDF by external ID.
 
         Args:
@@ -69,7 +70,7 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def list(self, visibility: Visibility | None = None, is_owned: bool | None = None) -> list[ChartResponse]:
+    def list(self, visibility: Visibility | None = None, is_owned: bool | None = None) -> builtins.list[ChartResponse]:
         """List charts based on visibility and ownership.
 
         Args:

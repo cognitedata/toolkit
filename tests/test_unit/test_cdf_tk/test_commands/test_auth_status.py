@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     FilesAcl,
     FunctionsAcl,
     GroupsAcl,
+    SpaceIDScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.project import (
     Claim,
@@ -105,6 +106,10 @@ def _inspect_response() -> InspectResponse:
                 project_scope=AllProjects(all_projects={}),
             ),
             InspectCapability(
+                acl=DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["space-1"])),
+                project_scope=AllProjects(all_projects={}),
+            ),
+            InspectCapability(
                 acl=AssetsAcl(actions=["READ"], scope=DataSetScope(ids=[1])),
                 project_scope=ProjectList(projects=[CDF_PROJECT]),
             ),
@@ -168,7 +173,7 @@ class TestIdentityProvider:
 class TestAuthStatus:
     def test_collect_reports_method_projects_and_merged_access(self) -> None:
         client = _status_client()
-        client.tool.token.inspect.return_value = _inspect_response()
+        client.token.inspect.return_value = _inspect_response()
         client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
         client.project.status.return_value = ProjectStatusList.model_validate(
             {
@@ -199,8 +204,7 @@ class TestAuthStatus:
             "asset_hidden_on_data_modeling_only": "AssetIO" not in other_resources,
             "function_read": format_action_access(current_resources["FunctionIO"].read),
             "group_read": format_action_access(current_resources["GroupAllScopedIO"].read),
-            "events_only_on_other": other_resources["EventIO"].read.granted
-            and not current_resources["EventIO"].read.granted,
+            "event_hidden_on_data_modeling_only": "EventIO" not in other_resources,
         } == {
             "authenticated": True,
             "method": "Service principal",
@@ -209,19 +213,19 @@ class TestAuthStatus:
             "subject": "principal-1",
             "cluster": "bluefield",
             "projects": [
-                (CDF_PROJECT, 4, 2, "HYBRID"),
-                ("other-project", 4, 1, "DATA_MODELING_ONLY"),
+                (CDF_PROJECT, 5, 2, "HYBRID"),
+                ("other-project", 5, 1, "DATA_MODELING_ONLY"),
             ],
             "asset_read": "all",
             "asset_hidden_on_data_modeling_only": True,
-            "function_read": "functionsAcl all | filesAcl datasetScope [7]",
+            "function_read": "functionsAcl all | filesAcl datasetScope [7] | dataModelInstancesAcl spaceIdScope [space-1]",
             "group_read": "all",
-            "events_only_on_other": True,
+            "event_hidden_on_data_modeling_only": True,
         }
 
     def test_invalid_token_is_not_authenticated(self) -> None:
         client = _status_client()
-        client.tool.token.inspect.side_effect = ToolkitAPIError("Invalid token")
+        client.token.inspect.side_effect = ToolkitAPIError("Invalid token")
         report = collect_auth_status(client, _environment())
         assert (report.authenticated, report.method_label, report.failure) == (
             False,
@@ -252,7 +256,7 @@ class TestAuthStatus:
             LOGIN_FLOW="session",
         )
         client = _status_client()
-        client.tool.token.inspect.return_value = _inspect_response()
+        client.token.inspect.return_value = _inspect_response()
         client.project.organization.return_value = _organization("https://auth.cognite.com/oauth2/token")
         client.project.status.return_value = ProjectStatusList.model_validate(
             {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
@@ -302,12 +306,12 @@ class TestAuthStatus:
         }
 
     def test_group_read_requires_every_action(self) -> None:
-        capabilities = FlatCapabilities({(GroupsAcl, "groupsAcl", "READ"): AllScope()}, name=CDF_PROJECT, groups=[])
+        capabilities = FlatCapabilities({(GroupsAcl, "groupsAcl", "READ"): [AllScope()]}, name=CDF_PROJECT, groups=[])
         access = resolve_action_access(GroupIO, capabilities, "READ")
         assert (access.granted, access.missing) == (False, ["groupsAcl LIST"])
 
     def test_data_modeling_only_skips_classic_assets(self) -> None:
-        capabilities = FlatCapabilities({(AssetsAcl, "assetsAcl", "READ"): AllScope()}, name=CDF_PROJECT, groups=[1])
+        capabilities = FlatCapabilities({(AssetsAcl, "assetsAcl", "READ"): [AllScope()]}, name=CDF_PROJECT, groups=[1])
         hybrid, _ = resources_from_capabilities(capabilities, "HYBRID")
         data_modeling_only, _ = resources_from_capabilities(capabilities, "DATA_MODELING_ONLY")
         assert {
@@ -317,7 +321,7 @@ class TestAuthStatus:
 
     def test_render_verbose_output(self) -> None:
         client = _status_client()
-        client.tool.token.inspect.return_value = _inspect_response()
+        client.token.inspect.return_value = _inspect_response()
         client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
         client.project.status.return_value = ProjectStatusList.model_validate(
             {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
@@ -393,8 +397,8 @@ class TestAuthStatus:
     def test_data_modeling_resources_are_listed_once(self) -> None:
         capabilities = FlatCapabilities(
             {
-                (DataModelsAcl, "dataModelsAcl", "READ"): AllScope(),
-                (DataModelInstancesAcl, "dataModelInstancesAcl", "READ"): AllScope(),
+                (DataModelsAcl, "dataModelsAcl", "READ"): [AllScope()],
+                (DataModelInstancesAcl, "dataModelInstancesAcl", "READ"): [AllScope()],
             },
             name=CDF_PROJECT,
             groups=[1],

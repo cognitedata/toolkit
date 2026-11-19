@@ -40,4 +40,4 @@ def test_deploy_strongly_coupled_model(toolkit_client: ToolkitClient) -> None:
 
         assert len(views) == len(created)
     finally:
-        toolkit_client.tool.views.delete([view.as_id() for view in views])
+        toolkit_client.views.delete([view.as_id() for view in views])

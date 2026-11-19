@@ -1,6 +1,5 @@
 import json
-import sys
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
@@ -8,11 +7,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 MAX_SUB_AGENTS_PER_AGENT = 20
 EXAMPLE_QUESTIONS_MAX_LENGTH = 5

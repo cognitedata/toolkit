@@ -1,17 +1,15 @@
 import re
-import sys
 import tempfile
 import time
 from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 from urllib.parse import urlparse
 
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    ClientCredentials,
     OidcCredentials,
 )
 from filelock import BaseFileLock, FileLock, Timeout
@@ -19,6 +17,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -43,13 +42,9 @@ def get_ext_onelake_source_ids(query: str) -> list[str]:
     return EXT_ONELAKE_SOURCE_RE.findall(query)
 
 
-if sys.version_info < (3, 11):
-    from typing_extensions import Self
-else:
-    from typing import Self
-
-
-def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> str | None:
+def try_find_error(
+    credentials: OidcCredentials | ClientCredentialsSessionRequest | None,
+) -> str | None:
     if credentials is None:
         return None
     missing: list[str] = []
@@ -60,7 +55,7 @@ def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> s
     if missing:
         plural = "s are" if len(missing) > 1 else " is"
         return f"The environment variable{plural} not set: {humanize_collection(missing)}."
-    if isinstance(credentials, ClientCredentials):
+    if not isinstance(credentials, OidcCredentials):
         return None
     try:
         result = urlparse(credentials.token_uri)
@@ -79,7 +74,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: Literal[False] = False,
     console: Console | None = None,
-) -> ClientCredentials: ...
+) -> ClientCredentialsSessionRequest: ...
 
 
 @overload
@@ -90,7 +85,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: Literal[True],
     console: Console | None = None,
-) -> ClientCredentials | OidcCredentials: ...
+) -> ClientCredentialsSessionRequest | OidcCredentials: ...
 
 
 def read_auth(
@@ -100,7 +95,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: bool = False,
     console: Console | None = None,
-) -> ClientCredentials | OidcCredentials:
+) -> ClientCredentialsSessionRequest | OidcCredentials:
     if authentication is None:
         if client_config.is_strict_validation or not isinstance(client_config.credentials, OAuthClientCredentials):
             raise ToolkitRequiredValueError(f"Authentication is missing for {resource_name} {identifier!r}.")
@@ -108,7 +103,10 @@ def read_auth(
             HighSeverityWarning(
                 f"Authentication is missing for {resource_name} {identifier!r}. Falling back to the Toolkit credentials"
             ).print_warning(console=console)
-        return ClientCredentials(client_config.credentials.client_id, client_config.credentials.client_secret)
+        return ClientCredentialsSessionRequest(
+            client_id=client_config.credentials.client_id,
+            client_secret=client_config.credentials.client_secret,
+        )
     elif not isinstance(authentication, dict):
         raise ToolkitTypeError(f"Authentication must be a dictionary for {resource_name} {identifier!r}")
     elif "clientId" not in authentication or "clientSecret" not in authentication:
@@ -118,7 +116,10 @@ def read_auth(
     elif allow_oidc and "tokenUri" in authentication and "cdfProjectName" in authentication:
         return OidcCredentials.load(authentication)
     else:
-        return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
+        return ClientCredentialsSessionRequest(
+            client_id=authentication["clientId"],
+            client_secret=authentication["clientSecret"],
+        )
 
 
 def get_transformation_sources(query: str) -> list[RawTableId | str]:
@@ -140,6 +141,18 @@ def get_transformation_destination_columns(query: str) -> list[str]:
     parser = SQLParser(query, operation="Lookup transformation destination columns")
     parser.parse()
     return parser.destination_columns
+
+
+def _query_str(value: object, field: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise ToolkitValueError(f"Expected query field {field} to be a string, got {type(value).__name__}.")
+
+
+def _query_int(value: object, field: str) -> int:
+    if isinstance(value, int | float | str):
+        return int(value)
+    raise ToolkitValueError(f"Expected query field {field} to be a number, got {type(value).__name__}.")
 
 
 def metadata_key_counts(
@@ -190,11 +203,8 @@ def metadata_key_counts(
        GROUP BY key
        ORDER BY key_count DESC;
 """
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
-    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return [(item["key"], item["key_count"]) for item in results.results]  # type: ignore[misc]
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
+    return [(_query_str(item["key"], "key"), _query_int(item["key_count"], "key_count")) for item in results.results]
 
 
 def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
@@ -244,11 +254,10 @@ FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
-    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return [(item["label"], item["label_count"]) for item in results.results]  # type: ignore[misc]
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
+    return [
+        (_query_str(item["label"], "label"), _query_int(item["label_count"], "label_count")) for item in results.results
+    ]
 
 
 @dataclass
@@ -288,12 +297,13 @@ GROUP BY
     sourceType,
     targetType
 """
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
-    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     return [
-        RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])  # type: ignore[arg-type]
+        RelationshipCount(
+            _query_str(item["sourceType"], "sourceType"),
+            _query_str(item["targetType"], "targetType"),
+            _query_int(item["relationshipCount"], "relationshipCount"),
+        )
         for item in results.results
     ]
 
@@ -317,12 +327,9 @@ def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = N
 FROM
     _cdf.labels{where_clause}"""
 
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
-        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-        return int(results.results[0]["labelCount"])  # type: ignore[arg-type]
+        return _query_int(results.results[0]["labelCount"], "labelCount")
     return 0
 
 
@@ -427,10 +434,7 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
-        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-        return int(results.results[0]["row_count"])  # type: ignore[arg-type]
+        return _query_int(results.results[0]["row_count"], "row_count")
     return 0

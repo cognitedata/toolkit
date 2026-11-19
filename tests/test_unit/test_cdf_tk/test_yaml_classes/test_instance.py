@@ -45,7 +45,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "unknownField": "value",
         },
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="unknown-field-present",
     )
     yield pytest.param(
@@ -251,6 +251,7 @@ class TestNodeYAML:
             ],
         }
         loaded = NodeYAML.model_validate(data)
+        assert loaded.sources is not None
         assert len(loaded.sources) == 2
         assert isinstance(loaded.sources[0].properties, dict)
         assert "prop1" in loaded.sources[0].properties

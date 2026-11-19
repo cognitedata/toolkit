@@ -94,12 +94,10 @@ class TestStreamlitUpdateWithFileio:
             mock_fileio.load_resource_files.return_value = [file_request]
             mock_fileio.retrieve.return_value = [self._file_response(ext_id, cdf_hash)]
             mock_fileio.update.return_value = [self._file_response(ext_id, local_hash)]
-            mock_client.tool.filemetadata.get_upload_url.return_value = [
-                MagicMock(upload_url="https://upload.example.com")
-            ]
+            mock_client.filemetadata.get_upload_url.return_value = [MagicMock(upload_url="https://upload.example.com")]
             streamlit_io.update([item])
 
-        assert mock_client.tool.filemetadata.upload_file.called == expect_upload
+        assert mock_client.filemetadata.upload_file.called == expect_upload
 
 
 class TestStreamlitIOGetExtraFiles:
@@ -125,6 +123,8 @@ class TestStreamlitIOGetExtraFiles:
             for extra in extras
             if isinstance(extra, SuccessExtra) and extra.suffix == f".{FileMetadataIO.kind}.yaml"
         )
+        assert file_metadata_extra.content is not None
         file_metadata = read_yaml_content(file_metadata_extra.content)
+        assert isinstance(file_metadata, dict)
         assert file_metadata["dataSetExternalId"] == "my_dataset"
         assert "dataSetId" not in file_metadata

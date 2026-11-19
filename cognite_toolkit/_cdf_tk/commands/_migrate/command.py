@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Generic
 
 from rich.console import Console
+from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -77,6 +78,7 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
         user_log_filestem: str | None = None,
+        continue_on_error: bool = False,
     ) -> dict[str, list[ItemsResult]]:
         self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -111,6 +113,7 @@ class MigrationCommand(ToolkitCommand):
                 mapper=mapper,
                 logger=logger,
                 write_client=write_client,
+                continue_on_error=continue_on_error,
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -126,6 +129,7 @@ class MigrationCommand(ToolkitCommand):
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
         logger: FileWithAggregationLogger,
         write_client: HTTPClient,
+        continue_on_error: bool,
         log_dir: Path,
         dry_run: bool,
         verbose: bool,
@@ -150,14 +154,15 @@ class MigrationCommand(ToolkitCommand):
                 download_iterable=data.stream_data(selected, bookmark=step.bookmark),
                 process=self._convert(mapper),
                 write=self._upload(
-                    selected,
-                    write_client,
-                    data,
-                    mapper.destination_label or data.KIND,
-                    dry_run,
-                    log_dir,
-                    step.total_count,
-                    step.completed_count,
+                    selected=selected,
+                    write_client=write_client,
+                    target=data,
+                    destination=mapper.destination_label or data.KIND,
+                    continue_on_error=continue_on_error,
+                    dry_run=dry_run,
+                    log_dir=log_dir,
+                    total_item_count=step.total_count,
+                    start_item=step.completed_count,
                 ),
                 total_item_count=step.total_count,
                 max_queue_size=10,
@@ -274,7 +279,6 @@ class MigrationCommand(ToolkitCommand):
         table.add_section()
         table.add_row("Total", f"{total_completed:,}", f"{total_count:,}")
         console.print(table)
-        return None
 
     def _print_txt(self, results: list[ItemsResult], log_dir: Path, filestem: str, console: Console) -> None:
         summary_file = log_dir / f"{filestem}_migration_summary.txt"
@@ -308,6 +312,7 @@ class MigrationCommand(ToolkitCommand):
         write_client: HTTPClient,
         target: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         destination: str,
+        continue_on_error: bool,
         dry_run: bool,
         log_dir: Path,
         total_item_count: int | None,
@@ -318,9 +323,9 @@ class MigrationCommand(ToolkitCommand):
         def upload_items(page: Page[T_DataRequest]) -> None:
             nonlocal migrate_count
             if not page:
-                return None
+                return
             if dry_run:
-                return None
+                return
 
             responses: ItemsResultList = ItemsResultList()
             for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
@@ -358,7 +363,11 @@ class MigrationCommand(ToolkitCommand):
                             )
                         )
 
-            if responses and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses):
+            if (
+                responses
+                and not continue_on_error
+                and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses)
+            ):
                 target.logger.force_write()
                 raise ToolkitRepeatedUploadFailureError(
                     f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."
@@ -371,7 +380,7 @@ class MigrationCommand(ToolkitCommand):
                 total=total_item_count,
                 completed_count=migrate_count,
             ).dump_to_file(log_dir, filestem=str(selected))
-            return None
+            return
 
         return upload_items
 
@@ -413,7 +422,7 @@ class MigrationCommand(ToolkitCommand):
 
     @staticmethod
     def validate_migration_model_available(client: ToolkitClient) -> None:
-        models = client.tool.data_models.retrieve([MODEL_ID], inline_views=False)
+        models = client.data_models.retrieve([MODEL_ID], inline_views=False)
         if not models:
             raise ToolkitMigrationError(
                 f"The migration data model {MODEL_ID!r} does not exist. "
@@ -435,7 +444,7 @@ class MigrationCommand(ToolkitCommand):
     def validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
         """Validate that the project has enough capacity to accommodate the migration."""
 
-        stats = client.data_modeling.statistics.project()
+        stats = client.statistics.retrieve()
 
         available_capacity = stats.instances.instances_limit - stats.instances.instances
         available_capacity_after = available_capacity - max(instance_count, 0)
@@ -480,11 +489,13 @@ class MigrationCommand(ToolkitCommand):
                         resource_requests=[item.resource for item in to_create.resources],
                     ),
                 ]
-                step_results = deploy_cmd.apply_plan(
-                    client,
-                    plan,
-                    options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose),
-                )
+                with Progress(console=client.console) as progress:
+                    step_results = deploy_cmd.apply_plan(
+                        client,
+                        plan,
+                        options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose),
+                        progress=progress,
+                    )
                 deploy_cmd._display_results(step_results, "deploy", console=client.console, verbose=verbose)
                 results.extend(step_results)
 

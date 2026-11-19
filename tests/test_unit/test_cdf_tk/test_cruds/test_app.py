@@ -1,12 +1,17 @@
 import io
 import zipfile
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app_version import (
+    AppVersionRequest,
+    AppVersionResponse,
+    LifecycleState,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._app import AppIO, AppVersionIO
@@ -16,8 +21,8 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, Succ
 def _make_app_version_request(
     app_external_id: str = "my-app",
     version: str = "1.0.0",
-    lifecycle_state: str = "PUBLISHED",
-    alias: str | None = None,
+    lifecycle_state: LifecycleState = "PUBLISHED",
+    alias: Literal["ACTIVE", "PREVIEW"] | None = None,
     entrypoint: str = "index.html",
 ) -> AppVersionRequest:
     return AppVersionRequest(
@@ -32,8 +37,8 @@ def _make_app_version_request(
 def _make_app_response(
     app_external_id: str = "my-app",
     version: str = "1.0.0",
-    lifecycle_state: str = "PUBLISHED",
-    alias: str | None = "ACTIVE",
+    lifecycle_state: LifecycleState = "PUBLISHED",
+    alias: Literal["ACTIVE", "PREVIEW"] | None = "ACTIVE",
 ) -> AppVersionResponse:
     return AppVersionResponse(
         app_external_id=app_external_id,
@@ -69,14 +74,14 @@ class TestAppIODumpResource:
     )
     def test_dump_fields(self, description, expected):
         with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_io(client)
+            loader = AppIO(client)
 
         response = AppResponse(external_id="my-app", name="My App", description=description)
         assert loader.dump_resource(response) == expected
 
     def test_dump_prefers_local_name_and_description(self):
         with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_io(client)
+            loader = AppIO(client)
 
         response = AppResponse(external_id="my-app", name="Remote Name")
         local = {"name": "Local Name", "description": "Local desc"}
@@ -90,7 +95,7 @@ class TestAppVersionIODeploy:
     @pytest.fixture
     def version_io_with_zip(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             zip_path = tmp_path / "my-app.zip"
             _write_zip(zip_path)
             version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
@@ -103,8 +108,8 @@ class TestAppVersionIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.create.assert_not_called()
-        client.tool.apps.versions.upload.assert_called_once_with(
+        client.apps.create.assert_not_called()
+        client.apps.versions.upload.assert_called_once_with(
             external_id="my-app",
             version="1.0.0",
             entrypoint="index.html",
@@ -126,13 +131,13 @@ class TestAppVersionIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.versions.update.assert_called_once_with(
+        client.apps.versions.update.assert_called_once_with(
             "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": expected_alias_patch}
         )
 
     def test_deploy_raises_when_zip_missing(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
             loader.zip_path_by_version_id[version_id] = tmp_path / "my-app.zip"  # registered but not on disk
             item = _make_app_version_request()
@@ -145,13 +150,15 @@ class TestAppVersionIODeploy:
 
         results = loader.create([item])
 
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, AppVersionResponse)
-        assert response.app_external_id == "my-app"
-        assert response.version == "1.0.0"
-        assert response.lifecycle_state == "PUBLISHED"
-        assert response.alias == "ACTIVE"
+        assert results == [
+            AppVersionResponse(
+                app_external_id=item.app_external_id,
+                version=item.version,
+                lifecycle_state=item.lifecycle_state,
+                alias=item.alias,
+                entrypoint=item.entrypoint,
+            )
+        ]
 
 
 class TestAppVersionIOLoadResourceFile:
@@ -162,7 +169,7 @@ class TestAppVersionIOLoadResourceFile:
         yaml_file.write_text("appExternalId: my-app\nversion: 1.0.0\n")
 
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             result = loader.load_resource_file(yaml_file)
 
         assert result == [{"appExternalId": "my-app", "version": "1.0.0"}]
@@ -177,7 +184,7 @@ class TestAppVersionIOLoadResourceFile:
         yaml_file.write_text("appExternalId: my-app\nversion: 1.0.0\n")
 
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             result = loader.load_resource_file(yaml_file)
 
         assert result == []
@@ -193,7 +200,7 @@ class TestAppVersionIODumpResource:
     )
     def test_dump_omits_none_alias(self, alias, alias_in_dump):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
 
         response = AppVersionResponse(
             app_external_id="my-app", version="1.0.0", lifecycle_state="PUBLISHED", alias=alias
@@ -204,7 +211,7 @@ class TestAppVersionIODumpResource:
 
     def test_copies_source_path_from_local(self):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
 
         response = AppVersionResponse(
             app_external_id="my-app",
@@ -265,6 +272,7 @@ class TestAppVersionIOGetExtraFiles:
         )
 
         assert len(extras) == 1
+        assert isinstance(extras[0], SuccessExtra)
         assert extras[0].suffix == ".zip"
 
     def test_fails_when_entrypoint_missing_from_root_and_dist(self, tmp_path: Path):
@@ -346,6 +354,7 @@ class TestAppVersionIOGetExtraFiles:
         )
 
         assert len(extras) == 1
+        assert isinstance(extras[0], SuccessExtra)
         assert extras[0].suffix == ".zip"
 
     @pytest.mark.parametrize(

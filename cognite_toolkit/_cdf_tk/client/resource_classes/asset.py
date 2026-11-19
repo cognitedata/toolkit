@@ -31,8 +31,8 @@ class AssetRequest(Asset, UpdatableRequestResource):
 
 
 class AssetAggregateItem(BaseModelObject):
-    child_count: int
-    depth: int
+    child_count: int | None = None  # The API docs suggests this is always present, but it's not.
+    depth: int | None = None  # The API docs suggests this is always present, but it's not.
     path: list[dict[Literal["id"], int]]
 
 

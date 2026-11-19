@@ -1,5 +1,7 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import aggregate_count
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -19,6 +21,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
                 "create": Endpoint(method="POST", path="/simulators/routines", item_limit=1),
                 "delete": Endpoint(method="POST", path="/simulators/routines/delete", item_limit=1),
                 "list": Endpoint(method="POST", path="/simulators/routines/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/simulators/routines/aggregate", item_limit=1),
             },
         )
 
@@ -30,7 +33,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
+    def create(self, items: Sequence[SimulatorRoutineRequest]) -> builtins.list[SimulatorRoutineResponse]:
         """Create simulator routines in CDF.
 
         Args:
@@ -48,6 +51,17 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
             items: List of InternalOrExternalId objects to delete.
         """
         self._request_no_response(items, "delete")
+
+    def count(self, filter: SimulatorModelRoutineFilter | None = None) -> int:
+        """Count the simulator routines that match a filter.
+
+        Args:
+            filter: Filter by simulator, model, integration, and kind.
+
+        Returns:
+            The number of matching simulator routines.
+        """
+        return aggregate_count(self, filter=filter.dump() if filter else None)
 
     def paginate(
         self,
@@ -75,7 +89,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
         self,
         filter: SimulatorModelRoutineFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[SimulatorRoutineResponse]]:
+    ) -> Iterable[builtins.list[SimulatorRoutineResponse]]:
         """Iterate over simulator routines in CDF.
 
         Args:
@@ -94,14 +108,16 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
 
     def list(
         self,
+        filter: SimulatorModelRoutineFilter | None = None,
         limit: int | None = 100,
-    ) -> list[SimulatorRoutineResponse]:
+    ) -> builtins.list[SimulatorRoutineResponse]:
         """List all simulator routines in CDF.
 
         Args:
+            filter: Filter to apply to the simulator routines.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of SimulatorRoutineResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})

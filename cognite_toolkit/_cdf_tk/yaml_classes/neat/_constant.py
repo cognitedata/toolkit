@@ -1,0 +1,6 @@
+SHEET_METADATA = "Metadata"
+SHEET_PROPERTIES = "Properties"
+SHEET_VIEWS = "Views"
+SHEET_CONTAINERS = "Containers"
+SHEET_ENUM = "Enum"
+SHEET_NODES = "Nodes"

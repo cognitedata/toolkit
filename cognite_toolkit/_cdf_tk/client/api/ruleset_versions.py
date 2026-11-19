@@ -1,5 +1,6 @@
 """Rule Set Versions API for managing versions of CDF rule sets."""
 
+import builtins
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 
@@ -45,14 +46,14 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
     @staticmethod
     def _group_by_parent(
         items: Sequence[RuleSetVersionRequest],
-    ) -> dict[str, list[RuleSetVersionRequest]]:
-        by_parent: dict[str, list[RuleSetVersionRequest]] = {}
+    ) -> dict[str, builtins.list[RuleSetVersionRequest]]:
+        by_parent: dict[str, builtins.list[RuleSetVersionRequest]] = {}
         for item in items:
             by_parent.setdefault(item.rule_set_external_id, []).append(item)
         return by_parent
 
-    def create(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
-        results: list[RuleSetVersionResponse] = []
+    def create(self, items: Sequence[RuleSetVersionRequest]) -> builtins.list[RuleSetVersionResponse]:
+        results: builtins.list[RuleSetVersionResponse] = []
         for rs_ext_id, group in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=rs_ext_id))
             for item in group:
@@ -73,8 +74,8 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
         self,
         items: Sequence[RuleSetVersionId],
         ignore_unknown_ids: bool = False,
-    ) -> list[RuleSetVersionResponse]:
-        results: list[RuleSetVersionResponse] = []
+    ) -> builtins.list[RuleSetVersionResponse]:
+        results: builtins.list[RuleSetVersionResponse] = []
         for item in items:
             url = self._make_url(
                 self._method_endpoint_map["retrieve"].path.format(
@@ -98,7 +99,7 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
         return results
 
     def delete(self, ids: Sequence[RuleSetVersionId]) -> None:
-        by_parent: defaultdict[str, list[str]] = defaultdict(list)
+        by_parent: defaultdict[str, builtins.list[str]] = defaultdict(list)
         for id_ in ids:
             by_parent[id_.rule_set_external_id].append(id_.version)
         for rs_ext_id, versions in by_parent.items():
@@ -111,14 +112,16 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
             )
             self._http_client.request_single_retries(request).get_success_or_raise(request)
 
-    def iterate(self, rule_set_external_id: str, limit: int | None = 50) -> Iterable[list[RuleSetVersionResponse]]:
+    def iterate(
+        self, rule_set_external_id: str, limit: int | None = 50
+    ) -> Iterable[builtins.list[RuleSetVersionResponse]]:
         path = self._method_endpoint_map["list"].path.format(externalId=rule_set_external_id)
         for batch in self._iterate(limit=limit, endpoint_path=path):
             for item in batch:
                 item.rule_set_external_id = rule_set_external_id
             yield batch
 
-    def list(self, rule_set_external_id: str, limit: int | None = 50) -> list[RuleSetVersionResponse]:
+    def list(self, rule_set_external_id: str, limit: int | None = 50) -> builtins.list[RuleSetVersionResponse]:
         path = self._method_endpoint_map["list"].path.format(externalId=rule_set_external_id)
         items = self._list(limit=limit, endpoint_path=path)
         for item in items:

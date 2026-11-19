@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
 
 class LandingApp(typer.Typer):
-    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
 
     def main_init(
@@ -23,7 +23,9 @@ class LandingApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Getting started checklist"""
+        """Wizard to initialize Toolkit. This includes setting up cdf.toml, and optionally,
+        set up auth, select modules/deployment packs, and initialize a git repository.
+        """
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Remove the Error message from failing to load the config

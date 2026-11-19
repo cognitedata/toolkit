@@ -6,7 +6,12 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 
-from ._auth import BasicAuthenticationRequest, BasicAuthenticationResponse
+from ._auth import (
+    BasicAuthenticationRequest,
+    BasicAuthenticationResponse,
+    ClientCredentialAuthenticationRequest,
+    ClientCredentialAuthenticationResponse,
+)
 from ._base import SourceRequestDefinition, SourceResponseDefinition
 
 
@@ -19,7 +24,7 @@ class EventHubSource(BaseModelObject):
 
 class EventHubSourceRequest(EventHubSource, SourceRequestDefinition):
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"authentication"})
-    authentication: BasicAuthenticationRequest | None = None
+    authentication: BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | None = None
 
 
 class EventHubSourceResponse(
@@ -27,7 +32,7 @@ class EventHubSourceResponse(
     EventHubSource,
     ResponseResource[EventHubSourceRequest],
 ):
-    authentication: BasicAuthenticationResponse | None = None
+    authentication: BasicAuthenticationResponse | ClientCredentialAuthenticationResponse | None = None
 
     @classmethod
     def request_cls(cls) -> builtins.type[EventHubSourceRequest]:

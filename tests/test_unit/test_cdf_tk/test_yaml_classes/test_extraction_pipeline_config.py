@@ -37,7 +37,7 @@ def invalid_extraction_pipeline_config_test_cases() -> Iterable:
     # Unknown field present
     yield pytest.param(
         {"externalId": "myConfig", "config": {"key": "value"}, "unknownField": 1},
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="Unknown field present",
     )
 

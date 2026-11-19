@@ -65,4 +65,4 @@ runtime: py312""")
             ),
         )
 
-        toolkit_client.tool.functions.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+        toolkit_client.functions.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)

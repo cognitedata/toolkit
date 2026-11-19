@@ -3,7 +3,7 @@ import math
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar, cast
 from uuid import uuid4
 
 from cognite.client.exceptions import CogniteException
@@ -383,7 +383,7 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
                 for mapping in self._view_mapping_by_id.values()
             }
         )
-        views = self.client.tool.views.retrieve(view_ids)
+        views = self.client.views.retrieve(view_ids)
         self._ingestion_view_by_id = {view.as_id(): view for view in views}
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())
         if missing_views:
@@ -435,7 +435,7 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         unique_container_ids = {m.container_id for m in self._mappings_by_external_id.values()}
-        containers = self.client.tool.containers.retrieve(list(unique_container_ids))
+        containers = self.client.containers.retrieve(list(unique_container_ids))
         container_properties_by_id = {container.as_id(): container.properties for container in containers}
         missing_container_ids = unique_container_ids - set(container_properties_by_id.keys())
         if missing_container_ids:
@@ -502,10 +502,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         self._classic_timeseries_external_ids: set[str] = set()
 
     def prepare(self, source_selector: ChartSelector) -> None:
-        if missing_acl := self.client.tool.token.verify_acls(
-            [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
-        ):
-            raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
+        if missing_acl := self.client.token.verify_acls([ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]):
+            raise self.client.token.create_error(missing_acl, action="migrate charts")
 
     def map(self, source: Sequence[DataItem[ChartResponse]]) -> Sequence[DataItem[ChartRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -692,7 +690,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 api_filter["startTime"] = {"max": datetime_to_ms(data_to)}
                 api_filter["endTime"] = {"min": datetime_to_ms(date_from)}
 
-                events = self.client.tool.events.list(filter=api_filter, limit=None)
+                events = self.client.events.list(filter=api_filter, limit=None)
                 event_ids_by_chart_external_id[chart.external_id].update(event.id for event in events)
 
         if timeseries_ids:
@@ -704,7 +702,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         # Retrieve by id and external ID separately. A chart timeseries often has both, and
         # mixing them in one /timeseries/byids call returns 409 conflicting references.
         if timeseries_ids:
-            existing_by_id = self.client.tool.timeseries.retrieve(
+            existing_by_id = self.client.timeseries.retrieve(
                 [InternalId(id=timeseries_id) for timeseries_id in timeseries_ids],
                 ignore_unknown_ids=True,
             )
@@ -714,7 +712,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             )
         remaining_external_ids = timeseries_external_ids - self._classic_timeseries_external_ids
         if remaining_external_ids:
-            existing_by_external_id = self.client.tool.timeseries.retrieve(
+            existing_by_external_id = self.client.timeseries.retrieve(
                 [ExternalId(external_id=external_id) for external_id in remaining_external_ids],
                 ignore_unknown_ids=True,
             )
@@ -1070,7 +1068,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
     def map(self, source: Sequence[DataItem[IndustrialCanvasResponse]]) -> Sequence[DataItem[IndustrialCanvasRequest]]:
         raw_items = [data_item.item for data_item in source]
         file_node_ids = self._populate_cache(raw_items)
-        cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
+        cognite_file_by_id = {file.as_id(): file for file in self.client.cognite_files.retrieve(file_node_ids)}
         output: list[DataItem[IndustrialCanvasRequest]] = []
         log_entries: list[MigrationEntryV2] = []
         canvas_src = "Industrial Canvas"
@@ -1516,7 +1514,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
             mapping.destination_view for mapping in self._mappings_by_source_view.values()
         )
-        views = self.client.tool.views.retrieve(list(view_ids))
+        views = self.client.views.retrieve(list(view_ids))
         self._connection_creator.update_view_cache(views)
         self._current_issue_source = str(source_selector)
         mapping = None
@@ -1764,7 +1762,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 
         missing_in_cache = set(to_check) - set(self._is_existing_by_node_id.keys())
         if missing_in_cache:
-            existing_node_ids = {node.as_id() for node in self.client.tool.instances.retrieve(list(missing_in_cache))}
+            existing_node_ids = {node.as_id() for node in self.client.instances.retrieve(list(missing_in_cache))}
             for node_id in missing_in_cache:
                 self._is_existing_by_node_id[node_id] = node_id in existing_node_ids
 
@@ -1835,7 +1833,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                             )
                         else:
                             issue_by_source_node_id[source_node_id].errors.append(error)
-                    source.properties[prop_id] = keep  # type: ignore[assignment]
+                    source.properties[prop_id] = cast(Any, keep)
 
     def _iterate_constrained_direct_relation_properties(
         self, instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]
@@ -2021,20 +2019,30 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         raise RuntimeError(f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}.")
 
     def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
+        node_label = f"{view_id.external_id} {node.as_id()!s}"
         root_location = as_external_id(get_view_property(node, view_id, "rootLocation"))
         if root_location is None:
             raise TargetSpaceResolutionError(
-                "rootLocation is missing.",
+                f"{node_label} is missing rootLocation.",
                 severity=Severity.failure,
             )
         target_space = self._target_by_root_asset.get(root_location)
         if target_space is None:
             raise TargetSpaceResolutionError(
-                f"rootLocation {root_location!r} has no CDM target space among "
+                f"{node_label} has rootLocation {root_location!r} which has no CDM target space among "
                 f"{humanize_collection(self._target_by_root_asset) or 'none'}.",
                 severity=Severity.failure,
             )
         return target_space
+
+    @staticmethod
+    def _humanize_ids(ids: Iterable[str], max_items: int = 10) -> str:
+        """Lists the given IDs, truncating the list if it is very long."""
+        sorted_ids = sorted(set(ids))
+        if len(sorted_ids) <= max_items:
+            return humanize_collection(sorted_ids, sort=False)
+        shown = humanize_collection(sorted_ids[:max_items], sort=False)
+        return f"{shown} and {len(sorted_ids) - max_items} more"
 
     def _target_space_from_parent_edge(
         self,
@@ -2042,36 +2050,54 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         parent_edge_type: EdgeTypeId,
         other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
     ) -> str:
+        node_label = f"{node.as_id()!s}"
+        edge_type_name = parent_edge_type.type.external_id
         parents = list(other_side_by_edge_type_and_direction.get(parent_edge_type, []))
         if not parents:
             raise TargetSpaceResolutionError(
-                f"Has no inbound {parent_edge_type!s} edge to a parent.",
+                f"{node_label} has no inbound {edge_type_name!r} edge to a parent.",
                 severity=Severity.failure,
             )
-        target_spaces: set[str] = set()
+        parent_ids_by_target_space: dict[str, list[str]] = defaultdict(list)
+        unresolved_parent_ids: list[str] = []
         for parent in parents:
-            target_space = self._instance_id_mapper.resolve_target_space(parent.other_side.external_id)
-            if target_space is not None:
-                target_spaces.add(target_space)
-        if len(target_spaces) != 1:
-            reason = "unresolved" if not target_spaces else "disagree on target space"
+            parent_external_id = parent.other_side.external_id
+            target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
+            if target_space is None:
+                unresolved_parent_ids.append(parent_external_id)
+            else:
+                parent_ids_by_target_space[target_space].append(parent_external_id)
+        if not parent_ids_by_target_space:
             raise TargetSpaceResolutionError(
-                f"Parent(s) via {parent_edge_type!s} are {reason}.",
+                f"{node_label}: parent(s) {self._humanize_ids(unresolved_parent_ids)} via {edge_type_name!r} "
+                "could not be assigned to a target space. Check that these parents exist and have a "
+                "rootLocation with a configured CDM target space.",
                 severity=Severity.failure,
             )
-        return next(iter(target_spaces))
+        if len(parent_ids_by_target_space) > 1:
+            details = "; ".join(
+                f"{space}: {self._humanize_ids(ids)}" for space, ids in sorted(parent_ids_by_target_space.items())
+            )
+            raise TargetSpaceResolutionError(
+                f"{node_label}: parents via {edge_type_name!r} disagree on target space ({details}).",
+                severity=Severity.failure,
+            )
+        return next(iter(parent_ids_by_target_space))
 
     def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
+        node_label = f"{view_id.external_id} {node.as_id()!s}"
         parent_external_id = as_external_id(get_view_property(node, view_id, parent_property))
         if parent_external_id is None:
             raise TargetSpaceResolutionError(
-                f"Is missing {parent_property}.",
+                f"{node_label} is missing {parent_property}.",
                 severity=Severity.failure,
             )
         target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
         if target_space is None:
             raise TargetSpaceResolutionError(
-                f"Parent {parent_external_id!r} via {parent_property} is unresolved.",
+                f"{node_label}: parent {parent_external_id!r} via {parent_property} could not be assigned to a "
+                "target space. Check that the parent exists and has a rootLocation with a configured CDM "
+                "target space.",
                 severity=Severity.failure,
             )
         return target_space
@@ -2135,7 +2161,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
 
     def prepare(self, source_selector: InstanceSelector) -> None:
         # We need to have the view cache ready to be able to create the direct relations.
-        retrieved = self.client.tool.views.retrieve([self._mapping.destination_view])
+        retrieved = self.client.views.retrieve([self._mapping.destination_view])
         self._connection_creator.update_view_cache(retrieved)
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
@@ -2572,7 +2598,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
         existing_migrated_by_id = (
             {
                 node.as_id(): node
-                for node in self.client.tool.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
+                for node in self.client.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
                 if isinstance(node, NodeResponse)
             }
             if migrated_ids
@@ -2702,8 +2728,8 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         # file_external_id → (face_name, new_image360_node_id)
         self._face_by_file_ext_id: dict[str, tuple[str, NodeId]] = {}
 
-    def prepare(self, selector: Image360AnnotationSelector) -> None:
-        node_data = load_image360_annotation_node_data(self.client, selector.collections or ())
+    def prepare(self, source_selector: Image360AnnotationSelector) -> None:
+        node_data = load_image360_annotation_node_data(self.client, source_selector.collections or ())
         self._face_by_file_ext_id = {
             file_ext_id: (face_name, image360_node_id)
             for file_ext_id, (face_name, image360_node_id, _) in node_data.items()

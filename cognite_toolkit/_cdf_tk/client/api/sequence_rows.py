@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -174,7 +175,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
         params: dict[str, Any] | None = None,
         body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
-    ) -> Iterable[list[SequenceRowsResponse]]:
+    ) -> Iterable[builtins.list[SequenceRowsResponse]]:
         """Iterate over all resources, handling pagination automatically."""
         next_cursor = cursor
         total = 0
@@ -190,7 +191,9 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
                 break
             next_cursor = page.next_cursor
 
-    def iterate(self, filter: SequenceRowFilter, limit: int | None = 100) -> Iterable[list[SequenceRowsResponse]]:
+    def iterate(
+        self, filter: SequenceRowFilter, limit: int | None = 100
+    ) -> Iterable[builtins.list[SequenceRowsResponse]]:
         """Iterate over sequence rows in CDF.
 
         Args:
@@ -202,7 +205,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
         """
         return self._iterate(limit=limit, body=filter.dump())
 
-    def list(self, filter: SequenceRowFilter, limit: int | None = 100) -> list[SequenceRowsResponse]:
+    def list(self, filter: SequenceRowFilter, limit: int | None = 100) -> builtins.list[SequenceRowsResponse]:
         """List sequence rows for a given sequence in CDF.
 
         Args:

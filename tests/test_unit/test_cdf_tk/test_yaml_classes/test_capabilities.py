@@ -1,11 +1,14 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability, CapabilityType, Scope, ScopeType
 
 
 def all_acls() -> Iterable:
@@ -17,6 +20,7 @@ def all_acls() -> Iterable:
                 "scope": {"agentExternalIdScope": {"externalIds": ["69de3ab6-a4be-4006-a80c-59438c75ea66"]}},
             }
         },
+        {"agentsProjectConfigAcl": {"actions": ["WRITE"], "scope": {"all": {}}}},
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
@@ -31,6 +35,7 @@ def all_acls() -> Iterable:
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"chartsAdminAcl": {"actions": ["READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
+        {"cogUnitsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
         {
@@ -87,9 +92,35 @@ def all_acls() -> Iterable:
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationActionsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationActionsAcl": {
+                "actions": ["READ"],
+                "scope": {"externalIdScope": {"externalIds": ["my-integration"]}},
+            }
+        },
+        {
+            "integrationActionsAcl": {
+                "actions": ["WRITE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-domain"]}},
+            }
+        },
         {"integrationConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationConfigsAcl": {
+                "actions": ["READ"],
+                "scope": {"externalIdScope": {"externalIds": ["my-config"]}},
+            }
+        },
         {"integrationsAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
+        {
+            "integrationsAcl": {
+                "actions": ["USE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-domain"]}},
+            }
+        },
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"limitsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "locationFiltersAcl": {
@@ -153,6 +184,7 @@ def all_acls() -> Iterable:
         {"sequencesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"sequencesAcl": {"actions": ["WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
         {"sessionsAcl": {"actions": ["LIST", "CREATE", "DELETE"], "scope": {"all": {}}}},
+        {"slaAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"templateGroupsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "templateGroupsAcl": {
@@ -199,7 +231,7 @@ def all_acls() -> Iterable:
         {"streamRecordsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"streamRecordsAcl": {"actions": ["READ", "WRITE"], "scope": {"spaceIdScope": {"spaceIds": ["mySpace"]}}}},
         {"subscribeSignalsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"subscribeSignalsAcl": {"actions": ["READ"], "scope": {"currentuserscope": {}}}},
+        {"subscribeSignalsAcl": {"actions": ["READ"], "scope": {"currentuser": {}}}},
     ]
 
     yield from (pytest.param(acl, id=next(iter(acl.keys()))) for acl in acl_list)
@@ -208,7 +240,7 @@ def all_acls() -> Iterable:
 class TestCapabilities:
     @pytest.mark.parametrize("acl", all_acls())
     def test_load_dump_capability(self, acl: dict[str, object]) -> None:
-        capability = Capability.model_validate(acl)
+        capability = TypeAdapter(CapabilityType).validate_python(acl)
         assert capability.model_dump(by_alias=True, exclude_unset=True) == acl
 
     @pytest.mark.parametrize(
@@ -216,7 +248,10 @@ class TestCapabilities:
         [
             pytest.param(
                 {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
-                ["Invalid value for scope: invalid scope name 'idscope'. Expected all or idScope"],
+                [
+                    "Invalid value for scope: Input tag 'idscope' found using 'scope_name' | 'scopeName' "
+                    "does not match any of the expected tags: 'all', 'idScope'"
+                ],
                 id="Wrong case for datasetsAcl idScope",
             ),
             pytest.param(
@@ -227,7 +262,8 @@ class TestCapabilities:
                     }
                 },
                 [
-                    "Invalid value for scope: invalid scope name 'idscope'. Expected all, datasetScope or idScope",
+                    "Invalid value for scope: Input tag 'idscope' found using 'scope_name' | 'scopeName' "
+                    "does not match any of the expected tags: 'all', 'idScope', 'datasetScope'",
                     "Unrecognized value for actions[1]: Expected one of 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
@@ -240,7 +276,8 @@ class TestCapabilities:
             pytest.param(
                 {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
                 [
-                    "Invalid value for scope: invalid scope name 'idScope'. Expected agentExternalIdScope or all",
+                    "Invalid value for scope: Input tag 'idScope' found using 'scope_name' | 'scopeName' "
+                    "does not match any of the expected tags: 'all', 'agentExternalIdScope'",
                     "Unrecognized value for actions[2]: Expected one of 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
                 ],
                 id="AgentsAcl with invalid scope and action",
@@ -248,8 +285,22 @@ class TestCapabilities:
         ],
     )
     def test_invalid_capability(self, data: dict[str, object], expected_errors: list[str]) -> None:
-        warnings = validate_resource_yaml_pydantic(data, Capability, source_file=Path("filename.yaml"))
+        warnings = validate_resource_yaml_pydantic(data, CapabilityType, source_file=Path("filename.yaml"))
         assert len(warnings) == 1
         warning = warnings[0]
         assert isinstance(warning, ResourceFormatWarning)
         assert list(warning.errors) == expected_errors
+
+    def test_all_capabilities_in_union(self) -> None:
+        """Test that all capability types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Capability))
+        subclasses = set(get_args(CapabilityType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_scopes_in_union(self) -> None:
+        """Test that all scope types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Scope))
+        subclasses = set(get_args(ScopeType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

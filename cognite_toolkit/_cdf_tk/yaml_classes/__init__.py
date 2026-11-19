@@ -40,6 +40,9 @@ from .integration import IntegrationConfigYAML, IntegrationYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
 from .migration import ResourceViewMappingYAML
+from .neat import NeatFormat
+from .postgres_gateway_table import PostgresGatewayTableYAML
+from .postgres_gateway_user import PostgresGatewayUserYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .relationship import RelationshipYAML
 from .ruleset import RuleSetYAML
@@ -104,7 +107,10 @@ __all__ = [
     "IntegrationYAML",
     "LabelsYAML",
     "LocationYAML",
+    "NeatFormat",
     "NodeYAML",
+    "PostgresGatewayTableYAML",
+    "PostgresGatewayUserYAML",
     "RelationshipYAML",
     "ResourceViewMappingYAML",
     "RuleSetVersionYAML",

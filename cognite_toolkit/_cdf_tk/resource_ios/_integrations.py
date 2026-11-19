@@ -55,7 +55,9 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
         return "integrations"
 
     @classmethod
-    def get_id(cls, item: IntegrationRequest | IntegrationResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: IntegrationRequest | IntegrationResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "Integration"))
         return item.as_id()
@@ -65,7 +67,7 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -92,11 +94,12 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
     def update(self, items: Sequence[IntegrationRequest]) -> list[IntegrationResponse]:
         return self.client.integrations.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.integrations.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.integrations.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -132,7 +135,11 @@ class IntegrationConfigsIO(
         return "integration configs"
 
     @classmethod
-    def get_id(cls, item: IntegrationConfigRequest | IntegrationConfigResponse | dict[str, Any]) -> ExternalId:
+    def get_id(
+        cls, item: IntegrationConfigRequest | IntegrationConfigResponse | ExternalId | dict[str, Any]
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "Integration config"))
         if not item.external_id:
@@ -144,7 +151,7 @@ class IntegrationConfigsIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -170,10 +177,8 @@ class IntegrationConfigsIO(
     ) -> list[dict[str, Any]]:
         # Environment variable keys inside config are preserved for the extractor to resolve.
         raw_str = self.safe_read(filepath)
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
                 replaced["config"] = original.get("config")
@@ -226,13 +231,13 @@ class IntegrationConfigsIO(
         # The API appends a revision. Creating is how a configuration is changed.
         return self.create(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         """Config revisions cannot be deleted.
 
-        Deleting the parent integration removes its revisions. This counts revisions that exist so callers
-        can report how many would disappear with the integration.
+        Deleting the parent integration removes its revisions. Returns the integration ids that currently
+        have revisions, which disappear with the integration.
         """
-        count = 0
+        deleted: list[ExternalId] = []
         for id_ in ids:
             try:
                 result = self.client.integrations.configuration.list(
@@ -243,8 +248,9 @@ class IntegrationConfigsIO(
                     continue
                 raise
             else:
-                count += len(result)
-        return count
+                if result:
+                    deleted.append(id_)
+        return deleted
 
     def _iterate(
         self,

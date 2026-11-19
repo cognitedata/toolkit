@@ -10,7 +10,7 @@ import pytest
 import yaml
 from _pytest.mark import ParameterSet
 
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     flatten_dict,
@@ -29,24 +29,21 @@ class TestLoadYamlInjectVariables:
 
         loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
 
-        assert loaded["test"] == "my_injected_value"
+        assert loaded == ({"test": "my_injected_value"}, None)
 
     def test_warning_when_missing_env_variable(self) -> None:
         path = Path("test.yaml")
         content = yaml_safe_dump({"test": "${TEST}"})
-        expected_warning = EnvironmentVariableMissingWarning(path, frozenset({"TEST"}))
 
-        with catch_warnings() as warning_list:
-            load_yaml_inject_variables(content, {}, original_filepath=path)
+        _, warning = load_yaml_inject_variables(content, {}, original_filepath=path)
 
-        assert len(warning_list) == 1
-        assert warning_list[0] == expected_warning
+        assert warning == EnvironmentVariableMissingWarning(path, frozenset({"TEST"}))
 
 
 def test_calculate_hash_on_folder() -> None:
     folder = CALC_HASH_DATA
-    hash1 = calculate_directory_hash(folder)
-    hash2 = calculate_directory_hash(folder)
+    hash1 = calculate_directory_hash(folder, exclude_prefixes={"__pycache__"}, ignore_files={".pyc"})
+    hash2 = calculate_directory_hash(folder, exclude_prefixes={"__pycache__"}, ignore_files={".pyc"})
 
     print(hash1)
 
@@ -57,7 +54,7 @@ def test_calculate_hash_on_folder() -> None:
     tempdir = Path(tempfile.mkdtemp())
     shutil.rmtree(tempdir)
     shutil.copytree(folder, tempdir)
-    hash3 = calculate_directory_hash(tempdir)
+    hash3 = calculate_directory_hash(tempdir, exclude_prefixes={"__pycache__"}, ignore_files={".pyc"})
     shutil.rmtree(tempdir)
 
     assert hash1 == hash3

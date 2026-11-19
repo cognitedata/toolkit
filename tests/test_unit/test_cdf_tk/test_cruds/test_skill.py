@@ -79,7 +79,7 @@ class TestSkillIO:
         extras = list(SkillIO.get_extra_files(yaml_path, identifier=ExternalId(external_id="my_skill"), item={}))
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
-        assert extras[0].code == "SYNTAX-ERROR"
+        assert extras[0].code == "INVALID-FILE-CONTENT"
 
     def test_get_extra_files_missing_sidecar_yields_failed_read_extra(self, tmp_path: Path) -> None:
         yaml_path = tmp_path / "my_skill.Skill.yaml"
@@ -88,7 +88,7 @@ class TestSkillIO:
         )
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
-        assert extras[0].code == "MISSING"
+        assert extras[0].code == "MISSING-REFERENCED-FILE"
 
     def test_get_extra_files_prefers_external_id_specific_sidecar_over_yaml_sibling(self, tmp_path: Path) -> None:
         yaml_path = tmp_path / "my.Skill.yaml"
@@ -175,8 +175,21 @@ class TestSkillIO:
             created_time=1,
             last_updated_time=2,
         )
-        dumped = skill_io.dump_resource(response, local={"externalId": "my_skill"})
+        dumped = skill_io.dump_resource(response)
         assert dumped["externalId"] == "my_skill"
         assert dumped["name"] == "test-skill"
         assert dumped["description"] == "Test skill description"
         assert dumped["content"] == _SKILL_CONTENT
+
+    def test_dump_resource_omits_frontmatter_fields_when_local_is_given(self) -> None:
+        skill_io = SkillIO(ToolkitClientMock())
+        response = SkillResponse(
+            external_id="my_skill",
+            name="test-skill",
+            description="Test skill description",
+            content=_SKILL_CONTENT,
+            created_time=1,
+            last_updated_time=2,
+        )
+        local = {"externalId": "my_skill", "content": _SKILL_CONTENT}
+        assert skill_io.dump_resource(response, local=local) == local

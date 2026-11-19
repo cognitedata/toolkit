@@ -26,25 +26,44 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._postgres_gateway import PostgresGatewayTableIO, PostgresGatewayUserIO
 from cognite_toolkit._cdf_tk.resource_ios._rulesets import RuleSetIO, RuleSetVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_subscription import SignalSubscriptionIO
 from tests import data
+
+SKIPPED_ALPHA_CRUDS = {
+    DataProductIO,  # Data Products and Rule Sets APIs are not yet available on the test server.
+    DataProductVersionIO,
+    RuleSetIO,
+    RuleSetVersionIO,
+    ExternalDataSourceIO,  # External data sources reject dummy OneLake credentials (400 Invalid body).
+    SignalSinkIO,  # Signal sinks of type user require an existing user profile, which does not exist on the test server.
+    SignalSubscriptionIO,
+    PostgresGatewayUserIO,  # Postgres gateway users must exist before deploy, as CDF generates the username.
+    PostgresGatewayTableIO,
+}
 
 
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
 @pytest.mark.usefixtures("simulator", "simulator_integration", "three_d_file")
-def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) -> None:
+def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     build = BuildV2Command(silent=True, skip_tracking=True)
 
-    build.build(
-        client=env_vars.get_client(),
-        parameters=BuildParameters(
-            organization_dir=data.COMPLETE_ORG,
-            build_dir=build_dir,
-            config_yaml=data.COMPLETE_ORG / "config.dev.yaml",
-        ),
-    )
+    with monkeypatch.context() as mp:
+        # The complete_org test data is shared with unit tests and specifies a placeholder project, so we
+        # skip the config-vs-environment project validation. The deploy below targets env_vars.CDF_PROJECT.
+        mp.delenv("CDF_PROJECT", raising=False)
+        build.build(
+            client=env_vars.get_client(),
+            parameters=BuildParameters(
+                organization_dir=data.COMPLETE_ORG,
+                build_dir=build_dir,
+                config_yamls=[data.COMPLETE_ORG / "config.dev.yaml"],
+            ),
+        )
 
     deploy_command = DeployV2Command(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
@@ -76,24 +95,26 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
 @pytest.mark.usefixtures("simulator", "simulator_integration", "three_d_file")
-def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Path) -> None:
+def test_deploy_complete_org_alpha(
+    env_vars: EnvironmentVariables, build_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     build = BuildV2Command(silent=True, skip_tracking=True)
 
-    build.build(
-        client=env_vars.get_client(),
-        parameters=BuildParameters(
-            organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
-            build_dir=build_dir,
-            config_yaml=data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml",
-        ),
-    )
+    with monkeypatch.context() as mp:
+        # See test_deploy_complete_org for why CDF_PROJECT is unset during the build.
+        mp.delenv("CDF_PROJECT", raising=False)
+        build.build(
+            client=env_vars.get_client(),
+            parameters=BuildParameters(
+                organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
+                build_dir=build_dir,
+                config_yamls=[data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
+            ),
+        )
 
     deploy_command = DeployV2Command(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
-    # Data Products and Rule Sets APIs are not yet available on the test server.
-    # External data sources reject dummy OneLake credentials (400 Invalid body).
-    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}
     with (
         patch.dict(
             os.environ,
@@ -101,7 +122,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
         ),
         patch.dict(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_IO_BY_FOLDER_NAME",
-            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
+            {f: [c for c in cs if c not in SKIPPED_ALPHA_CRUDS] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
             clear=True,
         ),
     ):
@@ -138,11 +159,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}:
-            # Data Products and Rule Sets APIs are not yet available on the test server.
-            # External data sources reject dummy OneLake credentials (400 Invalid body).
+        if loader_cls in SKIPPED_ALPHA_CRUDS:
             continue
-        loader = loader_cls.create_io(client)
+        loader = loader_cls(client)
 
         files = loader.find_files(build_dir / loader.folder_name)
         if not files:

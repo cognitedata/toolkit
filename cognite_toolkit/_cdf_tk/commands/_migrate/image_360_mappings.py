@@ -87,7 +87,7 @@ def load_image360_annotation_node_data(
         instance_type="node",
         source=LEGACY_IMAGE360_SOURCE_VIEW,
     )
-    all_nodes = client.tool.instances.list(filter=instance_filter, limit=None)
+    all_nodes = client.instances.list(filter=instance_filter, limit=None)
 
     selected_collections = set(collections)
     face_data_by_file_ext_id: dict[str, tuple[str, NodeId, NodeId]] = {}

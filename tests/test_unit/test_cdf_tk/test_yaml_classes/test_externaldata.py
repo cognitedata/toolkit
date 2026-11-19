@@ -3,17 +3,21 @@ from pathlib import Path
 from typing import ClassVar
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
-    ExternalDataSourceResponse,
+    ExternalDataSourceRequestUnion,
+    ExternalDataSourceResponseUnion,
     OneLakeCredentialsRead,
     OneLakeCredentialsWrite,
+    OneLakeExternalDataSourceRequest,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
     OneLakeSettingsWrite,
+    SnowflakeExternalDataSourceRequest,
+    SnowflakeExternalDataSourceResponse,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -118,21 +122,88 @@ class TestExternalDataSourceYAML:
 
 class TestExternalDataSourceResourceClasses:
     def test_request_default_format(self) -> None:
-        request = ExternalDataSourceRequest(external_id="fabric-lakehouse-prod")
-        assert request.format == "one_lake"
+        request = OneLakeExternalDataSourceRequest(external_id="fabric-lakehouse-prod")
         dumped = json.loads(request.model_dump_json(by_alias=True))
         assert dumped["format"] == "one_lake"
 
-    def test_request_rejects_invalid_format(self) -> None:
+    @pytest.mark.parametrize(
+        "data, expected_cls",
+        [
+            pytest.param(
+                {"externalId": "lakehouse", "format": "one_lake"},
+                OneLakeExternalDataSourceRequest,
+                id="one_lake",
+            ),
+            pytest.param(
+                {
+                    "externalId": "warehouse",
+                    "format": "snowflake",
+                    "expiryTime": 1,
+                    "settings": {
+                        "credentials": {"accountIdentifier": "acc", "userName": "user", "roleName": "role"},
+                        "locationDescription": {"warehouseName": "wh"},
+                    },
+                },
+                SnowflakeExternalDataSourceRequest,
+                id="snowflake",
+            ),
+        ],
+    )
+    def test_request_union_discriminates_on_format(self, data: dict[str, object], expected_cls: type) -> None:
+        loaded = TypeAdapter(ExternalDataSourceRequestUnion).validate_python(data)
+        assert type(loaded) is expected_cls
+
+    @pytest.mark.parametrize(
+        "data, expected_cls",
+        [
+            pytest.param(
+                {"externalId": "lakehouse", "format": "one_lake", "createdTime": 1, "lastUpdatedTime": 1},
+                OneLakeExternalDataSourceResponse,
+                id="one_lake",
+            ),
+            pytest.param(
+                {
+                    "externalId": "warehouse",
+                    "format": "snowflake",
+                    "createdTime": 1,
+                    "lastUpdatedTime": 1,
+                    "expiryTime": 1,
+                    "settings": {
+                        "credentials": {
+                            "accountIdentifier": "acc",
+                            "userName": "user",
+                            "roleName": "role",
+                            "publicKey": "public-key",
+                        },
+                        "locationDescription": {"warehouseName": "wh"},
+                    },
+                },
+                SnowflakeExternalDataSourceResponse,
+                id="snowflake",
+            ),
+        ],
+    )
+    def test_response_union_discriminates_on_format(self, data: dict[str, object], expected_cls: type) -> None:
+        loaded = TypeAdapter(ExternalDataSourceResponseUnion).validate_python(data)
+        assert type(loaded) is expected_cls
+
+    def test_response_union_rejects_invalid_format(self) -> None:
         with pytest.raises(ValidationError):
-            ExternalDataSourceRequest(external_id="fabric-lakehouse-prod", format="invalid")
+            TypeAdapter(ExternalDataSourceResponseUnion).validate_python(
+                {"externalId": "fabric-lakehouse-prod", "format": "invalid", "createdTime": 1, "lastUpdatedTime": 1}
+            )
 
     def test_write_credentials_require_client_secret(self) -> None:
         with pytest.raises(ValidationError):
-            OneLakeCredentialsWrite(client_id="id", tenant_id="tenant")
+            OneLakeCredentialsWrite.model_validate(
+                {
+                    "clientId": "id",
+                    "tenantId": "tenant",
+                }
+            )
 
     def test_request_as_id(self) -> None:
-        request = ExternalDataSourceRequest(
+        request = OneLakeExternalDataSourceRequest(
             external_id="fabric-lakehouse-prod",
             settings=OneLakeSettingsWrite(
                 credentials=OneLakeCredentialsWrite(
@@ -148,25 +219,8 @@ class TestExternalDataSourceResourceClasses:
         )
         assert request.as_id() == ExternalId(external_id="fabric-lakehouse-prod")
 
-    def test_response_default_format(self) -> None:
-        response = ExternalDataSourceResponse(
-            external_id="fabric-lakehouse-prod",
-            created_time=1,
-            last_updated_time=1,
-        )
-        assert response.format == "one_lake"
-
-    def test_response_rejects_invalid_format(self) -> None:
-        with pytest.raises(ValidationError):
-            ExternalDataSourceResponse(
-                external_id="fabric-lakehouse-prod",
-                format="invalid",
-                created_time=1,
-                last_updated_time=1,
-            )
-
     def test_response_as_id(self) -> None:
-        response = ExternalDataSourceResponse(
+        response = OneLakeExternalDataSourceResponse(
             external_id="fabric-lakehouse-prod",
             format="one_lake",
             created_time=1,

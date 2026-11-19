@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.commands._utils import validate_soft_delete_capacity
+from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector, SelectedView
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -108,7 +109,7 @@ def files_by_node_id(
             id=i,
             external_id=file.external_id,
             instance_id=ref,
-            name=file.name,
+            name=file.name or "",
             mime_type=file.mime_type,
             pending_instance_id=ref,
             created_time=1,
@@ -128,7 +129,7 @@ def purge_responses(
         status_code=200,
         json={
             "subject": "123",
-            "projects": [],
+            "projects": [{"projectUrlName": config.project, "groups": [1]}],
             "capabilities": [
                 {
                     "projectScope": {"allProjects": {}},
@@ -205,7 +206,7 @@ class TestPurgeInstances:
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
         if not dry_run:
             respx_mock.get(config.create_api_url("/models/statistics")).respond(
@@ -338,7 +339,7 @@ class TestPurgeSpace:
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
         container_count = 10
         view_count = 15
@@ -350,9 +351,11 @@ class TestPurgeSpace:
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
             status_code=200,
             json={
-                "items": SpaceStatistics(
-                    space, container_count, view_count, data_model_count, edge_count, 0, node_count, 0
-                ).dump()
+                "items": [
+                    SpaceStatistics(
+                        space, container_count, view_count, data_model_count, edge_count, 0, node_count, 0
+                    ).dump()
+                ]
             },
         )
         if not dry_run:
@@ -438,10 +441,7 @@ class TestPurgeSpace:
             for url, cls_, count, resource_nodes in retrieve_calls:
                 resource_list = [gen.create_instance(cls_).dump() for _ in range(count)]
                 for ts, node in zip(resource_list, resource_nodes):
-                    try:
-                        ts["instanceId"] = node.as_id().dump(include_type=False)
-                    except TypeError:
-                        ts["instanceId"] = node.as_id().dump(camel_case=True)
+                    ts["instanceId"] = node.as_id().dump(include_instance_type=False)
                 respx_mock.post(config.create_api_url(url)).respond(json={"items": resource_list})
 
         cmd = PurgeCommand(silent=True)
@@ -470,7 +470,9 @@ class TestPurgeSpace:
         if include_space:
             expected["spaces"] = 1
 
-        assert {name: value.deleted for name, value in results.data.items()} == expected
+        assert {
+            name: value.deleted for name, value in results.data.items() if isinstance(value, ResourceDeployResult)
+        } == expected
 
 
 class TestPurgeSpaceCrossReferenceCheck:
@@ -487,12 +489,12 @@ class TestPurgeSpaceCrossReferenceCheck:
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
 
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
             status_code=200,
-            json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
+            json={"items": [SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()]},
         )
 
         gen = FakeCogniteResourceGenerator(seed=1)
@@ -545,12 +547,12 @@ class TestPurgeSpaceCrossReferenceCheck:
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
 
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
             status_code=200,
-            json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
+            json={"items": [SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()]},
         )
 
         gen = FakeCogniteResourceGenerator(seed=2)

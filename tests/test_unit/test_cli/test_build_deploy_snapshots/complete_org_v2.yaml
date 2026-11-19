@@ -364,7 +364,7 @@ FunctionScheduleResponse:
   description: 'Run every day at 8am UTC cdf-auth: def5e2e0'
   functionId: 16394514322001950830
   name: daily-8am-utc
-  nonce: dummy-nonce
+  nonce: '123'
 GroupResponse:
 - capabilities:
   - projectsAcl:
@@ -414,8 +414,10 @@ GroupResponse:
   sourceId: '1234567890123456789'
 HostedExtractorDestinationRequest:
 - credentials:
-    nonce: dummy-nonce
+    nonce: '123'
   externalId: EventHubTarget
+  metadata:
+    toolkit-hash-credentials: 9cb98d84
   targetDataSetId: 7982613576047462211
 HostedExtractorJobRequest:
 - destinationId: EventHubTarget
@@ -585,36 +587,6 @@ SequenceResponse:
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
-SequenceRowsResponse:
-- columns:
-  - wind_speed
-  - power
-  externalId: SequenceWithRows
-  rows:
-  - rowNumber: 1
-    values:
-    - 0.0
-    - 0.0
-  - rowNumber: 2
-    values:
-    - 5.0
-    - 309000.0
-  - rowNumber: 3
-    values:
-    - 10.0
-    - 2693000.0
-  - rowNumber: 4
-    values:
-    - 15.0
-    - 3450000.0
-  - rowNumber: 5
-    values:
-    - 20.0
-    - 3450000.0
-  - rowNumber: 6
-    values:
-    - 25.0
-    - 3450000.0
 SourceRequestDefinition:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
@@ -656,8 +628,8 @@ TransformationResponse:
   destinationNonce:
     cdfProjectName: pytest-project
     clientId: dummy-123
-    nonce: dummy-nonce
-    sessionId: 42
+    nonce: '123'
+    sessionId: 1234
   externalId: tr_first_transformation
   ignoreNullFields: true
   isPublic: true
@@ -667,8 +639,8 @@ TransformationResponse:
   sourceNonce:
     cdfProjectName: pytest-project
     clientId: dummy-123
-    nonce: dummy-nonce
-    sessionId: 42
+    nonce: '123'
+    sessionId: 1234
 TransformationScheduleResponse:
 - externalId: tr_first_transformation
   interval: 7 * * * *
@@ -863,7 +835,7 @@ WorkflowResponse:
   maxConcurrentExecutions: 5
 WorkflowTriggerResponse:
 - authentication:
-    nonce: dummy-nonce
+    nonce: '123'
   externalId: MyTrigger
   metadata:
     cognite-toolkit-auth-hash: def5e2e0

@@ -16,13 +16,13 @@ repos:
             # See https://beta.ruff.rs/docs/rules for an overview of ruff rules
           - --select=E,W,F,I,T,RUF,TID,UP
           - --fixable=E,W,F,I,T,RUF,TID,UP
-          - --target-version=py310
+          - --target-version=py311
       - id: ruff-format
     rev: v0.15.14
 
   - repo: https://github.com/astral-sh/ty-pre-commit
     # ty version.
-    rev: v0.0.84
+    rev: v0.0.87
     hooks:
       - id: ty
 
@@ -35,13 +35,3 @@ repos:
     rev: v6.0.0 # Use the latest stable version
     hooks:
       - id: end-of-file-fixer
-
-# Mypy must be run in the local system environment, not in the pre-commit environment.
-  - hooks:
-    - id: mypy
-      name: mypy
-      entry: uv run mypy cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
-      files: ^.*.(py|pyi)$
-      language: system
-      pass_filenames: false
-    repo: local

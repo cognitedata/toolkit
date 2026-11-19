@@ -1,7 +1,22 @@
 from collections.abc import Iterable
+from pathlib import Path
+from typing import get_args
 
 import pytest
+import yaml
 
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
+    ConstraintDefinition,
+    ConstraintType,
+    IndexDefinition,
+    IndexType,
+    PropertyType,
+    PropertyTypeDefinition,
+)
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from tests.test_unit.utils import find_resources
 
@@ -195,6 +210,15 @@ def invalid_container_cases() -> Iterable:
         "External CDF references are not supported for record containers.",
         id="InvalidRecordContainer",
     )
+    yield pytest.param(
+        {
+            "space": "my_space",
+            "externalId": "my_container",
+            "properties": {"pointer": {"nullable": False, "type": {"type": "direct"}}},
+        },
+        "Direct relations must be nullable",
+        id="NonNullableDirectRelation",
+    )
 
 
 class TestContainerYAML:
@@ -219,3 +243,148 @@ class TestContainerYAML:
     def test_invalid_container(self, data: dict[str, object], expected_match: str) -> None:
         with pytest.raises(ValueError, match=expected_match):
             ContainerYAML.model_validate(data)
+
+    def test_all_property_types_in_union(self) -> None:
+        """Test that all property types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(PropertyTypeDefinition))
+        subclasses = set(get_args(PropertyType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_constraints_in_union(self) -> None:
+        """Test that all constraint types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(ConstraintDefinition))
+        subclasses = set(get_args(ConstraintType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_indexes_in_union(self) -> None:
+        """Test that all index types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(IndexDefinition))
+        subclasses = set(get_args(IndexType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_deprecated_cdf_reference_warnings(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
+        source = tmp_path / "my.Container.yaml"
+        source.write_text(
+            "space: my_space\n"
+            "externalId: my_container\n"
+            "properties:\n"
+            "  name:\n"
+            "    type:\n"
+            "      type: text\n"
+            "  ts:\n"
+            "    type:\n"
+            "      type: timeseries\n"
+            "  doc:\n"
+            "    type:\n"
+            "      type: file\n"
+            "  table:\n"
+            "    type:\n"
+            "      type: sequence\n"
+        )
+        container = ContainerYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_container",
+                "properties": {
+                    "name": {"type": {"type": "text"}},
+                    "ts": {"type": {"type": "timeseries"}},
+                    "doc": {"type": {"type": "file"}},
+                    "table": {"type": {"type": "sequence"}},
+                },
+            }
+        )
+
+        insights = container.extra_insights(source, ContainerIO.as_resource_type())
+
+        assert [(insight.code, insight.line) for insight in insights] == [
+            ("DEPRECATED-FEATURE", 7),
+            ("DEPRECATED-FEATURE", 10),
+            ("DEPRECATED-FEATURE", 13),
+        ]
+
+    @pytest.mark.parametrize(
+        "type_by_property, index_type, expected",
+        [
+            pytest.param(
+                {"code": "{type: text}"},
+                "btree",
+                [(BuildWarning, "MISSING-VALUE", "has no maxTextSize")],
+                id="text-without-max-size",
+            ),
+            pytest.param({"code": "{type: text, maxTextSize: 255}"}, "btree", [], id="bounded-text"),
+            pytest.param(
+                {"code": "{type: text, maxTextSize: 4000}"},
+                "btree",
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 4000 bytes")],
+                id="text-too-large",
+            ),
+            pytest.param(
+                {"codes": "{type: int64, list: true}"},
+                "btree",
+                [(BuildWarning, "MISSING-VALUE", "has no maxListSize")],
+                id="list-without-max-size",
+            ),
+            pytest.param(
+                {"codes": "{type: text, list: true}"},
+                "btree",
+                [
+                    (BuildWarning, "MISSING-VALUE", "has no maxListSize"),
+                    (BuildWarning, "MISSING-VALUE", "has no maxTextSize"),
+                ],
+                id="text-list-without-bounds",
+            ),
+            pytest.param({"codes": "{type: int64, list: true, maxListSize: 300}"}, "btree", [], id="int64-at-limit"),
+            pytest.param(
+                {"codes": "{type: int64, list: true, maxListSize: 301}"},
+                "btree",
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 2408 bytes")],
+                id="int64-over-limit",
+            ),
+            pytest.param({"codes": "{type: int32, list: true, maxListSize: 600}"}, "btree", [], id="int32-at-limit"),
+            pytest.param(
+                {"codes": "{type: float32, list: true, maxListSize: 600}"}, "btree", [], id="float32-at-limit"
+            ),
+            pytest.param(
+                {"codes": "{type: timestamp, list: true, maxListSize: 301}"},
+                "btree",
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 2408 bytes")],
+                id="timestamp-over-limit",
+            ),
+            pytest.param(
+                {"code": "{type: text, maxTextSize: 1500}", "other": "{type: text, maxTextSize: 1500}"},
+                "btree",
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 3000 bytes")],
+                id="composite-too-large",
+            ),
+            pytest.param({"codes": "{type: text, list: true}"}, "inverted", [], id="inverted-index"),
+        ],
+    )
+    def test_btree_index_size_insights(
+        self,
+        type_by_property: dict[str, str],
+        index_type: str,
+        expected: list[tuple[type, str, str]],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
+        properties = "".join(
+            f"  {prop_id}:\n    type: {prop_type}\n" for prop_id, prop_type in type_by_property.items()
+        )
+        index_properties = "".join(f"    - {prop_id}\n" for prop_id in type_by_property)
+        source = tmp_path / "my.Container.yaml"
+        source.write_text(
+            f"space: my_space\nexternalId: my_container\nproperties:\n{properties}"
+            f"indexes:\n  idx:\n    indexType: {index_type}\n    properties:\n{index_properties}"
+        )
+        container = ContainerYAML.model_validate(yaml.safe_load(source.read_text()))
+
+        insights = container.extra_insights(source, ContainerIO.as_resource_type())
+        assert [
+            (type(insight), insight.code, fragment in insight.message)
+            for insight, (_, _, fragment) in zip(insights, expected, strict=True)
+        ] == [(insight_type, code, True) for insight_type, code, _ in expected]

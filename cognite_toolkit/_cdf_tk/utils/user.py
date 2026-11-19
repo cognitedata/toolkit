@@ -43,8 +43,18 @@ class UserInfo(BaseModel):
 
         try:
             profile = client.user_profiles.me()
+            principal_type: Literal["user", "service_principal", "internal_service", "unknown"]
+            match profile.identity_type:
+                case "USER":
+                    principal_type = "user"
+                case "SERVICE_PRINCIPAL":
+                    principal_type = "service_principal"
+                case "INTERNAL_SERVICE":
+                    principal_type = "internal_service"
+                case _:
+                    principal_type = "unknown"
             return cls(
-                type=profile.identity_type.casefold(),  # type: ignore[arg-type]
+                type=principal_type,
                 id=profile.user_identifier,
                 name=profile.display_name,
                 email=profile.email,

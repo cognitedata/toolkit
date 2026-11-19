@@ -94,7 +94,7 @@ WorkflowResponse:
   externalId: aveva_pi_population
 WorkflowTriggerResponse:
 - authentication:
-    nonce: dummy-nonce
+    nonce: '123'
   externalId: aveva_pi_population_trigger
   metadata:
     cognite-toolkit-auth-hash: 5a5b7daa

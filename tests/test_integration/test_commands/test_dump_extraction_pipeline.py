@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
     ExtractionPipeline,
@@ -21,7 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 
 
 @pytest.fixture(scope="session")
-def deployed_extraction_pipeline(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> ExtractionPipeline:
+def deployed_extraction_pipeline(cognite_client: CogniteClient, toolkit_dataset: DataSet) -> ExtractionPipeline:
     pipeline = ExtractionPipelineWrite(
         external_id="toolkit_test_extraction_pipeline",
         name="Toolkit Test ExtractionPipeline",
@@ -29,15 +30,15 @@ def deployed_extraction_pipeline(toolkit_client: ToolkitClient, toolkit_dataset:
         description="This is used in integration tests of the toolkit.",
         created_by="Cognite Toolkit",
     )
-    existing = toolkit_client.extraction_pipelines.retrieve(external_id=pipeline.external_id)
+    existing = cognite_client.extraction_pipelines.retrieve(external_id=pipeline.external_id)
     if existing:
         return existing
-    return toolkit_client.extraction_pipelines.create(pipeline)
+    return cognite_client.extraction_pipelines.create(pipeline)
 
 
 @pytest.fixture(scope="session")
 def deployed_extraction_pipeline_config(
-    toolkit_client: ToolkitClient, deployed_extraction_pipeline: ExtractionPipeline
+    cognite_client: CogniteClient, deployed_extraction_pipeline: ExtractionPipeline
 ) -> ExtractionPipelineConfig:
     config = ExtractionPipelineConfigWrite(
         external_id=deployed_extraction_pipeline.external_id,
@@ -45,11 +46,11 @@ def deployed_extraction_pipeline_config(
         description="This is used in integration tests of the toolkit.",
     )
     try:
-        return toolkit_client.extraction_pipelines.config.retrieve(external_id=deployed_extraction_pipeline.external_id)
+        return cognite_client.extraction_pipelines.config.retrieve(external_id=deployed_extraction_pipeline.external_id)
     except CogniteAPIError as e:
         if e.code == 404:
             # If the config does not exist, create it
-            return toolkit_client.extraction_pipelines.config.create(config)
+            return cognite_client.extraction_pipelines.config.create(config)
         raise e
 
 

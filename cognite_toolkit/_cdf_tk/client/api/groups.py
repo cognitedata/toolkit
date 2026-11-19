@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 """
 
+import builtins
 from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -37,7 +38,7 @@ class GroupsAPI(CDFResourceAPI[GroupResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[GroupResponse]:
         return PagedResponse[GroupResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
+    def create(self, items: Sequence[GroupRequest]) -> builtins.list[GroupResponse]:
         """Create groups in CDF.
 
         Args:
@@ -65,7 +66,7 @@ class GroupsAPI(CDFResourceAPI[GroupResponse]):
             response = self._http_client.request_single_retries(request)
             response.get_success_or_raise(request)
 
-    def list(self, all_groups: bool = False) -> list[GroupResponse]:
+    def list(self, all_groups: bool = False) -> builtins.list[GroupResponse]:
         """List all groups in CDF.
 
         Args:

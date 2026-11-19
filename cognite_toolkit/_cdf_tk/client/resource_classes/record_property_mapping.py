@@ -1,10 +1,4 @@
-import sys
-from typing import Literal
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from typing import Literal, Self
 
 from pydantic import model_validator
 

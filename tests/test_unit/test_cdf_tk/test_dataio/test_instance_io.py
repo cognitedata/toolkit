@@ -1,0 +1,711 @@
+import json
+from pathlib import Path
+
+import httpx2
+import pytest
+import respx
+from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsFailedResponse,
+    ItemsSuccessResponse,
+)
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    NodeResponse,
+    ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
+from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import create_360_image_selectors
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
+from cognite_toolkit._cdf_tk.dataio import DataItem, InstanceIO, Page
+from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark
+from cognite_toolkit._cdf_tk.dataio.selectors import (
+    InstanceQuerySelector,
+    InstanceSpaceSelector,
+    InstanceViewSelector,
+    SelectedView,
+)
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from tests.constants import CDF_CLUSTER
+from tests.test_unit.approval_client import ApprovalToolkitClient
+
+
+class TestInstanceIO:
+    def test_download_instance_ids(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = toolkit_config.create_api_url("/models/instances/query")
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v42"),
+            instance_type="node",
+            instance_spaces=("my_insta_space",),
+        )
+        N = 2500
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "instanceType": "node",
+                        "aggregates": [{"aggregate": "count", "property": "externalId", "value": N}],
+                    }
+                ]
+            },
+        )
+
+        def _node_dict(i: int) -> dict:
+            return {
+                "externalId": f"instance_{i}",
+                "space": "my_space",
+                "instanceType": "node",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "version": 1,
+            }
+
+        respx_mock.post(url).mock(
+            side_effect=[
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(1000)]},
+                        "nextCursor": {"root": "cursor_1"},
+                    },
+                ),
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
+                        "nextCursor": {"root": "cursor_2"},
+                    },
+                ),
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {"root": [_node_dict(i) for i in range(2000, N)]},
+                        "nextCursor": {"root": None},
+                    },
+                ),
+            ]
+        )
+        io = InstanceIO(client)
+        ids = list(io.download_ids(selector))
+        count = io.count(selector)
+        assert len(list(ids)) == N // io.CHUNK_SIZE + (1 if N % io.CHUNK_SIZE > 0 else 0)
+        total_ids = sum(len(chunk) for chunk in ids)
+        assert total_ids == N
+        assert count == N
+
+    def test_sync_download_skips_deleted_instances(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        selector = InstanceViewSelector(
+            view=SelectedView(space="cdf_apm", external_id="Template", version="v8"),
+            instance_type="node",
+            instance_spaces=("toolkit_smoke_test_space",),
+            endpoint="sync",
+        )
+
+        def _node(external_id: str, deleted_time: int | None) -> dict:
+            node = {
+                "externalId": external_id,
+                "space": "toolkit_smoke_test_space",
+                "instanceType": "node",
+                "createdTime": 1,
+                "lastUpdatedTime": 2,
+                "version": 1,
+                "properties": {
+                    "cdf_apm": {
+                        "Template/v8": {
+                            "title": external_id,
+                            "solutionTags": [] if deleted_time is not None else [{"space": "s", "externalId": "tag"}],
+                        }
+                    }
+                },
+            }
+            if deleted_time is not None:
+                node["deletedTime"] = deleted_time
+            return node
+
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/sync")).respond(
+            status_code=200,
+            json={
+                "items": {
+                    "root": [
+                        _node("live_template", None),
+                        _node("deleted_template", 3),
+                    ]
+                },
+                "nextCursor": {"root": None},
+            },
+        )
+        pages = list(InstanceIO(client).stream_data(selector))
+        downloaded = [item.item.external_id for page in pages for item in page.items]
+        assert downloaded == ["live_template"]
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_upload_force(self, toolkit_config: ToolkitClientConfig) -> None:
+        config = toolkit_config
+        client = ToolkitClient(config=toolkit_config)
+        instance_count = 12
+        with HTTPClient(config) as http_client:
+            instances = (
+                NodeApply(
+                    space="my_space",
+                    external_id=f"instance_{i}",
+                )
+                if i % 2 == 0
+                else EdgeApply(
+                    space="my_space",
+                    external_id=f"instance_{i}",
+                    type=("schema_space", "edge_type"),
+                    start_node=("my_space", f"instance_{i - 1}"),
+                    end_node=("my_space", f"instance_{i + 1}"),
+                )
+                for i in range(instance_count)
+            )
+            upload_items = Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=instance.external_id, item=instance) for instance in instances],
+            )
+
+            def hate_edges(request: httpx2.Request) -> httpx2.Response:
+                # Check request body content
+                body_content = request.content.decode() if request.content else ""
+                if "edge" in body_content:
+                    return httpx2.Response(
+                        400, json={"error": {"code": "InvalidArgument", "message": "I do not like edges!"}}
+                    )
+                else:
+                    items = json.loads(body_content).get("items", [])
+                    response_data = {
+                        "items": [
+                            {
+                                "instanceType": "node",
+                                "space": item["space"],
+                                "externalId": item["externalId"],
+                                "wasModified": True,
+                                "createdTime": 0,
+                                "lastUpdatedTime": 0,
+                            }
+                            for item in items
+                        ]
+                    }
+                    return httpx2.Response(200, json=response_data)
+
+            url = toolkit_config.create_api_url("/models/instances")
+
+            with respx.mock() as rsps:
+                rsps.post(url).mock(side_effect=hate_edges)
+                io = InstanceIO(client)
+                results = io.upload_items(upload_items, http_client=http_client)
+
+            assert len(results) == instance_count
+            failed_items = [id for res in results if isinstance(res, ItemsFailedResponse) for id in res.ids]
+            assert len(failed_items) == instance_count // 2
+            success_items = [id for res in results if isinstance(res, ItemsSuccessResponse) for id in res.ids]
+            assert len(success_items) == instance_count // 2
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_download_upload_command(
+        self,
+        tmp_path: Path,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = toolkit_config
+        client = ToolkitClient(config)
+        monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
+        monkeypatch.setenv("CDF_PROJECT", config.project)
+        some_instance_data = [
+            NodeResponse(
+                space="my_insta_space",
+                external_id=f"node_{i}",
+                version=0,
+                last_updated_time=1,
+                created_time=0,
+                deleted_time=None,
+                properties=None,
+                type=None,
+            )
+            for i in range(100)
+        ]
+
+        def instance_create_callback(request: httpx2.Request) -> httpx2.Response:
+            payload = json.loads(request.content)
+            assert "items" in payload
+            items = payload["items"]
+            assert isinstance(items, list)
+            assert len(items) == len(some_instance_data)
+            assert {item["externalId"] for item in items} == {inst.external_id for inst in some_instance_data}
+            return httpx2.Response(status_code=200, json={"items": [inst.dump() for inst in some_instance_data]})
+
+        # Download count
+        respx_mock.post(config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "aggregates": [{"aggregate": "count", "property": "externalId", "value": 100}],
+                        "instanceType": "node",
+                    }
+                ]
+            },
+        )
+        # Download data
+        respx_mock.post(config.create_api_url("/models/instances/query")).respond(
+            json={"items": {"root": [inst.dump() for inst in some_instance_data]}, "nextCursor": {"root": None}},
+            status_code=200,
+        )
+        # Space
+        respx_mock.post(config.create_api_url("/models/spaces/byids")).respond(
+            json={"items": [{"space": "my_insta_space", "createdTime": 0, "lastUpdatedTime": 0, "isGlobal": False}]},
+            status_code=200,
+        )
+        # View
+        respx_mock.post(
+            config.create_api_url("/models/views/byids"),
+        ).respond(
+            json={
+                "items": [
+                    {
+                        "space": "my_schema_space",
+                        "externalId": "my_view",
+                        "version": "v1",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "description": None,
+                        "name": None,
+                        "writable": True,
+                        "usedFor": "node",
+                        "isGlobal": False,
+                        "mappedContainers": [],
+                        "queryable": True,
+                        "properties": {
+                            "name": {
+                                "container": {
+                                    "space": "my_schema_space",
+                                    "externalId": "MyContainer",
+                                },
+                                "containerPropertyIdentifier": "name",
+                                "type": {
+                                    "type": "text",
+                                    "list": False,
+                                },
+                                "nullable": True,
+                                "immutable": False,
+                                "autoIncrement": False,
+                                "constraintState": {},
+                            }
+                        },
+                    }
+                ]
+            },
+        )
+        # Container
+        respx_mock.post(
+            config.create_api_url("/models/containers/byids"),
+        ).respond(
+            json={
+                "items": [
+                    {
+                        "space": "my_schema_space",
+                        "externalId": "MyContainer",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "description": None,
+                        "name": None,
+                        "isGlobal": False,
+                        "usedFor": "node",
+                        "constraints": {},
+                        "indexes": {},
+                        "properties": {
+                            "name": {
+                                "type": {
+                                    "type": "text",
+                                    "list": False,
+                                },
+                                "nullable": True,
+                                "immutable": False,
+                                "autoIncrement": False,
+                            }
+                        },
+                    }
+                ]
+            },
+        )
+
+        # Upload data
+        respx_mock.post(config.create_api_url(InstanceIO.UPLOAD_ENDPOINT)).mock(side_effect=instance_create_callback)
+
+        selector = InstanceSpaceSelector(
+            instance_space="my_insta_space",
+            instance_type="node",
+            view=SelectedView(space="my_schema_space", external_id="my_view", version="v1"),
+            download_dir_name="instances",
+        )
+        download_command = DownloadCommand(silent=True, skip_tracking=True)
+        upload_command = UploadCommand(silent=True, skip_tracking=True)
+
+        download_command.download(
+            selectors=[selector],
+            io=InstanceIO(client),
+            output_dir=tmp_path,
+            verbose=False,
+            file_format=".ndjson",
+            compression="none",
+            limit=100,
+        )
+
+        upload_command.upload(
+            input_dir=tmp_path / "instances",
+            client=client,
+            deploy_resources=False,
+            dry_run=False,
+            verbose=False,
+            kind=InstanceIO.KIND,
+        )
+
+        assert len(respx_mock.calls) == 5
+
+    def test_build_query_filter_includes_additional_filter(self) -> None:
+        additional_filter = {"equals": {"property": ["node", "externalId"], "value": "collection_1"}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            additional_filter=additional_filter,
+        )
+
+        result = InstanceIO._build_query_filter(selector, "node")
+
+        assert "and" in result
+        assert additional_filter in result["and"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_stream_data_with_additional_filter(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        additional_filter = {"in": {"property": ["node", "externalId"], "values": ["collection_1"]}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            instance_type="node",
+            additional_filter=additional_filter,
+        )
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+
+        def _node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        respx_mock.post(query_url).respond(
+            status_code=200,
+            json={
+                "items": {"root": [_node("collection_1")]},
+                "nextCursor": {},
+            },
+        )
+
+        io = InstanceIO(client)
+        pages = list(io.stream_data(selector))
+
+        assert len(pages) == 1
+        assert {item.item.external_id for item in pages[0].items} == {"collection_1"}
+        request_body = json.loads(respx_mock.calls[0].request.content)
+        node_filter = request_body["with"]["root"]["nodes"]["filter"]
+        assert additional_filter in node_filter["and"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_count_with_additional_filter(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        additional_filter = {"in": {"property": ["node", "externalId"], "values": ["collection_1"]}}
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v1"),
+            instance_type="node",
+            additional_filter=additional_filter,
+        )
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/aggregate")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "instanceType": "node",
+                        "aggregates": [{"aggregate": "count", "property": "externalId", "value": 1}],
+                    }
+                ]
+            },
+        )
+
+        assert InstanceIO(client).count(selector) == 1
+        request_body = json.loads(respx_mock.calls[0].request.content)
+        assert request_body["filter"] == additional_filter
+
+    def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v42"),
+            instance_type="node",
+            instance_spaces=("my_space",),
+            edge_types=(EdgeTypeId(type=NodeId(space="mySpace", external_id="edge_type"), direction="outwards"),),
+        )
+
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+
+        def _node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        def _edge(ext_id: str, start: str, end: str) -> dict:
+            return {
+                "instanceType": "edge",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "type": {"space": "mySpace", "externalId": "edge_type"},
+                "startNode": {"space": "my_space", "externalId": start},
+                "endNode": {"space": "my_space", "externalId": end},
+            }
+
+        respx_mock.post(query_url).mock(
+            side_effect=[
+                # Call 1: first node batch + first edge batch (edge cursor present)
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [_node("node_0"), _node("node_1")],
+                            "edge_1": [
+                                _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
+                            ],
+                        },
+                        "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
+                    },
+                ),
+                # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [],
+                            "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
+                        },
+                        "nextCursor": {"nodes": "node_cursor_1"},
+                    },
+                ),
+                # Call 3: second node batch (no more cursors → done)
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "nodes": [_node("node_2"), _node("node_3")],
+                            "edge_1": [],
+                        },
+                        "nextCursor": {},
+                    },
+                ),
+            ]
+        )
+
+        io = InstanceIO(client)
+        pages = list(io.stream_data(selector))
+
+        assert len(pages) == 2
+
+        first_page = pages[0]
+        first_node_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "node"}
+        first_edge_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "edge"}
+        assert first_node_ids == {"node_0", "node_1"}
+        assert first_edge_ids == {f"edge_{i}" for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT + 1)}
+        assert isinstance(first_page.bookmark, CursorBookmark)
+        assert first_page.bookmark.cursor == "node_cursor_1"
+
+        second_page = pages[1]
+        second_node_ids = {di.item.external_id for di in second_page.items if di.item.instance_type == "node"}
+        second_edge_ids = {di.item.external_id for di in second_page.items if di.item.instance_type == "edge"}
+        assert second_node_ids == {"node_2", "node_3"}
+        assert second_edge_ids == set()
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_stream_data_query_root_selected_enables_pagination(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        """Root ('image360') must be selected so the query endpoint emits a cursor for it, allowing
+        pagination to continue past the first page. They are migrated separately by the 'Image360'
+        InstanceViewSelector however so we don't want any output for them."""
+        client = ToolkitClient(config=toolkit_config)
+        station_selector = create_360_image_selectors([NodeId(space="img_space", external_id="col1")])[1]
+        assert isinstance(station_selector, InstanceQuerySelector)
+
+        def _bare_node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "img_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        def _station(ext_id: str, label: str) -> dict:
+            return {
+                **_bare_node(ext_id),
+                "properties": {"cdf_360_image_schema": {"Station360/v1": {"label": label}}},
+            }
+
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+        respx_mock.post(query_url).mock(
+            side_effect=[
+                # Call 1: image360 has a cursor, so pagination continues even though image360station doesn't.
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "image360": [_bare_node("image1")],
+                            "image360station": [_station("station1", "Station A")],
+                        },
+                        "nextCursor": {"image360": "image360_cursor_1"},
+                    },
+                ),
+                # Call 2: no more cursors → done.
+                httpx2.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "image360": [_bare_node("image2")],
+                            "image360station": [_station("station2", "Station B")],
+                        },
+                        "nextCursor": {},
+                    },
+                ),
+            ]
+        )
+
+        pages = list(InstanceIO(client).stream_data(station_selector))
+
+        assert len(pages) == 2
+        assert {di.tracking_id for di in pages[0].items} == {"img_space:station1"}
+        assert {di.tracking_id for di in pages[1].items} == {"img_space:station2"}
+
+    @pytest.mark.parametrize(
+        "item_json,expected_properties",
+        [
+            pytest.param(
+                {
+                    "space": "my_space",
+                    "externalId": "asset_node",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "source": {"type": "container", "space": "cdf_cdm", "externalId": "CogniteAsset"},
+                            "properties": {
+                                "name": "Asset",
+                                "assetHierarchy_path": ["root", "child"],
+                                "assetHierarchy_root": "root",
+                                "description": "Test",
+                            },
+                        }
+                    ],
+                },
+                {"name": "Asset", "description": "Test"},
+                id="CogniteAsset container filters readonly props",
+            ),
+            pytest.param(
+                {
+                    "space": "my_space",
+                    "externalId": "file_node",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "source": {"type": "container", "space": "cdf_cdm", "externalId": "CogniteFile"},
+                            "properties": {"name": "File", "isUploaded": True, "uploadedTime": 123, "mimeType": "pdf"},
+                        }
+                    ],
+                },
+                {"name": "File", "mimeType": "pdf"},
+                id="CogniteFile container filters readonly props",
+            ),
+            pytest.param(
+                {
+                    "space": "my_space",
+                    "externalId": "asset_node",
+                    "instanceType": "node",
+                    "sources": [
+                        {
+                            "source": {
+                                "type": "view",
+                                "space": "cdf_cdm",
+                                "externalId": "CogniteAsset",
+                                "version": "v1",
+                            },
+                            "properties": {
+                                "name": "Asset",
+                                "path": ["root", "child"],
+                                "pathLastUpdatedTime": 123456789,
+                            },
+                        }
+                    ],
+                },
+                {"name": "Asset"},
+                id="CogniteAsset view filters readonly props",
+            ),
+        ],
+    )
+    def test_json_to_resource_filters_readonly_properties(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        item_json: dict,
+        expected_properties: dict,
+        cognite_core_no_3D: DataModelResponseWithViews,
+    ) -> None:
+        """Test that json_to_resource filters out read-only properties from containers."""
+        assert cognite_core_no_3D.views is not None
+        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
+        instance_io = InstanceIO(toolkit_client_approval.mock_client)
+        instance = instance_io.json_to_resource(item_json)
+
+        assert instance.sources
+        assert instance.sources[0].properties == expected_properties
+
+    def test_row_to_resource_skips_null_references(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        selector = InstanceViewSelector(view=SelectedView(space="mySpace", external_id="myView", version="v1"))
+        row: dict[str, JsonVal] = {
+            "space": "mySpace",
+            "externalId": "node1",
+            "type.space": None,
+            "type.externalId": None,
+            "name": "A",
+        }
+
+        instance = InstanceIO(toolkit_client_approval.mock_client).row_to_resource("row 1", row, selector)
+
+        assert instance.dump() == {
+            "instanceType": "node",
+            "space": "mySpace",
+            "externalId": "node1",
+            "sources": [
+                {
+                    "source": {"type": "view", "space": "mySpace", "externalId": "myView", "version": "v1"},
+                    "properties": {"name": "A"},
+                }
+            ],
+        }

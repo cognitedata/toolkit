@@ -5,14 +5,12 @@ import shutil
 from collections.abc import Iterator
 from io import StringIO
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
-from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
 from rich.console import Console
 
@@ -25,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -47,6 +46,18 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_cdf_project_env(monkeypatch: MonkeyPatch) -> None:
+    """Unit tests must not depend on the CDF project of the surrounding environment.
+
+    CI sets CDF_PROJECT, which would otherwise leak into the build command's config-vs-environment
+    project validation. Function-scoped so the variable is restored afterward, as integration tests may
+    run in the same session and need it. Session-scoped fixtures that run a build must
+    unset it themselves. Tests that need CDF_PROJECT should set it explicitly.
+    """
+    monkeypatch.delenv("CDF_PROJECT", raising=False)
+
+
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     """Fixture that provides an ApprovalToolkitClient with a mocked ToolkitClient.
@@ -55,16 +66,14 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     that requires API calls. If you don't need to make any API calls, use the `toolkit_client_cheap` fixture instead.
     """
     with monkeypatch_toolkit_client() as toolkit_client:
-
-        def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
-            return CreatedSession(
+        toolkit_client.sessions.create.return_value = [
+            SessionCreateResponse(
                 id=42,
                 status="READY",
                 nonce="dummy-nonce",
                 type="CLIENT_CREDENTIALS",
             )
-
-        toolkit_client.iam.sessions.create = create_session
+        ]
         approval_client = ApprovalToolkitClient(toolkit_client)
 
         # Patch the mock's __class__ to make isinstance checks pass for Pydantic
@@ -81,6 +90,7 @@ def _cheap_toolkit_client() -> MagicMock:
     # Rich Progress reads Console.get_time, which is assigned in Console.__init__ and is
     # therefore missing from MagicMock(spec=Console).
     mock_client.console = Console(file=StringIO())
+    mock_client.config = MagicMock(spec=ToolkitClientConfig)
     mock_client.config.project = CDF_PROJECT
     mock_client.project = MagicMock()
     mock_client.project.organization.side_effect = ValueError("offline")
@@ -193,7 +203,7 @@ variables:
 @pytest.fixture(scope="session")
 def complete_org_dir(
     local_tmp_repo_path: Path,
-) -> None:
+) -> Path:
     organization_dir = local_tmp_repo_path / "pytest-org"
     init_organization_dir(organization_dir, COMPLETE_ORG / MODULES)
     return organization_dir
@@ -400,7 +410,7 @@ def cognite_core_containers_no_3D() -> list[ContainerResponse]:
     Note if you use this fixture in a test, ensure that you do not modify the returned
     containers, as it is shared between tests.
     """
-    raw_data = read_yaml_file(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
+    raw_data = read_yaml_file(CORE_CONTAINERS_NO_3D_YAML, expected_output="list")
     return [ContainerResponse.model_validate(item) for item in raw_data]
 
 

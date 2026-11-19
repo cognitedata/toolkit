@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -15,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
 
@@ -47,7 +46,7 @@ class TestContainerCRUD:
     def test_unchanged_used_for_not_set(
         self, toolkit_client_approval: ApprovalToolkitClient, cdf_container: ContainerResponse
     ) -> None:
-        crud = ContainerIO.create_io(toolkit_client_approval.mock_client)
+        crud = ContainerIO(toolkit_client_approval.mock_client)
         raw_file = """space: sp_enterprise_process_industry_full
 externalId: Toolkit360Image
 properties:
@@ -70,7 +69,8 @@ indexes: {}
         assert "usedFor" in dumped_no_local
 
     def test_only_in_cdf_properties_listed(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        crud = ContainerIO.create_io(toolkit_client_approval.mock_client)
+        warnings: list[ToolkitWarning] = []
+        crud = ContainerIO(toolkit_client_approval.mock_client, on_warning=warnings.append)
         item_id = ContainerId(space="my_space", external_id="MyContainer")
 
         local_dict = {"properties": {"name": {"type": {"type": "text"}}}}
@@ -81,17 +81,14 @@ indexes: {}
             }
         }
 
-        with patch("cognite_toolkit._cdf_tk.resource_ios._datamodel.HighSeverityWarning") as mock_warning_cls:
-            mock_warning_cls.return_value.print_warning = MagicMock()
-            crud._print_container_diff_warning(item_id, local_dict, cdf_dict)
+        crud._print_container_diff_warning(item_id, local_dict, cdf_dict)
 
-        message = mock_warning_cls.call_args[0][0]
-        assert "attempted_deleted_field" in message
+        assert len(warnings) == 1 and "attempted_deleted_field" in warnings[0].get_message()
 
     def test_dump_resource_normalizes_empty_constraints_and_indexes_to_local_shape(
         self, toolkit_client_cheap: ToolkitClient, cdf_container: ContainerResponse
     ) -> None:
-        crud = ContainerIO.create_io(toolkit_client_cheap)
+        crud = ContainerIO(toolkit_client_cheap)
 
         local_with_null = {"constraints": None, "indexes": None}
         dumped = crud.dump_resource(cdf_container, local_with_null)

@@ -3,8 +3,9 @@
 import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Literal, cast
+from datetime import UTC, datetime
+from itertools import product
+from typing import Any, Literal
 
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -23,13 +24,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabiliti
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.auth.data_classes._types import LoginFlow, Provider
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
+from cognite_toolkit._cdf_tk.commands.auth.utils import DATA_MODELING_ONLY_EXCLUDED_IOS
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
     ToolkitKeyError,
     ToolkitMissingValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AssetIO, GroupIO, RelationshipIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import GroupIO, ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._auth import ReplaceMethod
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -177,7 +179,7 @@ def collect_auth_status(
             return _unauthenticated(environment, exc)
 
     try:
-        inspected = client.tool.token.inspect()
+        inspected = client.token.inspect()
     except (ToolkitAPIError, AuthenticationError, AuthorizationError) as exc:
         return _unauthenticated(environment, exc)
 
@@ -230,13 +232,14 @@ def merged_capability_rows(capabilities: FlatCapabilities) -> list[MergedCapabil
     index: dict[tuple[str, str], list[str]] = {}
     order: list[tuple[str, str]] = []
     scopes: dict[tuple[str, str], Scope] = {}
-    for (_, acl_name, action), scope in capabilities.items():
-        key = (acl_name, scope.model_dump_json())
-        if key not in index:
-            index[key] = []
-            order.append(key)
-            scopes[key] = scope
-        index[key].append(action)
+    for (_, acl_name, action), capability_scopes in capabilities.items():
+        for scope in capability_scopes:
+            key = (acl_name, scope.model_dump_json())
+            if key not in index:
+                index[key] = []
+                order.append(key)
+                scopes[key] = scope
+            index[key].append(action)
     for key in order:
         grouped.append(MergedCapability(acl_name=key[0], actions=tuple(sorted(index[key])), scope=scopes[key]))
     grouped.sort(key=lambda row: (row.acl_name, row.actions))
@@ -249,10 +252,11 @@ def resources_from_capabilities(
 ) -> tuple[list[ResourceAccess], int]:
     """Map merged capabilities onto toolkit resource types and the scope of that access.
 
-    Assets and relationships are omitted on DATA_MODELING_ONLY projects, matching auth verify.
+    Legacy resources (assets, relationships, labels, files, security categories, time series, events,
+    sequences) are omitted on DATA_MODELING_ONLY projects, matching auth verify.
     Every checked type is returned, including types the identity cannot read or write.
     """
-    excluded = {AssetIO, RelationshipIO} if data_modeling_status == "DATA_MODELING_ONLY" else set()
+    excluded = DATA_MODELING_ONLY_EXCLUDED_IOS if data_modeling_status == "DATA_MODELING_ONLY" else frozenset()
     resources: list[ResourceAccess] = []
     checked = 0
     # data_models is an alias of data_modeling, so RESOURCE_CRUD_LIST contains those classes twice.
@@ -295,23 +299,28 @@ def resolve_action_access(
     missing: list[str] = []
     for acl in required:
         found_actions: list[str] = []
-        found_scopes: list[Scope] = []
+        action_scopes: list[list[Scope]] = []
         acl_missing: list[str] = []
         for acl_action in acl.actions:
-            scope = capabilities.get((type(acl), acl.acl_name, acl_action))
-            if scope is None:
+            scopes = capabilities.get((type(acl), acl.acl_name, acl_action))
+            if not scopes:
                 acl_missing.append(acl_action)
                 continue
             found_actions.append(acl_action)
-            found_scopes.append(scope)
+            action_scopes.append(scopes)
         if acl_missing:
             missing.extend(f"{acl.acl_name} {acl_action}" for acl_action in acl_missing)
             continue
-        unified = _unify_scopes(found_scopes)
-        if unified is None:
+        if len(action_scopes) == 1:
+            for scope in action_scopes[0]:
+                grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=scope))
+            continue
+        unified = _scope_covering_actions(action_scopes)
+        if not unified:
             missing.append(f"{acl.acl_name} (scopes do not overlap)")
             continue
-        grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=unified))
+        for scope in unified:
+            grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=scope))
     return ActionAccess(applicable=True, grants=grants, missing=missing)
 
 
@@ -488,6 +497,22 @@ def _cluster_name(client: ToolkitClient) -> str | None:
     return hostname or None
 
 
+def _scope_covering_actions(action_scopes: list[list[Scope]]) -> list[Scope]:
+    """Return a scope shared by every action.
+
+    Scopes on one action are alternatives. Scopes on different actions must overlap.
+    """
+    if all(len(scopes) == 1 for scopes in action_scopes):
+        unifed = _unify_scopes([scopes[0] for scopes in action_scopes])
+        return [unifed] if unifed is not None else []
+    covering: list[Scope] = []
+    for combination in product(*action_scopes):
+        unified = _unify_scopes(list(combination))
+        if unified is not None and unified not in covering:
+            covering.append(unified)
+    return covering
+
+
 def _unify_scopes(scopes: list[Scope]) -> Scope | None:
     if not scopes:
         return None
@@ -499,7 +524,7 @@ def _unify_scopes(scopes: list[Scope]) -> Scope | None:
         return None
     if unified is None:
         return None
-    return cast(Scope, unified)
+    return unified
 
 
 def _unauthenticated_panel(status: AuthStatus) -> Panel:
@@ -798,8 +823,8 @@ def _format_timestamp(value: str) -> str:
     except ValueError:
         return value
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _key_values(rows: list[tuple[str, str]]) -> Table:

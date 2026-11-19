@@ -1,15 +1,16 @@
 import logging
 import random
-import sys
 import time
 from collections import deque
 from collections.abc import Iterable, MutableMapping, Sequence, Set
-from typing import Literal, TypeVar
+from typing import Literal, Self, TypeVar
 
 import httpx2
 from cognite.client import global_config
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client._credential_provider import NoCredentials
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BaseRequestMessage,
     ErrorDetails,
@@ -29,13 +30,6 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 log = logging.getLogger(__name__)
 
@@ -101,6 +95,23 @@ class HTTPClient:
             timeout=self.config.timeout,
         )
 
+    def _create_id_and_auth_headers(
+        self,
+        api_version: str | None = None,
+        accept: str = "application/json",
+    ) -> MutableMapping[str, str]:
+        headers: MutableMapping[str, str] = {
+            "User-Agent": f"httpx2/{httpx2.__version__} {get_user_agent()}",
+            "accept": accept,
+            "x-cdp-sdk": f"CogniteToolkit:{get_current_toolkit_version()}",
+            "x-cdp-app": self.config.client_name,
+            "cdf-version": api_version or self.config.api_subversion,
+        }
+        if not isinstance(self.config.credentials, NoCredentials):
+            auth_name, auth_value = self.config.credentials.authorization_header()
+            headers[auth_name] = auth_value
+        return headers
+
     def _create_headers(
         self,
         api_version: str | None = None,
@@ -109,17 +120,10 @@ class HTTPClient:
         content_length: int | None = None,
         disable_gzip: bool = False,
     ) -> MutableMapping[str, str]:
-        headers: MutableMapping[str, str] = {}
-        headers["User-Agent"] = f"httpx2/{httpx2.__version__} {get_user_agent()}"
-        auth_name, auth_value = self.config.credentials.authorization_header()
-        headers[auth_name] = auth_value
+        headers = self._create_id_and_auth_headers(api_version=api_version, accept=accept)
         headers["Content-Type"] = content_type
         if content_length is not None:
             headers["Content-Length"] = str(content_length)
-        headers["accept"] = accept
-        headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
-        headers["x-cdp-app"] = self.config.client_name
-        headers["cdf-version"] = api_version or self.config.api_subversion
         if not global_config.disable_gzip and content_length is None and not disable_gzip:
             headers["Content-Encoding"] = "gzip"
         return headers
@@ -226,7 +230,9 @@ class HTTPClient:
             if self._console is not None:
                 short_url = request.endpoint_url.removeprefix(self.config.base_api_url)
                 HighSeverityWarning(
-                    f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
+                    f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds.\n"
+                    "This is automatically handled by Toolkit, but it will take longer than normal to complete "
+                    "the request(s)."
                 ).print_warning(console=self._console)
             request.status_attempt += 1
             request.retried_status_codes.append(response.status_code)
@@ -274,7 +280,7 @@ class HTTPClient:
         content: bytes | Iterable[bytes] | None = None,
         files: dict[str, tuple[str, bytes, str]] | None = None,
         data: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: MutableMapping[str, str] | None = None,
     ) -> SuccessResponse | FailedResponse:
         attempt = 0
         last_error_code: int = -1
@@ -363,16 +369,8 @@ class HTTPClient:
         Content-Length are set automatically. Unlike request_raw_retries, CDF auth
         headers are included because this method targets CDF endpoints, not signed URLs.
         """
-        auth_name, auth_value = self.config.credentials.authorization_header()
         # Content-Type is intentionally absent — httpx2 sets it from the multipart body (including boundary).
-        headers: dict[str, str] = {
-            "User-Agent": f"httpx2/{httpx2.__version__} {get_user_agent()}",
-            auth_name: auth_value,
-            "accept": "application/json",
-            "x-cdp-sdk": f"CogniteToolkit:{get_current_toolkit_version()}",
-            "x-cdp-app": self.config.client_name,
-            "cdf-version": api_version or self.config.api_subversion,
-        }
+        headers = self._create_id_and_auth_headers(api_version=api_version, accept="application/json")
         return self._execute_raw_with_retries(
             "POST", url, self._max_retries, files=files, data=form_fields, headers=headers
         )

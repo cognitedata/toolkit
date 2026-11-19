@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import ClassVar, Literal
 from urllib.parse import urljoin
 
-import requests
-from requests import Response
+import httpx2
+from httpx2 import Response
 from rich import print
 from rich.progress import track
 
@@ -68,7 +68,13 @@ class GitHubFileDownloader(FileDownloader):
         return response.json()
 
     def _requests(self, url: str, action: str) -> Response | None:
-        response = requests.get(url)
+        try:
+            response = httpx2.get(url, follow_redirects=True)
+        except httpx2.HTTPError as e:
+            if self.errors == "raise":
+                raise
+            print(HTTPWarning(action, str(e), 0).get_message())
+            return None
         if response.status_code >= 400:
             if self.errors == "raise":
                 response.raise_for_status()
@@ -103,7 +109,13 @@ class HttpFileDownloader(FileDownloader):
         for source in sources:
             file_url = urljoin(self.repo, source)
 
-            response = requests.get(file_url)
+            try:
+                response = httpx2.get(file_url, follow_redirects=True)
+            except httpx2.HTTPError as e:
+                if self.errors == "raise":
+                    raise
+                print(HTTPWarning("GET", str(e), 0).get_message())
+                continue
             if response.status_code >= 400:
                 if self.errors == "raise":
                     response.raise_for_status()

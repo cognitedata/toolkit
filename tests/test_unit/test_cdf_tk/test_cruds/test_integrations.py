@@ -1,10 +1,10 @@
 from collections.abc import Iterable
 
 import pytest
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME,
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
@@ -29,7 +29,7 @@ def _example_cases() -> Iterable:
 
 class TestIntegrationExamples:
     @pytest.mark.parametrize("data, yaml_cls", list(_example_cases()))
-    def test_example_roundtrip(self, data: dict[str, object], yaml_cls: type) -> None:
+    def test_example_roundtrip(self, data: dict[str, object], yaml_cls: type[BaseModel]) -> None:
         loaded = yaml_cls.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
@@ -42,11 +42,8 @@ class TestIntegrationsIO:
             loader.folder_name == "integrations"
             for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["integrations"]
         )
-        if Flags.INTEGRATIONS.is_enabled():
-            enabled = {loader.kind for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME["integrations"]}
-            assert enabled == included
-        else:
-            assert "integrations" not in RESOURCE_BASE_IO_BY_FOLDER_NAME
+        enabled = {loader.kind for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME["integrations"]}
+        assert enabled == included
 
     def test_config_depends_on_integration(self) -> None:
         resource = IntegrationConfigYAML.model_validate(

@@ -4,22 +4,25 @@ import json
 import shutil
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import httpx2
 import pytest
-import requests
+import respx
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from packaging.version import Version
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.commands._changes import Changes
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
@@ -35,22 +38,6 @@ def selected_packages() -> Packages:
 @pytest.fixture(scope="session")
 def selected_packages_location() -> Path:
     return COMPLETE_ORG_MODULES
-
-
-class MockResponse:
-    def __init__(self, content, status_code=200, headers=None):
-        self._content = content
-        self.status_code = status_code
-        self.headers = headers if headers is not None else {"content-length": str(len(content))}
-        self.raise_for_status_called = False
-
-    def iter_content(self, chunk_size=8192):
-        yield self._content
-
-    def raise_for_status(self):
-        self.raise_for_status_called = True
-        if self.status_code >= 400:
-            raise requests.exceptions.HTTPError(f"HTTP Error: {self.status_code}")
 
 
 class TestModulesCommand:
@@ -180,7 +167,7 @@ class TestModulesCommand:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(dummy_resource)
 
-        def select_package(choices: list[Choice]) -> Package:
+        def select_package(choices) -> Package:
             selected_package = next((c for c in choices if "complete organization" in c.title.lower()), None)
             assert selected_package is not None
             return selected_package.value
@@ -192,7 +179,7 @@ class TestModulesCommand:
 
         answers = [select_package, select_first_module, False, False]
 
-        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+        with MockQuestionary(ModulesCommand.__module__, answers):
             cmd.add(my_org)
 
         yaml_file_count = len(list(modules.rglob("*.yaml")))
@@ -206,7 +193,7 @@ class TestModulesCommand:
 
         answers = [select_package, select_second_module, False, False]
 
-        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+        with MockQuestionary(ModulesCommand.__module__, answers):
             cmd.add(my_org)
 
         new_yaml_file_count = len(list(modules.rglob("*.yaml")))
@@ -220,57 +207,54 @@ class TestModulesCommand:
             assert first.exists()
         assert not first.exists(), "File should not exist after context manager exits"
 
-    def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_download_success(self, tmp_path: Path, respx_mock: respx.MockRouter) -> None:
         dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
-        mock_response = MockResponse(dummy_file_content, status_code=200)
-        monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
+        route = respx_mock.get("http://example.com/test.zip").respond(status_code=200, content=dummy_file_content)
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
         output_zip_path = tmp_path / "test_file.zip"
 
         cmd._download(url="http://example.com/test.zip", file_path=output_zip_path)
 
-        requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
+        assert route.called
         assert output_zip_path.exists()
         assert output_zip_path.read_bytes() == dummy_file_content
 
     def test_download_errors_http_error(
         self,
         tmp_path: Path,
-        monkeypatch: MonkeyPatch,
+        respx_mock: respx.MockRouter,
     ) -> None:
         test_url = "http://example.com/test_file.zip"
         output_path = tmp_path / "test_file.zip"
 
-        # Arrange: Mock requests.get to return a MockResponse with a 404 status
-        monkeypatch.setattr(requests, "get", MagicMock(return_value=MockResponse(b"", status_code=404)))
+        # Arrange: Mock the request to return a 404 status
+        respx_mock.get(test_url).respond(status_code=404)
 
         # Act & Assert
         with pytest.raises(ToolkitError) as excinfo:
             ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._download(test_url, output_path)
 
-        assert isinstance(excinfo.value.__cause__, requests.exceptions.HTTPError)
+        assert isinstance(excinfo.value.__cause__, httpx2.HTTPStatusError)
 
     def test_download_errors_request_exception(
         self,
         tmp_path: Path,
-        monkeypatch: MonkeyPatch,
+        respx_mock: respx.MockRouter,
     ) -> None:
         test_url = "http://example.com/test_file.zip"
         output_path = tmp_path / "test_file.zip"
 
-        # Arrange: Mock requests.get to raise a RequestException directly
-        monkeypatch.setattr(
-            requests, "get", MagicMock(side_effect=requests.exceptions.RequestException("Connection aborted."))
-        )
+        # Arrange: Mock the request to raise a transport error directly
+        respx_mock.get(test_url).mock(side_effect=httpx2.ConnectError("Connection aborted."))
 
         # Act & Assert
         with pytest.raises(ToolkitError) as excinfo:
             ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._download(test_url, output_path)
 
         assert "Error downloading file" in str(excinfo.value)
-        assert isinstance(excinfo.value.__cause__, requests.exceptions.RequestException)
+        assert isinstance(excinfo.value.__cause__, httpx2.RequestError)
         assert "Connection aborted." in str(excinfo.value.__cause__)
 
     def test_unpack_errors_bad_zip_file(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -310,7 +294,7 @@ class TestModulesCommand:
         assert isinstance(excinfo.value.__cause__, OSError)
         assert "No space left on device" in str(excinfo.value.__cause__)
 
-    def test_download_deletes_existing_file(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_download_deletes_existing_file(self, tmp_path: Path, respx_mock: respx.MockRouter) -> None:
         """Test that _download method deletes existing zip files before downloading."""
         # Create a stale zip file that should be deleted
         stale_file_path = tmp_path / "test_file.zip"
@@ -323,8 +307,7 @@ class TestModulesCommand:
 
         # Mock the HTTP response with new content
         new_content = b"new content from download"
-        mock_response = MockResponse(new_content, status_code=200)
-        monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
+        route = respx_mock.get("http://example.com/test.zip").respond(status_code=200, content=new_content)
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
 
@@ -337,7 +320,7 @@ class TestModulesCommand:
         assert stale_file_path.read_bytes() != stale_content
 
         # Verify the HTTP request was made
-        requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
+        assert route.called
 
     def test_iterate_modules_finds_modules_in_temp_download_dir(self, tmp_path: Path) -> None:
         """Test that iterate_modules can find modules in the _temp_download_dir.
@@ -390,14 +373,14 @@ class TestModulesCommand:
         assert payload == {
             "environment": "dev",
             "insights_summary": {
-                ModelSyntaxWarning.__name__: 1,
+                BuildWarning.model_fields["insight_type"].default: 1,
                 Recommendation.__name__: 2,
             },
             "modules": [
                 {
                     "build_result": "Success",
                     "insights": {
-                        ModelSyntaxWarning.__name__: 1,
+                        BuildWarning.model_fields["insight_type"].default: 1,
                         Recommendation.__name__: 2,
                     },
                     "location": "modules/my_module",
@@ -421,7 +404,7 @@ class TestModulesCommand:
         output = capsys.readouterr().out
         assert "my_module" in output
         assert "Syntax warnings" in output
-        assert ModelSyntaxWarning.__name__ in output
+        assert BuildWarning.model_fields["insight_type"].default in output
         assert Recommendation.__name__ in output
         assert "modules/my_module" not in output
 
@@ -647,7 +630,7 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
         build_dir=build_dir,
         modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
         insights_summary={
-            ModelSyntaxWarning.__name__: 1,
+            BuildWarning.model_fields["insight_type"].default: 1,
             Recommendation.__name__: 2,
         },
         module_lineage=[
@@ -655,10 +638,29 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
                 module_id="modules/my_module",
                 module_path=module_path.relative_to(tmp_path),
                 insights_summary={
-                    ModelSyntaxWarning.__name__: 1,
+                    BuildWarning.model_fields["insight_type"].default: 1,
                     Recommendation.__name__: 2,
                 },
                 resource_lineage=[*views, file_item],
             )
         ],
     )
+
+
+class TestModulesUpgrade:
+    @pytest.mark.parametrize("force, expect_load", [(False, False), (True, True)])
+    def test_upgrade_uncommitted_changes(self, force: bool, expect_load: bool, tmp_path: Path) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True)
+        with (
+            patch.object(ModulesCommand, "_get_module_version", return_value=Version("0.5.0")),
+            patch("cognite_toolkit._cdf_tk.commands.modules.__version__", "0.6.0"),
+            patch("cognite_toolkit._cdf_tk.commands.modules.Git") as git,
+            patch("cognite_toolkit._cdf_tk.commands.modules.Changes.load", return_value=Changes()) as load,
+        ):
+            git.is_installed.return_value = True
+            git.is_git_repo.return_value = True
+            git.get_uncommitted_changes.return_value = ["modules/my_module/space.yaml"]
+
+            cmd.upgrade(tmp_path, force=force)
+
+        assert load.called is expect_load

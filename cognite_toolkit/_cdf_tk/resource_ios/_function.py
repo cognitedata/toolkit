@@ -4,18 +4,15 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes import capabilities as cap
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
-from cognite.client.exceptions import CogniteAPIError
-from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleId,
@@ -25,24 +22,27 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataModelInstancesAcl,
     DataSetScope,
     FilesAcl,
     FunctionsAcl,
     ScopeDefinition,
     SessionsAcl,
+    SpaceIDScope,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import (
     create_temporary_zip,
@@ -51,11 +51,10 @@ from cognite_toolkit._cdf_tk.utils.file import (
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, FunctionsYAML
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
+from ._datamodel import SpaceIO
 from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
-from ._group_scoped import GroupResourceScopedIO
 
 CDF_TOML: CDFToml = CDFToml.load_module_context()
 
@@ -68,7 +67,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     resource_write_cls = FunctionRequest
     kind = "Function"
     yaml_cls = FunctionsYAML
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO, SpaceIO})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
@@ -82,8 +81,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         self,
         client: ToolkitClient,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+        on_warning: WarningHandler | None = None,
     ):
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
@@ -116,19 +116,47 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return "functions"
 
     @classmethod
-    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
-        return dataset_scoped_resource(items)
+    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition | None:
+        scopes = list(cls.get_minimum_scopes(items))
+        if len(scopes) == 0:
+            return None
+        elif len(scopes) == 1:
+            return scopes[0]
+        raise ToolkitValueError("Toolkit does not support deploying functions with both dataset and space scoping.")
+
+    @classmethod
+    def get_minimum_scopes(cls, items: Sequence[FunctionRequest]) -> Iterable[ScopeDefinition]:
+        data_set_ids: set[int] = set()
+        spaces: set[str] = set()
+        for item in items:
+            if item.data_set_id is not None:
+                data_set_ids.add(item.data_set_id)
+            elif item.space is not None:
+                spaces.add(item.space)
+            else:
+                yield AllScope()
+                return
+        if spaces:
+            # CogniteFiles are always scoped and do not support unscoped
+            yield SpaceIDScope(space_ids=sorted(spaces))
+        if data_set_ids:
+            yield DataSetScope(ids=sorted(data_set_id for data_set_id in data_set_ids if data_set_id != DRY_RUN_ID))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | DataSetScope):
-            # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
+        if isinstance(scope, AllScope | DataSetScope | SpaceIDScope):
+            # Functions ACLs do not support dataset/space scoping, so we always create them with AllScope.
             yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
+        if isinstance(scope, AllScope | DataSetScope):
             # The files ACL is needed to deploy the function code.
             yield FilesAcl(actions=sorted(actions), scope=scope)
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
+    def get_id(cls, item: FunctionResponse | FunctionRequest | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -140,13 +168,15 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        if resource.space:
+            yield SpaceIO, SpaceId(space=resource.space)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -179,52 +209,15 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     def _create_hash_values(cls, function_rootdir: Path) -> str:
         return FunctionCodeBundle.create_hash_values(function_rootdir)
 
-    def get_function_required_capabilities(
-        self, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        """
-        Get required capabilities for working with CDF Functions and their associated files.
-
-        This method determines the necessary permissions needed for function operations,
-        with dataset-scoped file access when possible. When functions are associated with
-        specific datasets, it will request file permissions only for those datasets
-        rather than requiring all-scope file access.
-        """
-        if items is not None and not items:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        file_actions = (
-            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-        )
-
-        file_scope: cap.AllScope | cap.DataSetScope = cap.FilesAcl.Scope.All()
-
-        if items and self.data_set_id_by_external_id:
-            dataset_ids = [
-                data_set_id
-                for item in items
-                if item.external_id
-                and (data_set_id := self.data_set_id_by_external_id.get(item.external_id)) is not None
-                and data_set_id != DRY_RUN_ID
-            ]
-            if dataset_ids:
-                file_scope = cap.FilesAcl.Scope.DataSet(dataset_ids)
-
-        return [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-            cap.FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
-        ]
-
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionRequest:
         item_id = self.get_id(resource)
         external_id = item_id.external_id
         if ds_external_id := resource.pop("dataSetExternalId", None):
-            data_set_id = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            if is_dry_run and not hasattr(self.client, "lookup"):
+                # Loading without a client, for example, when validating resources offline.
+                data_set_id = DRY_RUN_ID
+            else:
+                data_set_id = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             self.data_set_id_by_external_id[external_id] = data_set_id
             # We store the dataSetId to use for ACL check.
             resource["dataSetId"] = data_set_id
@@ -279,7 +272,8 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         if file_id := dumped.pop("fileId", None):
             # The fileId is not part of the write object.
-            function_zip_file = self.client.files.retrieve(id=file_id)
+            retrieved_files = self.client.filemetadata.retrieve([InternalId(id=file_id)], ignore_unknown_ids=True)
+            function_zip_file = retrieved_files[0] if retrieved_files else None
             if function_zip_file and (data_set_id := function_zip_file.data_set_id):
                 dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
             if function_zip_file and function_zip_file.instance_id is not None:
@@ -305,17 +299,15 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         if status.status == "activated":
             return True
         if status.status == "requested":
-            print(
-                HighSeverityWarning(
-                    f"Function service activation is in progress, cannot {action} functions."
-                ).get_message()
+            self.on_warning(
+                HighSeverityWarning(f"Function service activation is in progress, cannot {action} functions.")
             )
             return False
         else:
-            print(
+            self.on_warning(
                 HighSeverityWarning(
                     "Function service has not been activated, activating now, this may take up to 2 hours..."
-                ).get_message()
+                )
             )
             self.client.functions.activate()
         return False
@@ -337,7 +329,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     f"Failed to find uploaded file for function {external_id}. This is required to create the function. "
                     "Wait and try again.\nIf the problem persists, please contact Cognite support."
                 )
-            failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+            failed_upload, elapsed_time = self.client.filemetadata.await_file_uploaded(
                 [file_id], timeout_seconds=self._file_upload_timeout_seconds
             )
             if file_id in failed_upload:
@@ -351,7 +343,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
             # Create a copy with the file_id set
             item_to_create = item.model_copy(update={"fileId": file_id.id})
-            result = self.client.tool.functions.create([item_to_create])
+            result = self.client.functions.create([item_to_create])
             if result:
                 created_item = result[0]
                 self._warn_if_cpu_or_memory_changed(created_item, item)
@@ -392,28 +384,45 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
             if space:
-                cognite_file = CogniteFileApply(
+                cognite_file = CogniteFileRequest(
                     space=space,
                     external_id=external_id,
                     name=f"{sanitize_filename(item.name)}.zip",
                     mime_type="application/zip",
                 )
-                _ = self.client.data_modeling.instances.apply(cognite_file, replace=True)
-                upload_file = self.client.files.upload_content_bytes(
-                    zip_path.read_bytes(), instance_id=cognite_file.as_id()
+                _ = self.client.cognite_files.create([cognite_file], replace=True)
+                upload_links = self.client.filemetadata.get_upload_url([cognite_file.as_instance_id()])
+                if not upload_links or upload_links[0].upload_url is None:
+                    raise ResourceCreationError(
+                        f"Failed to get an upload URL for the function code of {external_id!r}."
+                    )
+                self.client.filemetadata.upload_file(
+                    zip_path.read_bytes(), upload_links[0].upload_url, cognite_file.mime_type
                 )
+                upload_file_id = upload_links[0].id
             else:
-                upload_file = self.client.files.upload_bytes(
-                    zip_path.read_bytes(),
-                    name=f"{sanitize_filename(item.name)}.zip",
-                    external_id=external_id,
+                created_files = self.client.filemetadata.create(
+                    [
+                        FileMetadataRequest(
+                            name=f"{sanitize_filename(item.name)}.zip",
+                            external_id=external_id,
+                            mime_type="application/zip",
+                            data_set_id=data_set_id,
+                        )
+                    ],
                     overwrite=True,
-                    data_set_id=data_set_id,
                 )
-        return InternalId(id=upload_file.id)
+                if not created_files or created_files[0].upload_url is None:
+                    raise ResourceCreationError(
+                        f"Failed to create file metadata for the function code of {external_id!r}."
+                    )
+                self.client.filemetadata.upload_file(
+                    zip_path.read_bytes(), created_files[0].upload_url, created_files[0].mime_type
+                )
+                upload_file_id = created_files[0].id
+        return InternalId(id=upload_file_id)
 
-    @staticmethod
-    def _warn_if_cpu_or_memory_changed(created_item: FunctionResponse, item: FunctionRequest) -> None:
+    def _warn_if_cpu_or_memory_changed(self, created_item: FunctionResponse, item: FunctionRequest) -> None:
         is_cpu_increased = (
             isinstance(item.cpu, float) and isinstance(created_item.cpu, float) and item.cpu < created_item.cpu
         )
@@ -435,33 +444,37 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             return
         # The server sets the CPU and Memory to the default values, if the user pass in a lower value.
         # This happens on Azure and AWS. Warning the user about this.
-        LowSeverityWarning(
-            f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
-        ).print_warning()
+        self.on_warning(
+            LowSeverityWarning(f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}")
+        )
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FunctionResponse]:
         if not self._is_activated("retrieve"):
             return []
-        return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         functions = self.retrieve(ids)
 
-        self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
+        self.client.functions.delete(list(ids), ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
-        files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
-        dm_file_nodes: set[dm.NodeId] = set()
+        files = self.client.filemetadata.retrieve(
+            [InternalId(id=file_id) for file_id in file_ids], ignore_unknown_ids=True
+        )
+        dm_file_nodes: set[NodeId] = set()
         classic_file_ids: set[int] = set()
         for file in files:
             if file.instance_id is not None:
-                dm_file_nodes.add(file.instance_id)
+                dm_file_nodes.add(NodeId(space=file.instance_id.space, external_id=file.instance_id.external_id))
             else:
                 classic_file_ids.add(file.id)
         if classic_file_ids:
-            self.client.files.delete(id=list(classic_file_ids), ignore_unknown_ids=True)
+            self.client.filemetadata.delete(
+                [InternalId(id=file_id) for file_id in classic_file_ids], ignore_unknown_ids=True
+            )
         if dm_file_nodes:
-            self.client.data_modeling.instances.delete(list(dm_file_nodes))
-        return len(ids)
+            self.client.instances.delete(list(dm_file_nodes))
+        return list(ids)
 
     def _iterate(
         self,
@@ -469,7 +482,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionResponse]:
-        for functions in self.client.tool.functions.iterate(limit=None):
+        for functions in self.client.functions.iterate(limit=None):
             yield from functions
 
 
@@ -482,7 +495,7 @@ class FunctionScheduleIO(
     resource_write_cls = FunctionScheduleRequest
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
-    dependencies = frozenset({FunctionIO, GroupResourceScopedIO, GroupAllScopedIO})
+    dependencies = frozenset({FunctionIO})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionIO})
     support_update = False
@@ -490,9 +503,9 @@ class FunctionScheduleIO(
     _hash_key = "cdf-auth"
     _description_character_limit = 500
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
-        self.authentication_by_id: dict[FunctionScheduleId, ClientCredentials] = {}
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
+        self.authentication_by_id: dict[FunctionScheduleId, ClientCredentialsSessionRequest] = {}
 
     @property
     def display_name(self) -> str:
@@ -512,7 +525,11 @@ class FunctionScheduleIO(
         return id.dump()
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | dict) -> FunctionScheduleId:
+    def get_id(
+        cls, item: FunctionScheduleRequest | FunctionScheduleResponse | FunctionScheduleId | dict
+    ) -> FunctionScheduleId:
+        if isinstance(item, FunctionScheduleId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("functionExternalId", "name") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -524,7 +541,7 @@ class FunctionScheduleIO(
         return FunctionScheduleId(function_external_id=item.function_external_id, name=item.name)
 
     @classmethod
-    def as_str(cls, id: FunctionScheduleId) -> str:
+    def as_filename(cls, id: FunctionScheduleId) -> str:
         return sanitize_filename(f"{id.function_external_id}-{id.name}")
 
     @classmethod
@@ -562,9 +579,7 @@ class FunctionScheduleIO(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleRequest:
         if "functionId" in resource:
             identifier = self.get_id(resource)
-            LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning(
-                console=self.console
-            )
+            self.on_warning(LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}"))
             resource.pop("functionId", None)
         # Remove authentication from resource dict as it contains clientId/clientSecret
         # which are stored separately in _authentication_by_id and converted to nonce at creation time
@@ -593,15 +608,13 @@ class FunctionScheduleIO(
         schedules: list[FunctionScheduleResponse] = []
         for func in functions:
             func_external_id = cast(str, func.external_id)
-            function_schedules = self.client.tool.functions.schedules.list()
-            for schedule in function_schedules:
-                if schedule.function_id == func.id:
-                    schedule.function_external_id = func_external_id
-                    if schedule.name in names_by_function[func_external_id]:
-                        # Schedule data is not returned in the list call. Instead, we have to use a
-                        # separate request to get the data.
-                        schedule.data = self.client.tool.functions.schedules.input_data(schedule.id).data
-                        schedules.append(schedule)
+            for schedule in self.client.functions.schedules.list(function_id=func.id, limit=None):
+                schedule.function_external_id = func_external_id
+                if schedule.name in names_by_function[func_external_id]:
+                    # Schedule data is not returned in the list call. Instead, we have to use a
+                    # separate request to get the data.
+                    schedule.data = self.client.functions.schedules.input_data(schedule.id).data
+                    schedules.append(schedule)
         return schedules
 
     def create(self, items: Sequence[FunctionScheduleRequest]) -> list[FunctionScheduleResponse]:
@@ -612,11 +625,11 @@ class FunctionScheduleIO(
             id_ = self.get_id(item)
             if id_ not in self.authentication_by_id:
                 raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
-            client_credentials = self.authentication_by_id[id_]
+            credentials = self.authentication_by_id[id_]
             try:
-                session = self.client.iam.sessions.create(client_credentials, session_type="CLIENT_CREDENTIALS")
-            except CogniteAPIError as e:
-                if hint := try_find_error(client_credentials):
+                session = self.client.sessions.create_single(credentials)
+            except ToolkitAPIError as e:
+                if hint := try_find_error(credentials):
                     raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
                 raise e
 
@@ -629,7 +642,7 @@ class FunctionScheduleIO(
                 }
             )
 
-            result = self.client.tool.functions.schedules.create([to_create])
+            result = self.client.functions.schedules.create([to_create])
             if result:
                 created = result[0]
                 created.function_external_id = id_.function_external_id
@@ -660,11 +673,11 @@ class FunctionScheduleIO(
             f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
         )
 
-    def delete(self, ids: Sequence[FunctionScheduleId]) -> int:
+    def delete(self, ids: Sequence[FunctionScheduleId]) -> list[FunctionScheduleId]:
         schedules = self.retrieve(ids)
         internal_ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
-        self.client.tool.functions.schedules.delete(internal_ids)
-        return len(ids)
+        self.client.functions.schedules.delete(internal_ids)
+        return list(ids)
 
     def _iterate(
         self,
@@ -673,7 +686,7 @@ class FunctionScheduleIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionScheduleResponse]:
         if parent_ids is None:
-            for schedules in self.client.tool.functions.schedules.iterate(limit=None):
+            for schedules in self.client.functions.schedules.iterate(limit=None):
                 yield from schedules
         else:
             external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
@@ -684,7 +697,7 @@ class FunctionScheduleIO(
                 function_id = self.client.lookup.functions.id(external_id)
                 if function_id is None:
                     continue
-                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id, limit=None):
+                for schedules in self.client.functions.schedules.iterate(function_id=function_id, limit=None):
                     for schedule in schedules:
                         schedule.function_external_id = external_id
                         yield schedule

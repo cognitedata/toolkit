@@ -1,3 +1,4 @@
+import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -6,18 +7,21 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     AutoCreateOptions,
     NonceCredentials,
     TransformationRequest,
     TransformationResponse,
+    ViewDataSource,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
+    RawDatabaseIO,
+    RawTableIO,
+    SequenceIO,
     TransformationIO,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
@@ -29,15 +33,6 @@ def _return_none(*args, **kwargs) -> str | None:
     return None
 
 
-def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
-    original = FeatureFlag.is_enabled
-    monkeypatch.setattr(
-        FeatureFlag,
-        "is_enabled",
-        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
-    )
-
-
 def _ext_onelake_transformation_yaml() -> TransformationYAML:
     return TransformationYAML.model_validate(
         {
@@ -45,6 +40,20 @@ def _ext_onelake_transformation_yaml() -> TransformationYAML:
             "name": "my_transformation",
             "ignoreNullFields": True,
             "query": "select * from ext_onelake('fabric-prod', 'assets')",
+            "destination": {"type": "assets"},
+        }
+    )
+
+
+def _raw_source_transformation_yaml() -> TransformationYAML:
+    return TransformationYAML.model_validate(
+        {
+            "externalId": "my_transformation",
+            "name": "my_transformation",
+            "ignoreNullFields": True,
+            "query": "select * from my_db.my_table "
+            "join `other_db`.`other_table` on my_table.key = other_table.key "
+            "join _cdf.assets on my_table.key = assets.externalId",
             "destination": {"type": "assets"},
         }
     )
@@ -174,11 +183,41 @@ authentication:
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
 
-    def test_get_dependencies_ext_onelake(self, monkeypatch: MonkeyPatch) -> None:
-        _enable_external_data_sources(monkeypatch)
+    def test_get_dependencies_ext_onelake(self) -> None:
         resource = _ext_onelake_transformation_yaml()
         deps = list(TransformationIO.get_dependencies(resource))
         assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
+
+    def test_get_dependencies_sequence_rows(self) -> None:
+        resource = TransformationYAML.model_validate(
+            {
+                "externalId": "my_transformation",
+                "name": "my_transformation",
+                "ignoreNullFields": True,
+                "query": "select 1",
+                "destination": {"type": "sequence_rows", "externalId": "my_sequence"},
+            }
+        )
+
+        assert list(TransformationIO.get_dependencies(resource)) == [
+            (SequenceIO, ExternalId(external_id="my_sequence"))
+        ]
+
+    def test_get_dependencies_raw_sources(self) -> None:
+        resource = _raw_source_transformation_yaml()
+
+        assert list(TransformationIO.get_dependencies(resource)) == [
+            (RawDatabaseIO, RawDatabaseId(name="my_db")),
+            (RawTableIO, RawTableId(db_name="my_db", name="my_table")),
+            (RawDatabaseIO, RawDatabaseId(name="other_db")),
+            (RawTableIO, RawTableId(db_name="other_db", name="other_table")),
+        ]
+
+    def test_get_dependencies_raw_sources_without_sqlparse(self, monkeypatch: MonkeyPatch) -> None:
+        resource = _raw_source_transformation_yaml()
+        monkeypatch.setattr(importlib.util, "find_spec", lambda name, *args: None)
+
+        assert list(TransformationIO.get_dependencies(resource)) == []
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [
@@ -220,11 +259,11 @@ authentication:
             ]
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.transformations.create.side_effect = create_transformations
+            client.transformations.create.side_effect = create_transformations
             crud = TransformationIO(client)
             created = crud.create(transformations)
 
-            assert [t.external_id for t in created] == [t.external_id for t in transformations]
+            assert [crud.get_id(item) for item in created] == [crud.get_id(t) for t in transformations]
 
     def test_load_resource_with_auto_create(self) -> None:
         resource = {
@@ -242,7 +281,7 @@ authentication:
             loader = TransformationIO(client)
             loaded = loader.load_resource(resource)
 
-        assert loaded.destination is not None
+        assert isinstance(loaded.destination, ViewDataSource)
         assert loaded.destination.auto_create == AutoCreateOptions(direct_relations=False)
 
     def test_dump_resource_strips_default_auto_create(self) -> None:
@@ -327,3 +366,16 @@ authentication:
             dumped = loader.dump_resource(cdf_transformation, local_dumped)
 
         assert dumped["destination"]["autoCreate"] == {"directRelations": False}
+
+    def test_replace_update_omits_unset_data_domain(self) -> None:
+        request = TransformationRequest(
+            external_id="tr_first_transformation",
+            name="example:first:transformation",
+            ignore_null_fields=True,
+            query="select 1",
+            destination={"type": "assets"},
+            conflict_mode="upsert",
+            is_public=True,
+        )
+
+        assert "dataDomainExternalId" not in request.as_update("replace")["update"]

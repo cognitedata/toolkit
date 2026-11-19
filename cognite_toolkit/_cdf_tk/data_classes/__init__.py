@@ -10,12 +10,14 @@ from ._deploy_results import (
     DeployResults,
     ResourceDeployResult,
 )
+from ._display import CommandDisplay
 from ._packages import Package, Packages
 from ._tracking_info import CommandTracking, DeploymentTracking, TrackingEvent
 from ._yaml_comments import YAMLComments
 
 __all__ = [
     "BuildConfigYAML",
+    "CommandDisplay",
     "CommandTracking",
     "ConfigEntry",
     "ConfigYAMLs",

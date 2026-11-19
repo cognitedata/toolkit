@@ -6,6 +6,7 @@ https://api-docs.cognite.com/20230101/tag/User-profiles
 All endpoints in this API are deprecated in favor of the Principals API.
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -51,7 +52,7 @@ class UserProfilesAPI(CDFResourceAPI[UserProfile]):
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return UserProfile.model_validate_json(response.body)
 
-    def retrieve(self, items: Sequence[UserProfileId]) -> list[UserProfile]:
+    def retrieve(self, items: Sequence[UserProfileId]) -> builtins.list[UserProfile]:
         """Retrieve user profiles by their user identifiers.
 
         Args:
@@ -59,7 +60,7 @@ class UserProfilesAPI(CDFResourceAPI[UserProfile]):
         """
         return self._request_item_response(items, "retrieve")
 
-    def search(self, name: str, limit: int = 25) -> list[UserProfile]:
+    def search(self, name: str, limit: int = 25) -> builtins.list[UserProfile]:
         """Search user profiles in the current project.
 
         Args:
@@ -103,7 +104,7 @@ class UserProfilesAPI(CDFResourceAPI[UserProfile]):
         identity_type: IdentityTypeFilter | None = None,
         limit: int | None = 25,
         cursor: str | None = None,
-    ) -> Iterable[list[UserProfile]]:
+    ) -> Iterable[builtins.list[UserProfile]]:
         """Iterate through all user profiles in the current project."""
         params = self._create_list_parameters(identity_type)
         return self._iterate(params=params, limit=limit, cursor=cursor)
@@ -112,7 +113,7 @@ class UserProfilesAPI(CDFResourceAPI[UserProfile]):
         self,
         identity_type: IdentityTypeFilter | None = None,
         limit: int | None = 25,
-    ) -> list[UserProfile]:
+    ) -> builtins.list[UserProfile]:
         """List user profiles in the current project.
 
         Args:

@@ -1,12 +1,13 @@
 import errno
+import json
 import os
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import time
 import typing
-import warnings
 from abc import abstractmethod
 from collections import UserDict, defaultdict
 from collections.abc import ItemsView, KeysView, ValuesView
@@ -33,9 +34,8 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["list"],
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> list[dict[str, Any]]: ...
+) -> tuple[list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: ...
 
 
 @overload
@@ -43,9 +43,8 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["dict"],
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> dict[str, Any]: ...
+) -> tuple[dict[str, Any], EnvironmentVariableMissingWarning | None]: ...
 
 
 @overload
@@ -53,30 +52,28 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> dict[str, Any] | list[dict[str, Any]]: ...
+) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: ...
 
 
 def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> dict[str, Any] | list[dict[str, Any]]:
+) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]:
     """Loads a YAML file and injects environment variables into it.
 
     Args:
         filepath (Path | str): Path to the YAML file or file content.
         environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
-        validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
             Used for error messages. Defaults to None.
 
     Returns:
-        dict[str, Any] | list[dict[str, Any]]: The YAML content with the environment variables injected.
+        tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: The YAML content
+            with the environment variables injected, and a warning if any environment variables were not replaced.
 
     """
     if isinstance(filepath, str):
@@ -86,30 +83,58 @@ def load_yaml_inject_variables(
     for key, value in environment_variables.items():
         if value is None:
             continue
-        content = content.replace(f"${{{key}}}", str(value))
-    if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
+        content = _inject_variable(content, f"${{{key}}}", str(value))
+    warning: EnvironmentVariableMissingWarning | None = None
+    if missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]:
         if isinstance(filepath, Path):
             source = filepath
         elif original_filepath:
             source = original_filepath
         else:
             source = Path("UNKNOWN")
-        warnings.warn(EnvironmentVariableMissingWarning(source, frozenset(missing_variables)), stacklevel=2)
+        warning = EnvironmentVariableMissingWarning(source, frozenset(missing_variables))
 
     result = read_yaml_content(content)
 
     if required_return_type == "any":
-        return result
+        return result, warning
     elif required_return_type == "list":
         if isinstance(result, list):
-            return result
+            return result, warning
         raise ValueError(f"Expected a list, but got {type(result)}")
     elif required_return_type == "dict":
         if isinstance(result, dict):
-            return result
+            return result, warning
         raise ValueError(f"Expected a dict, but got {type(result)}")
     else:
         raise ValueError(f"Unknown required_return_type {required_return_type}")
+
+
+def _inject_variable(content: str, placeholder: str, value: str) -> str:
+    """Replaces the placeholder with the value in the YAML content.
+
+    Multi-line values (e.g., PEM certificates) cannot be injected as plain text, as the newlines
+    would break the YAML structure. If the placeholder is the entire scalar value, the value is
+    injected as a double-quoted YAML string instead.
+    """
+    if placeholder not in content:
+        return content
+    if "\n" not in value:
+        return content.replace(placeholder, value)
+
+    # json.dumps produces a valid YAML double-quoted scalar with escaped newlines.
+    quoted = json.dumps(value)
+    # Matches lines where the placeholder is the entire scalar value, e.g. `key: ${VAR}`, `- ${VAR}`,
+    # or `- key: ${VAR}  # comment`:
+    #   prefix: indentation, zero or more list markers (`- `), and an optional mapping key (`key: `).
+    #   suffix: optional trailing whitespace and comment, then end of line.
+    pattern = re.compile(
+        rf"^(?P<prefix>[ \t]*(?:-[ \t]+)*(?:[^#\n]*?:[ \t]+)?){re.escape(placeholder)}(?P<suffix>[ \t]*(?:#.*)?)$",
+        re.MULTILINE,
+    )
+    content = pattern.sub(lambda m: f"{m.group('prefix')}{quoted}{m.group('suffix')}", content)
+    # Any remaining occurrences are embedded inside a larger string, fallback to plain replacement.
+    return content.replace(placeholder, value)
 
 
 @overload
@@ -187,6 +212,148 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
         ).print_warning()
 
     return result
+
+
+# The PyYAML error contexts for a bracket or quote that is never closed.
+_UNCLOSED_CONSTRUCT_CONTEXTS = frozenset(
+    {"while parsing a flow sequence", "while parsing a flow mapping", "while scanning a quoted scalar"}
+)
+
+
+class YamlPosition(typing.NamedTuple):
+    """A 1-based line and column in a YAML file."""
+
+    line: int
+    column: int
+
+
+def yaml_positions(content: str) -> dict[tuple[str | int, ...], YamlPosition]:
+    """Maps each location in the YAML content to its position (1-based line and column).
+
+    A location is the tuple of keys and list indices leading to a value, matching the locations in
+    Pydantic validation errors, for example, (0, "properties", "name"). Mapping keys point to the position
+    of the key, and list items point to the position where the item starts.
+
+    This is slower than read_yaml_content, so it should only be used when positions are needed,
+    for example, when reporting validation errors.
+
+    Args:
+        content: string containing the YAML content
+
+    Returns:
+        A dictionary from location to position. Empty if the content has no YAML document.
+    """
+    positions: dict[tuple[str | int, ...], YamlPosition] = {}
+    root = yaml.compose(content, Loader=yaml.SafeLoader)
+    if root is not None:
+        _collect_positions(root, (), positions)
+    return positions
+
+
+def _collect_positions(
+    node: yaml.Node, location: tuple[str | int, ...], positions: dict[tuple[str | int, ...], YamlPosition]
+) -> None:
+    if isinstance(node, yaml.MappingNode):
+        for key_node, value_node in node.value:
+            if not isinstance(key_node, yaml.ScalarNode):
+                continue
+            key_location = (*location, key_node.value)
+            positions[key_location] = YamlPosition(key_node.start_mark.line + 1, key_node.start_mark.column + 1)
+            _collect_positions(value_node, key_location, positions)
+    elif isinstance(node, yaml.SequenceNode):
+        for index, item_node in enumerate(node.value):
+            item_location = (*location, index)
+            positions[item_location] = YamlPosition(item_node.start_mark.line + 1, item_node.start_mark.column + 1)
+            _collect_positions(item_node, item_location, positions)
+
+
+def find_first_match_position(content: str, pattern: re.Pattern[str]) -> YamlPosition | None:
+    """Finds the position (1-based line and column) of the first match of the pattern in the content."""
+    match = pattern.search(content)
+    if match is None:
+        return None
+    start = match.start()
+    line_start = content.rfind("\n", 0, start) + 1
+    return YamlPosition(content.count("\n", 0, start) + 1, start - line_start + 1)
+
+
+def find_variable_position(path: Path, variable: str) -> YamlPosition | None:
+    """Finds the position of the first `{{ variable }}` placeholder in the file."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    return find_first_match_position(content, re.compile(rf"\{{\{{\s*{re.escape(variable)}\s*\}}\}}"))
+
+
+def yaml_error_position(yaml_error: yaml.YAMLError) -> YamlPosition | None:
+    """Where to point the user for a YAML syntax error.
+
+    For an unclosed bracket or quote, the parser only notices the problem further down, so the construct's
+    start is reported instead. For other errors, e.g. bad indentation, the start of the construct can be
+    far from the mistake, so the position where the parser gave up is used.
+    """
+    if not isinstance(yaml_error, yaml.MarkedYAMLError):
+        return None
+    mark = yaml_error.problem_mark
+    if yaml_error.context in _UNCLOSED_CONSTRUCT_CONTEXTS and yaml_error.context_mark is not None:
+        mark = yaml_error.context_mark
+    if mark is None:
+        return None
+    return YamlPosition(mark.line + 1, mark.column + 1)
+
+
+def yaml_find_position(
+    content: str, text: str, *, as_key: bool = False, occurrence: int | None = None
+) -> YamlPosition | None:
+    """Finds the position of the scalar (mapping value or list item, or mapping key if as_key) equal to text.
+
+    Args:
+        content: string containing the YAML content
+        text: the text of the scalar to find
+        as_key: whether to look for a mapping key instead of a mapping value or list item. A key that occurs
+            at different depths, for example, 'properties' in both a container and its indexes, is
+            found at its shallowest depth.
+        occurrence: the 0-based index, in document order, of the match to return, for text that is expected to
+            occur multiple times. The index is counted over the whole document, so it is ambiguous when the
+            document is a list of more than one item, in which case None is returned. If None, the text
+            must occur exactly once.
+
+    Returns:
+        The position if there is exactly one match (at the shallowest depth for keys), or the match at the
+        occurrence if given, otherwise None. Also None if the content is not valid YAML.
+    """
+    try:
+        root = yaml.compose(content, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return None
+    if occurrence is not None and isinstance(root, yaml.SequenceNode) and len(root.value) > 1:
+        return None
+    matches: list[tuple[int, YamlPosition]] = []
+    if root is not None:
+        _collect_scalar_matches(root, text, as_key, 0, matches)
+    if as_key and matches:
+        shallowest = min(depth for depth, _ in matches)
+        matches = [match for match in matches if match[0] == shallowest]
+    if occurrence is None:
+        return matches[0][1] if len(matches) == 1 else None
+    return matches[occurrence][1] if 0 <= occurrence < len(matches) else None
+
+
+def _collect_scalar_matches(
+    node: yaml.Node, text: str, as_key: bool, depth: int, matches: list[tuple[int, YamlPosition]]
+) -> None:
+    if isinstance(node, yaml.ScalarNode):
+        if not as_key and node.value == text:
+            matches.append((depth, YamlPosition(node.start_mark.line + 1, node.start_mark.column + 1)))
+    elif isinstance(node, yaml.MappingNode):
+        for key_node, value_node in node.value:
+            if as_key and isinstance(key_node, yaml.ScalarNode) and key_node.value == text:
+                matches.append((depth, YamlPosition(key_node.start_mark.line + 1, key_node.start_mark.column + 1)))
+            _collect_scalar_matches(value_node, text, as_key, depth + 1, matches)
+    elif isinstance(node, yaml.SequenceNode):
+        for item_node in node.value:
+            _collect_scalar_matches(item_node, text, as_key, depth + 1, matches)
 
 
 # Spaces are allowed, but we replace them as well
@@ -353,7 +520,10 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
                     continue
                 # This is a new comment.
                 if (position == "after" or variable is None) and variable is not init_value:
-                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))  # type: ignore[misc]
+                    if isinstance(variable, str) and variable:
+                        key = (*key_prefix, *parent_variables, variable)
+                    else:
+                        key = (*key_prefix, *parent_variables)
                     if position == "after":
                         comments[key].after.append(comment.strip())
                     else:
@@ -424,20 +594,30 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
-    excvalue = exc[1]
-    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
-        # Typically on Windows, if the file is read-only, first remove the read-only attribute
-        # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
+def _clear_readonly_and_retry(func: Any, path: str, exc: BaseException) -> None:
+    # Typically on Windows, if the file is read-only, first remove the read-only attribute
+    # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
+    if func in (os.rmdir, os.remove) and isinstance(exc, OSError) and exc.errno == errno.EACCES:
         os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
         func(path)
-    else:
-        raise
+        return
+    raise exc
+
+
+def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
+    """Compatibility callback for shutil.rmtree(onerror=...) on Python < 3.12."""
+    _exc_type, exc_value, _exc_tb = exc
+    if not isinstance(exc_value, BaseException):
+        raise exc_value
+    _clear_readonly_and_retry(func, path, exc_value)
 
 
 def safe_rmtree(path: Path) -> None:
     try:
-        shutil.rmtree(path, ignore_errors=False, onerror=_handle_remove_readonly)
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_clear_readonly_and_retry)
+        else:
+            shutil.rmtree(path, onerror=_handle_remove_readonly)
     except PermissionError:
         if path.is_dir():
             name = "directory"

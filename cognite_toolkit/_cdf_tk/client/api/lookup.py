@@ -18,7 +18,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     LocationFiltersAcl,
     SecurityCategoriesAcl,
     TimeSeriesAcl,
+    UserProfilesAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import Principal, UserPrincipal
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -84,9 +87,9 @@ class LookUpAPI(ABC):
             ids_by_external_id = self._id(external_ids)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.tool.token.verify_acls([self._read_acl(None)])
+                missing_capabilities = self._client.token.verify_acls([self._read_acl(None)])
                 if missing_capabilities:
-                    raise self._client.tool.token.create_error(
+                    raise self._client.token.create_error(
                         missing_capabilities,
                         f"lookup {self.resource_name} with external_id {external_ids}",
                     )
@@ -147,9 +150,9 @@ class LookUpAPI(ABC):
             found_by_id = self._external_id(ids)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.tool.token.verify_acls([self._read_acl(ids)])
+                missing_capabilities = self._client.token.verify_acls([self._read_acl(ids)])
                 if missing_capabilities:
-                    raise self._client.tool.token.create_error(
+                    raise self._client.token.create_error(
                         missing_capabilities, f"lookup {self.resource_name} with id {ids}"
                     )
             # Raise the original error if it's not a 400 or the user has access to read the resource.from
@@ -192,7 +195,7 @@ class DataSetLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             data_set.external_id: data_set.id
-            for data_set in self._client.tool.datasets.retrieve(
+            for data_set in self._client.datasets.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if data_set.external_id
@@ -201,7 +204,7 @@ class DataSetLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             data_set.id: data_set.external_id
-            for data_set in self._client.tool.datasets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for data_set in self._client.datasets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if data_set.external_id
         }
 
@@ -213,7 +216,7 @@ class AssetLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             asset.external_id: asset.id
-            for asset in self._client.tool.assets.retrieve(
+            for asset in self._client.assets.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if asset.external_id
@@ -222,7 +225,7 @@ class AssetLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             asset.id: asset.external_id
-            for asset in self._client.tool.assets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for asset in self._client.assets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if asset.external_id
         }
 
@@ -235,7 +238,7 @@ class TimeSeriesLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             ts.external_id: ts.id
-            for ts in self._client.tool.timeseries.retrieve(
+            for ts in self._client.timeseries.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if ts.external_id and ts.id
@@ -244,7 +247,7 @@ class TimeSeriesLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             ts.id: ts.external_id
-            for ts in self._client.tool.timeseries.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for ts in self._client.timeseries.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if ts.external_id and ts.id
         }
 
@@ -256,7 +259,7 @@ class FileMetadataLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             file.external_id: file.id
-            for file in self._client.tool.filemetadata.retrieve(
+            for file in self._client.filemetadata.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if file.external_id and file.id
@@ -265,7 +268,7 @@ class FileMetadataLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             file.id: file.external_id
-            for file in self._client.tool.filemetadata.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for file in self._client.filemetadata.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if file.external_id and file.id
         }
 
@@ -278,7 +281,7 @@ class EventLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             event.external_id: event.id
-            for event in self._client.tool.events.retrieve(
+            for event in self._client.events.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if event.external_id and event.id
@@ -287,7 +290,7 @@ class EventLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             event.id: event.external_id
-            for event in self._client.tool.events.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for event in self._client.events.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if event.external_id and event.id
         }
 
@@ -300,7 +303,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             pipeline.external_id: pipeline.id
-            for pipeline in self._client.tool.extraction_pipelines.retrieve(
+            for pipeline in self._client.extraction_pipelines.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if pipeline.external_id and pipeline.id
@@ -309,7 +312,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             pipeline.id: pipeline.external_id
-            for pipeline in self._client.tool.extraction_pipelines.retrieve(
+            for pipeline in self._client.extraction_pipelines.retrieve(
                 items=InternalId.from_ids(id), ignore_unknown_ids=True
             )
             if pipeline.external_id and pipeline.id
@@ -323,7 +326,7 @@ class FunctionLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             function.external_id: function.id
-            for function in self._client.tool.functions.retrieve(
+            for function in self._client.functions.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if function.external_id and function.id
@@ -332,7 +335,7 @@ class FunctionLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             function.id: function.external_id
-            for function in self._client.tool.functions.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for function in self._client.functions.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if function.external_id and function.id
         }
 
@@ -353,6 +356,7 @@ class AllLookUpAPI(LookUpAPI, ABC):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
+            self._has_looked_up = True
         found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
         return {k: v for k, v in found_pairs if v is not None}
 
@@ -366,7 +370,7 @@ class AllLookUpAPI(LookUpAPI, ABC):
 
 class SecurityCategoriesLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        categories = self._client.tool.security_categories.list(limit=None)
+        categories = self._client.security_categories.list(limit=None)
         self._cache = {category.name: category.id for category in categories if category.name and category.id}
         self._reverse_cache = {category.id: category.name for category in categories if category.name and category.id}
 
@@ -381,7 +385,7 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        for location in self._client.tool.location_filters.list(flat=True):
+        for location in self._client.location_filters.list(flat=True):
             if location.external_id and location.id:
                 self._cache[location.external_id] = location.id
                 self._reverse_cache[location.id] = location.external_id
@@ -389,11 +393,108 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _read_acl(self, ids: Sequence[int] | None = None) -> AclType:
         return LocationFiltersAcl(actions=["READ"], scope=AllScope() if ids is None else IDScope(ids=sorted(ids)))
 
-    def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
-        if not self._has_looked_up:
-            self._lookup()
-        found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
-        return {k: v for k, v in found_pairs if v is not None}
+
+class UserLookUpAPI:
+    def __init__(self, toolkit_client: "ToolkitClient") -> None:
+        self._client = toolkit_client
+        self._has_looked_up = False
+        self._email_by_user_id: dict[str, str] = {}
+        self._user_id_by_email: dict[str, str] = {}
+
+    @classmethod
+    def _read_acl(cls) -> AclType:
+        return UserProfilesAcl(actions=["READ"], scope=AllScope())
+
+    def _lookup(self) -> None:
+        if self._has_looked_up:
+            return
+        try:
+            users: list[Principal] | list[UserProfile] = self._client.principals.list(types=["USER"], limit=None)
+        except ToolkitAPIError as e:
+            if e.code == 401:
+                # Requires to be authenticated by CogIdp, falling back to deprecated API.
+                users = self._list_user_profiles()
+            else:
+                raise e
+        for user in users:
+            if isinstance(user, UserPrincipal) and user.email:
+                self._email_by_user_id[user.id] = user.email
+                self._user_id_by_email[user.email] = user.id
+            elif isinstance(user, UserProfile):
+                if user.user_identifier and user.email:
+                    self._email_by_user_id[user.user_identifier] = user.email
+                    self._user_id_by_email[user.email] = user.user_identifier
+        self._has_looked_up = True
+
+    def _list_user_profiles(self) -> list[UserProfile]:
+        try:
+            return self._client.user_profiles.list(identity_type="USER", limit=None)
+        except ToolkitAPIError as e:
+            if e.code and 400 <= e.code < 500:
+                missing_capabilities = self._client.token.verify_acls([self._read_acl()])
+                if missing_capabilities:
+                    raise self._client.token.create_error(missing_capabilities, "lookup users")
+            raise
+
+    @overload
+    def email(self, user_id: str, warn: bool = True) -> str | None: ...
+
+    @overload
+    def email(self, user_id: list[str] | tuple[str, ...], warn: bool = True) -> list[str]: ...
+
+    def email(self, user_id: str | list[str] | tuple[str, ...], warn: bool = True) -> str | list[str] | None:
+        """Lookup the email of users given their user IDs.
+
+        Args:
+            user_id: A user ID or a sequence of user IDs to look up.
+            warn: If True, print a warning for any user IDs that are not found.
+
+        Returns:
+            The corresponding email if a single user ID is provided (None if not found),
+            or a list of emails if a sequence of user IDs is provided (missing users are skipped).
+        """
+        return self._lookup_values(user_id, self._email_by_user_id, "user ID", "email", warn)
+
+    @overload
+    def user_id(self, email: str, warn: bool = True) -> str | None: ...
+
+    @overload
+    def user_id(self, email: list[str] | tuple[str, ...], warn: bool = True) -> list[str]: ...
+
+    def user_id(self, email: str | list[str] | tuple[str, ...], warn: bool = True) -> str | list[str] | None:
+        """Lookup the user IDs of users given their emails.
+
+        Args:
+            email: An email or a sequence of emails to look up.
+            warn: If True, print a warning for any emails that are not found.
+
+        Returns:
+            The corresponding user ID if a single email is provided (None if not found),
+            or a list of user IDs if a sequence of emails is provided (missing users are skipped).
+        """
+        return self._lookup_values(email, self._user_id_by_email, "email", "user ID", warn)
+
+    def _lookup_values(
+        self,
+        keys: str | list[str] | tuple[str, ...],
+        mapping: dict[str, str],
+        key_name: str,
+        value_name: str,
+        warn: bool = True,
+    ) -> str | list[str] | None:
+        self._lookup()
+        key_list = [keys] if isinstance(keys, str) else list(keys)
+        missing = [key for key in key_list if key not in mapping]
+        if missing and warn:
+            plural = "s" if len(missing) > 1 else ""
+            plural2 = "They do" if len(missing) > 1 else "It does"
+            MediumSeverityWarning(
+                f"Failed to retrieve {value_name} for user{plural} with {key_name}{plural} "
+                f"{humanize_collection(missing)}. {plural2} not exist in CDF"
+            ).print_warning(console=self._client.console)
+        if isinstance(keys, str):
+            return mapping.get(keys)
+        return [mapping[key] for key in key_list if key in mapping]
 
 
 class LookUpGroup:
@@ -408,3 +509,4 @@ class LookUpGroup:
         self.location_filters = LocationFiltersLookUpAPI(toolkit_client)
         self.extraction_pipelines = ExtractionPipelineLookUpAPI(toolkit_client)
         self.functions = FunctionLookUpAPI(toolkit_client)
+        self.users = UserLookUpAPI(toolkit_client)

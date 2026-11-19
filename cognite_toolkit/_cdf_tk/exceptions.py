@@ -1,15 +1,10 @@
-import sys
 from collections.abc import Mapping
 from graphlib import CycleError
 from pathlib import Path
+from tomllib import TOMLDecodeError
 
 from rich.markup import escape
 from yaml import YAMLError
-
-if sys.version_info >= (3, 11):
-    from tomllib import TOMLDecodeError
-else:
-    from tomli import TOMLDecodeError
 
 
 class ToolkitError(Exception):
@@ -118,7 +113,11 @@ class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
 
 
-class ToolkitTOMLFormatError(TOMLDecodeError, ToolkitValidationError): ...
+class ToolkitTOMLFormatError(TOMLDecodeError, ToolkitValidationError):
+    def __init__(self, message: str) -> None:
+        # Skip TOMLDecodeError.__init__: on 3.14+ it requires (msg, doc, pos)
+        # and deprecates free-form args. ValueError is TOMLDecodeError's base on all versions.
+        ValueError.__init__(self, message)
 
 
 class ToolkitInvalidParameterNameError(ToolkitValidationError):
@@ -259,6 +258,10 @@ class ToolkitRuntimeError(RuntimeError, ToolkitError):
     """General runtime error for toolkit operations."""
 
     ...
+
+
+class ToolkitUserAbortError(ToolkitError):
+    """Raised when the user declines a confirmation prompt and the operation is aborted."""
 
 
 class ToolkitRepeatedUploadFailureError(ToolkitRuntimeError):

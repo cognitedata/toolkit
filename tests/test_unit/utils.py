@@ -13,7 +13,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
-from typing import IO, Annotated, Any, Literal, TypeVar, get_args, get_origin
+from typing import IO, Annotated, Any, Literal, TypeVar, cast, get_args, get_origin
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -33,7 +33,7 @@ from cognite.client.data_classes import (
     TransformationScheduleWrite,
     filters,
 )
-from cognite.client.data_classes._base import CogniteResourceList
+from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
 from cognite.client.data_classes.data_modeling import NodeListWithCursor
 from cognite.client.data_classes.data_modeling.data_types import ListablePropertyType
@@ -55,10 +55,12 @@ from cognite.client.data_classes.workflows import (
 from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
+from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from tests.data import COMPLETE_ORG
 from tests.test_unit.get_type_hints import _TypeHints
@@ -85,25 +87,20 @@ def mock_read_yaml_file(
         filepath: Path | str,
         environment_variables: dict[str, str | None],
         required_return_type: Literal["any", "list", "dict"] = "any",
-        validate: bool = True,
         original_filepath: Path | None = None,
-    ) -> dict[str, Any] | list[dict[str, Any]]:
+    ) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]:
         if isinstance(filepath, str):
-            return load_yaml_inject_variables(
-                filepath, environment_variables, required_return_type, validate, original_filepath
-            )
+            return load_yaml_inject_variables(filepath, environment_variables, required_return_type, original_filepath)
         if file_content := file_content_by_name.get(filepath.name):
-            if modify:
-                source = load_yaml_inject_variables(
-                    filepath, environment_variables, required_return_type, validate, original_filepath
-                )
-                if isinstance(source, dict):
-                    source.update(file_content)
-                file_content = source
-            return file_content
-        return load_yaml_inject_variables(
-            filepath, environment_variables, required_return_type, validate, original_filepath
-        )
+            if not modify:
+                return file_content, None
+            source, warning = load_yaml_inject_variables(
+                filepath, environment_variables, required_return_type, original_filepath
+            )
+            if isinstance(source, dict):
+                source.update(file_content)
+            return source, warning
+        return load_yaml_inject_variables(filepath, environment_variables, required_return_type, original_filepath)
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)
@@ -170,6 +167,7 @@ def all_concrete_subclasses(base: T_Type) -> list[T_Type]:
 
 
 T_Object = TypeVar("T_Object", bound=object)
+T_Resource = TypeVar("T_Resource", bound=CogniteResource)
 
 
 class FakeCogniteResourceGenerator:
@@ -189,18 +187,27 @@ class FakeCogniteResourceGenerator:
         self._min_string_length = min_string_length
         self._max_string_length = max_string_length
 
-    def create_instances(self, list_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
-        return list_cls(  # type: ignore[call-arg]
-            [self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(self._max_list_dict_items)]  # type: ignore[attr-defined]
+    def create_instances(
+        self, list_cls: type[CogniteResourceList[T_Resource]], skip_defaulted_args: bool = False
+    ) -> CogniteResourceList[T_Resource]:
+        resource_cls = list_cls._RESOURCE
+        return list_cls(
+            [self.create_instance(resource_cls, skip_defaulted_args) for _ in range(self._max_list_dict_items)]
         )
 
-    def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+    def create_instance(self, resource_cls: TypeForm[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        # TypeForm allows Annotated unions, which are unpacked in _create_instance.
+        return self._create_instance(cast(type[T_Object], resource_cls), skip_defaulted_args)
+
+    def _create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
         try:
             # All the subsequent inspection calls (get_origin, get_args, etc.) are very expensive, so we
             # first check if the class is a subclass of BaseModel, which is a common case and can be handled more efficiently.
             # If `issubclass` raises a TypeError, we ignore it and continue with the other checks.
             if issubclass(resource_cls, BaseModel):
-                return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
+                instance = self.create_pydantic_instance(resource_cls, skip_defaulted_args)
+                assert isinstance(instance, resource_cls)
+                return instance
         except TypeError:
             ...
 
@@ -351,29 +358,13 @@ class FakeCogniteResourceGenerator:
         return model_cls(**keyword_arguments)
 
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:
-        import numpy as np
 
         if isinstance(type_, typing.ForwardRef):
-            type_ = type_._evaluate(globals(), self._type_checking(), ())  # type: ignore[call-arg]
+            type_ = type_._evaluate(globals(), {}, ())  # type: ignore[call-arg]
         if inspect.isclass(type_) and issubclass(type_, BaseModel):
             return self.create_pydantic_instance(type_)
 
         container_type = get_origin(type_)
-        is_container = container_type is not None
-        if not is_container or container_type is np.ndarray:  # looks weird, but 3.8 and 3.12 type compat. issue
-            # Handle numpy types
-            from numpy.typing import NDArray
-
-            if type_ == NDArray[np.float64]:
-                return np.array([self._random.random() for _ in range(3)], dtype=np.float64)
-            elif type_ == NDArray[np.uint32]:
-                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.uint32)
-            elif type_ == NDArray[np.int64]:
-                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.int64)
-            elif type_ == NDArray[np.datetime64]:
-                return np.array([self._random.randint(1, 1704067200000) for _ in range(3)], dtype="datetime64[ns]")
-            elif type_ == NDArray[np.object_]:
-                return np.array([self._random_string(10) for _ in range(3)], dtype=np.object_)
 
         # Handle containers
         args = get_args(type_)
@@ -539,30 +530,6 @@ class FakeCogniteResourceGenerator:
                     return fallback
         return generated
 
-    @classmethod
-    def _type_checking(cls) -> dict[str, Any]:
-        """
-        When calling the get_type_hints function, it imports the module with the function TYPE_CHECKING is set to False.
-
-        This function takes all the special types used in data classes and returns them as a dictionary so it
-        can be used in the local namespaces.
-        """
-        import numpy as np
-        import numpy.typing as npt
-        from cognite.client import CogniteClient
-
-        NumpyDatetime64NSArray = npt.NDArray[np.datetime64]
-        NumpyInt64Array = npt.NDArray[np.int64]
-        NumpyFloat64Array = npt.NDArray[np.float64]
-        NumpyObjArray = npt.NDArray[np.object_]
-        return {
-            "CogniteClient": CogniteClient,
-            "NumpyDatetime64NSArray": NumpyDatetime64NSArray,
-            "NumpyInt64Array": NumpyInt64Array,
-            "NumpyFloat64Array": NumpyFloat64Array,
-            "NumpyObjArray": NumpyObjArray,
-        }
-
 
 class MockQuestion:
     def __init__(self, answer: Any, choices: list[Choice] | None = None) -> None:
@@ -576,17 +543,15 @@ class MockQuestion:
 
 
 class MockQuestionary:
-    def __init__(self, module_target: str | list[str], monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+    def __init__(self, module_target: str | list[str], answers: list[Any]) -> None:
         """Initialize MockQuestionary to patch questionary methods for one or more module targets.
 
         Args:
             module_target: Single module path string or list of module paths to patch
-            monkeypatch: Pytest monkeypatch fixture
             answers: List of answers to return for each questionary call
         """
         self.module_targets = [module_target] if isinstance(module_target, str) else module_target
         self.answers = answers
-        self.monkeypatch = monkeypatch
 
     def select(self, _: str, choices: list[Choice] | None = None, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
@@ -604,13 +569,16 @@ class MockQuestionary:
         return MockQuestion(self.answers.pop(0))
 
     def __enter__(self) -> MockQuestionary:
+        # Use a dedicated MonkeyPatch so that exiting only undoes the questionary patches, and not
+        # other patches on the test's monkeypatch fixture (e.g., the autouse CDF_PROJECT isolation).
+        self._questionary_patch = MonkeyPatch()
         for method in [self.select, self.confirm, self.checkbox, self.text, self.path]:
             for module_target in self.module_targets:
-                self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
+                self._questionary_patch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
-    def __exit__(self, *args: Any) -> Literal[False]:
-        self.monkeypatch.undo()
+    def __exit__(self, *args: object) -> Literal[False]:
+        self._questionary_patch.undo()
         return False
 
     @staticmethod

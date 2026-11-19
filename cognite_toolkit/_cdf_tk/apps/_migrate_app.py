@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
+    verify_target_spaces_exist,
     verify_threed_dm_migration_enabled,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
@@ -64,7 +65,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
@@ -72,7 +73,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValidationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -93,7 +93,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 from ._helpers import print_help_if_no_subcommand
 
-TODAY = date.today()
+DEFAULT_LOG_PATH = LOGS_DIRECTORY / f"migration_logs_{date.today()!s}"
 
 CdfProjectOption = Annotated[
     str | None,
@@ -145,8 +145,7 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
-        if Flags.RECORDS_MIGRATE.is_enabled():
-            self.command("events-to-records")(self.events_to_records)
+        self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
         self.command("infield-source-data")(self.infield_source_data)
@@ -248,7 +247,7 @@ class MigrateApp(typer.Typer):
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
-            selected_datasets = client.tool.datasets.retrieve(
+            selected_datasets = client.datasets.retrieve(
                 ExternalId.from_external_ids(data_set), ignore_unknown_ids=True
             )
             if any(
@@ -416,7 +415,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -441,6 +440,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Assets to CogniteAssets."""
         client = _get_client(cdf_project)
@@ -462,6 +468,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -608,7 +615,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -633,6 +640,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Events to CogniteActivity instances."""
         client = _get_client(cdf_project)
@@ -654,6 +668,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -717,7 +732,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -740,6 +755,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -792,7 +814,8 @@ class MigrateApp(typer.Typer):
 
         cmd = MigrationCommand(client=client)
         cmd.run(
-            lambda: cmd.migrate(  # type: ignore[misc]
+            lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=RecordsMigrationIO(client, stream=stream, skip_existing=skip_existing),
                 mapper=AssetCentricToRecordMapper(
@@ -865,7 +888,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         skip_linking: Annotated[
             bool,
             typer.Option(
@@ -898,6 +921,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
         client = _get_client(cdf_project)
@@ -924,6 +954,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -992,7 +1023,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         skip_linking: Annotated[
             bool,
             typer.Option(
@@ -1025,6 +1056,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
         client = _get_client(cdf_project)
@@ -1052,6 +1090,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -1118,7 +1157,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1133,6 +1172,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1195,6 +1241,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=annotation_io,
                 mapper=AssetCentricToInstanceMapper[AnnotationResponse](client),
@@ -1232,7 +1279,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1249,6 +1296,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1271,6 +1325,7 @@ class MigrateApp(typer.Typer):
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selector],
                 # Migration should not modify solution tags - there are used across multiple applications
                 # (Canvas, InField)
@@ -1301,7 +1356,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1318,6 +1373,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1337,8 +1399,9 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
-                data=ChartIO(client, skip_backend_services=False),
+                data=ChartIO(client, skip_backend_services=False, is_migration=True),
                 mapper=ChartMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -1365,7 +1428,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1382,6 +1445,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1402,6 +1472,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDMigrationIO(client),
                 mapper=ThreeDMapper(client),
@@ -1446,7 +1517,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1461,6 +1532,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1500,10 +1578,12 @@ class MigrateApp(typer.Typer):
             raise typer.BadParameter(
                 "--object-3d-space and --cad-node-space are required when specifying IDs directly."
             )
+        verify_target_spaces_exist(client, [object_3D_space, cad_node_space])
 
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDAssetMappingMigrationIO(
                     client, object_3D_space=object_3D_space, cad_node_space=cad_node_space
@@ -1607,7 +1687,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1632,6 +1712,13 @@ class MigrateApp(typer.Typer):
                 "significantly different or renamed properties from the default cdf_infield/FieldObservation, which requires custom "
                 "migration logic. By default, without this flag, Toolkit will migrate data to whatever observation view is configured "
                 "in the Infield location(s) that uses the relevant target space. ",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1664,6 +1751,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=mapper,
@@ -1702,7 +1790,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1717,6 +1805,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1751,6 +1846,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=mapper,
@@ -1791,7 +1887,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1808,6 +1904,14 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command.",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if some items fail to migrate. "
+                "Failed items will be logged.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
         client = _get_client(cdf_project)
@@ -1815,7 +1919,7 @@ class MigrateApp(typer.Typer):
             verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
+        legacy_site_count = client.events.cardinality(("metadata", "site_id"))
         if legacy_site_count:
             client.console.print(
                 Panel(
@@ -1855,6 +1959,7 @@ class MigrateApp(typer.Typer):
         )
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=selectors,
                 data=Image360CollectionInstanceIO(client),
                 mapper=mapper,
@@ -1914,7 +2019,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1929,6 +2034,13 @@ class MigrateApp(typer.Typer):
                 "--verbose",
                 "-v",
                 help="Turn on to get more verbose output when running the command.",
+            ),
+        ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1964,6 +2076,9 @@ class MigrateApp(typer.Typer):
                     "Both --object-3d-space and --contextualization-space are required when "
                     "using --collection and --collection-instance-space."
                 )
+        if object_3D_space is None or contextualization_space is None:
+            raise typer.BadParameter("Both --object-3d-space and --contextualization-space are required.")
+        verify_target_spaces_exist(client, [object_3D_space, contextualization_space])
 
         collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
 
@@ -1976,6 +2091,7 @@ class MigrateApp(typer.Typer):
         io = Image360AnnotationMigrationIO(client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selector],
                 data=io,
                 mapper=mapper,

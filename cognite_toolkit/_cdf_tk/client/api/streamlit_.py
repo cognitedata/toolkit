@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -44,7 +45,7 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[StreamlitRequest], overwrite: bool = False) -> list[StreamlitResponse]:
+    def create(self, items: Sequence[StreamlitRequest], overwrite: bool = False) -> builtins.list[StreamlitResponse]:
         """Create Streamlit apps in CDF.
 
         Args:
@@ -59,7 +60,7 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
         # - It only allow one item per request that is not wrapped in an "items" field.
         # - It uses a query parameter for "overwrite" instead of including it in the body
         endpoint = self._method_endpoint_map["create"]
-        results: list[StreamlitResponse] = []
+        results: builtins.list[StreamlitResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -72,7 +73,9 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
             results.append(StreamlitResponse.model_validate_json(result.body))
         return results
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[StreamlitResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[StreamlitResponse]:
         """Retrieve Streamlit apps from CDF.
 
         Args:
@@ -88,7 +91,7 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
 
     def update(
         self, items: Sequence[StreamlitRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[StreamlitResponse]:
+    ) -> builtins.list[StreamlitResponse]:
         """Update Streamlit apps in CDF.
 
         Args:
@@ -135,7 +138,7 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
         self,
         filter: StreamlitFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[StreamlitResponse]]:
+    ) -> Iterable[builtins.list[StreamlitResponse]]:
         """Iterate over all Streamlit apps in CDF.
 
         Args:
@@ -154,7 +157,7 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
         self,
         filter: StreamlitFilter | None = None,
         limit: int | None = 100,
-    ) -> list[StreamlitResponse]:
+    ) -> builtins.list[StreamlitResponse]:
         """List all Streamlit apps in CDF.
 
         Args:

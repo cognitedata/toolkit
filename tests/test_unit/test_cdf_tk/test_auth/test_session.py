@@ -1,17 +1,23 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 import pytest
 
+from cognite_toolkit._cdf_tk.commands.auth import session_keyring
 from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     _CallbackContext,
     _OAuthCallbackServer,
     build_session_from_tokens,
     login_for_session,
     refresh_session_tokens,
+    resolve_idp_base_url,
 )
-from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token, read_session_token
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import (
+    delete_session_token,
+    read_session_token,
+    store_session_token,
+)
 from cognite_toolkit._cdf_tk.commands.auth.session_store import (
     SessionMetadata,
     StoredSession,
@@ -66,8 +72,21 @@ def test_build_session_from_tokens_requires_refresh_token() -> None:
         build_session_from_tokens("my-org", {"access_token": "abc"})
 
 
+@pytest.mark.parametrize(
+    "org, expected",
+    [
+        ("cog-dev-me", "https://auth-dev.cognitedata-development.cognite.ai"),
+        ("cog-staging-me", "https://auth-staging.gc-bru-001.cogheim.net"),
+        ("my-org", "https://auth.cognite.com"),
+    ],
+)
+def test_resolve_idp_base_url(org: str, expected: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("COGNITE_IDP_BASE_URL", raising=False)
+    assert resolve_idp_base_url(org) == expected
+
+
 def test_build_session_from_tokens_sets_expiry() -> None:
-    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     session = build_session_from_tokens(
         "my-org",
         {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
@@ -79,7 +98,7 @@ def test_build_session_from_tokens_sets_expiry() -> None:
 
 
 def test_token_state_expiring_within_leeway() -> None:
-    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     metadata = SessionMetadata(
         version=1,
         org="org",
@@ -90,7 +109,7 @@ def test_token_state_expiring_within_leeway() -> None:
 
 
 def test_token_state_expired_when_refresh_past() -> None:
-    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     metadata = SessionMetadata(
         version=1,
         org="org",
@@ -137,7 +156,7 @@ def test_unsupported_session_version_is_not_loaded(cli_home: Path) -> None:
 
 
 def test_missing_keyring_tokens_clears_stale_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
-    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -155,7 +174,7 @@ def test_missing_keyring_tokens_clears_stale_session_metadata(sample_keyring: Pa
 
 
 def test_saving_session_for_new_org_clears_previous_org_tokens(sample_keyring: Path, cli_home: Path) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old_session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="old-org",
@@ -183,7 +202,7 @@ def test_saving_session_for_new_org_clears_previous_org_tokens(sample_keyring: P
 
 def test_saving_session_overwrites_corrupted_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
     (cli_home / "session.json").write_text("{corrupted json\n")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -233,7 +252,7 @@ def test_ensure_fresh_session_refreshes_expiring_access_token(
     sample_keyring: Path, cli_home: Path, cogidp_http
 ) -> None:
     cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -251,3 +270,25 @@ def test_ensure_fresh_session_refreshes_expiring_access_token(
     persisted = StoredSession.load()
     assert persisted is not None
     assert persisted.access_token == "new-access"
+
+
+def test_store_session_token_does_not_read_keychain_without_chunking(
+    sample_keyring: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(session_keyring, "_uses_chunking", lambda: False)
+    monkeypatch.setattr(session_keyring.keyring, "get_password", lambda *_: pytest.fail("keychain read before write"))
+
+    store_session_token("my-org/accessToken", "access")
+
+
+def test_chunked_session_token_round_trip_and_delete(sample_keyring: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(session_keyring, "_uses_chunking", lambda: True)
+    monkeypatch.setattr(session_keyring, "_effective_chunk_size", lambda: 4)
+
+    store_session_token("my-org/accessToken", "0123456789")
+    assert read_session_token("my-org/accessToken") == "0123456789"
+    assert read_session_token("my-org/accessToken/chunk/2") == "89"
+
+    delete_session_token("my-org/accessToken")
+    assert read_session_token("my-org/accessToken") is None
+    assert read_session_token("my-org/accessToken/chunk/0") is None

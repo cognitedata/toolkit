@@ -4,10 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import ClientCredentials, CreatedSession
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    SessionCreateResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerRequest,
@@ -61,7 +64,7 @@ workflowVersion: v1
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = WorkflowTriggerIO.create_io(client)
+            loader = WorkflowTriggerIO(client)
 
         with pytest.raises(ToolkitRequiredValueError):
             loader.load_resource_file(trigger_file, {})
@@ -115,7 +118,7 @@ authentication:
         assert cdf_dumped != local_dumped
 
     def test_create_uses_client_credentials_session(self) -> None:
-        credentials = ClientCredentials(client_id="my-client-id", client_secret="my-client-secret")
+        credentials = ClientCredentialsSessionRequest(client_id="my-client-id", client_secret="my-client-secret")
         trigger = WorkflowTriggerRequest(
             external_id="daily-8am-utc",
             trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
@@ -123,10 +126,10 @@ authentication:
             workflow_version="v1",
         )
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
             loader = WorkflowTriggerIO(client)
             loader._authentication_by_id["daily-8am-utc"] = credentials
-            client.tool.workflows.triggers.create.return_value = [
+            client.workflows.triggers.create.return_value = [
                 WorkflowTriggerResponse(
                     external_id="daily-8am-utc",
                     trigger_rule=trigger.trigger_rule,
@@ -139,11 +142,10 @@ authentication:
             ]
             loader.create([trigger])
 
-        client.iam.sessions.create.assert_called_once_with(credentials, session_type="CLIENT_CREDENTIALS")
-        client.tool.workflows.triggers.pause.assert_not_called()
-        client.tool.workflows.triggers.resume.assert_not_called()
+        client.sessions.create.assert_called_once_with([credentials])
+        client.workflows.triggers.pause.assert_not_called()
+        client.workflows.triggers.resume.assert_not_called()
 
-    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
     @pytest.mark.parametrize(
         ("is_paused", "method_name"),
         [(True, "pause"), (False, "resume")],
@@ -164,23 +166,22 @@ authentication:
         trigger.is_paused = is_paused
 
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
             io = WorkflowTriggerIO(client)
-            io._authentication_by_id["daily-8am-utc"] = ClientCredentials(
+            io._authentication_by_id["daily-8am-utc"] = ClientCredentialsSessionRequest(
                 client_id="my-client-id", client_secret="my-client-secret"
             )
-            client.tool.workflows.triggers.create.return_value = [response]
+            client.workflows.triggers.create.return_value = [response]
 
             created = io.create([trigger])
 
-        method = getattr(client.tool.workflows.triggers, method_name)
+        method = getattr(client.workflows.triggers, method_name)
         other = "resume" if method_name == "pause" else "pause"
         assert method.call_count == 1
         method.assert_called_with([trigger.as_id()])
-        getattr(client.tool.workflows.triggers, other).assert_not_called()
-        assert created[0].is_paused == is_paused
+        getattr(client.workflows.triggers, other).assert_not_called()
+        assert created == [response]
 
-    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
     def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:
         dumped = WorkflowTriggerIO(toolkit_client_cheap).dump_resource(
             WorkflowTriggerResponse(
@@ -345,6 +346,19 @@ class TestWorkflowVersionIO:
         assert error.args[1] == [
             WorkflowVersionId(workflow_external_id=id_, version="v1") for id_ in ["a", "c", "b", "a"]
         ]
+
+    def test_iterate_by_parent_ids_filters_on_workflows_in_chunks(self) -> None:
+        parent_ids = [ExternalId(external_id=f"wf_{no}") for no in range(101)]
+        with monkeypatch_toolkit_client() as client:
+            client.workflows.versions.iterate.return_value = []
+
+            list(WorkflowVersionIO(client).iterate(parent_ids=parent_ids))
+
+        requested_workflow_ids = [
+            [item.external_id for item in call.kwargs["filter"].workflow_filters]
+            for call in client.workflows.versions.iterate.call_args_list
+        ]
+        assert requested_workflow_ids == [[f"wf_{no}" for no in range(100)], ["wf_100"]]
 
 
 class TestWorkflowVersionLineageAnnotation:

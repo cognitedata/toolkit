@@ -12,6 +12,7 @@ from cognite.client.credentials import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client._credential_provider import NoCredentials
 from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT, TOOLKIT_CLIENT_ENTRA_ID
@@ -158,10 +159,10 @@ class EnvironmentVariables:
 
     @property
     def idp_token_url(self) -> str:
-        if self.PROVIDER == "cdf":
-            return "https://auth.cognite.com/oauth2/token"
         if self.IDP_TOKEN_URL:
             return self.IDP_TOKEN_URL
+        if self.PROVIDER == "cdf":
+            return "https://auth.cognite.com/oauth2/token"
         if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
             return f"https://login.microsoftonline.com/{self.IDP_TENANT_ID}/oauth2/v2.0/token"
         alternative = ""
@@ -229,6 +230,7 @@ class EnvironmentVariables:
             "device_code": self._get_oauth_device_code,
             "token": self._get_token,
             "session": self._get_session,
+            "no_auth": self._get_no_auth_credentials,
         }
         if self.LOGIN_FLOW not in method_by_flow:
             # Should already be checked in __post_init__
@@ -240,17 +242,25 @@ class EnvironmentVariables:
             )
         return method_by_flow[self.LOGIN_FLOW]()
 
+    @staticmethod
+    def _require_str(value: str | None, name: str) -> str:
+        if value is None:
+            raise ToolkitMissingValueError(f"{name} must be set.", name)
+        return value
+
     def _get_oauth_client_credentials(self) -> OAuthClientCredentials:
+        client_id = self._require_str(self.IDP_CLIENT_ID, "IDP_CLIENT_ID")
+        client_secret = self._require_str(self.IDP_CLIENT_SECRET, "IDP_CLIENT_SECRET")
         if self.PROVIDER == "cdf":
             return OAuthClientCredentials(
-                client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
-                client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
+                client_id=client_id,
+                client_secret=client_secret,
                 token_url=self.idp_token_url,
                 scopes=None,
             )
         return OAuthClientCredentials(
-            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
-            client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
+            client_id=client_id,
+            client_secret=client_secret,
             token_url=self.idp_token_url,
             audience=self.idp_audience,
             scopes=self.idp_scopes,
@@ -258,7 +268,7 @@ class EnvironmentVariables:
 
     def _get_oauth_interactive(self) -> OAuthInteractive:
         return OAuthInteractive(
-            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            client_id=self._require_str(self.IDP_CLIENT_ID, "IDP_CLIENT_ID"),
             authority_url=self.idp_authority_url,
             scopes=self.idp_scopes,
         )
@@ -279,7 +289,7 @@ class EnvironmentVariables:
             authority_url=self.IDP_AUTHORITY_URL,
             cdf_cluster=self.CDF_CLUSTER,
             oauth_discovery_url=self.IDP_DISCOVERY_URL,
-            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            client_id=self._require_str(self.IDP_CLIENT_ID, "IDP_CLIENT_ID"),
             audience=self.idp_audience,
         )
 
@@ -300,6 +310,9 @@ class EnvironmentVariables:
             return session.access_token
 
         return Token(token_factory)
+
+    def _get_no_auth_credentials(self) -> NoCredentials:
+        return NoCredentials()
 
     @staticmethod
     def _require_fresh_session() -> StoredSession:

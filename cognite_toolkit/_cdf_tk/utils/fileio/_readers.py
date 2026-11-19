@@ -1,9 +1,11 @@
 import csv
 import json
 import re
+import sqlite3
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import closing
 from dataclasses import dataclass
 from functools import cached_property, partial
 from io import TextIOWrapper
@@ -18,7 +20,7 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import convert_str_to_data_type, infer_data_type_from_value
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import FileIO, SchemaColumn
+from ._base import SQLITE_METADATA_TABLE, FileIO, SchemaColumn, SQLiteTable, quote_sqlite_identifier
 from ._compression import COMPRESSION_BY_SUFFIX, Compression
 
 
@@ -77,14 +79,18 @@ class MultiFileReader(FileReader):
         input_files (Sequence[Path]): The list of file paths to read.
         schema (Sequence[SchemaColumn] | None): Optional schema passed to TableReader subclasses
             to ensure correct type parsing (e.g., CSV columns that look numeric but are strings).
+        table (str | None): The table to read when the input files are SQLite databases.
     """
 
     PART_PATTERN = re.compile(r"part-(\d{4})$")
 
-    def __init__(self, input_files: Sequence[Path], schema: Sequence[SchemaColumn] | None = None) -> None:
+    def __init__(
+        self, input_files: Sequence[Path], schema: Sequence[SchemaColumn] | None = None, table: str | None = None
+    ) -> None:
         super().__init__(input_file=input_files[0])
         self.input_files = input_files
         self.schema = schema
+        self.table = table
         self.current_file = input_files[0]
 
     @cached_property
@@ -110,16 +116,18 @@ class MultiFileReader(FileReader):
     def format(self) -> str:
         return self.reader_class.FORMAT
 
-    def _create_reader(self, input_file: Path) -> FileReader:
+    def create_reader(self, input_file: Path) -> FileReader:
         reader_cls = self.reader_class
-        if self.schema is not None and issubclass(reader_cls, TableReader):
+        if issubclass(reader_cls, SQLiteReader):
+            return reader_cls(input_file, table=self.table, schema=self.schema)
+        if self.schema is not None and issubclass(reader_cls, TableReader) and reader_cls is not ParquetReader:
             return reader_cls(input_file, schema=self.schema)
         return reader_cls(input_file)
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         for input_file in sorted(self.input_files, key=self._part_no):
             self.current_file = input_file
-            yield from self._create_reader(input_file).read_chunks()
+            yield from self.create_reader(input_file).read_chunks()
 
     def _part_no(self, path: Path) -> int:
         match = self.PART_PATTERN.search(path.stem)
@@ -134,7 +142,7 @@ class MultiFileReader(FileReader):
         """Count the total number of chunks in all files."""
         total_count = 0
         for input_file in self.input_files:
-            total_count += self._create_reader(input_file).count()
+            total_count += self.create_reader(input_file).count()
         return total_count
 
 
@@ -228,7 +236,7 @@ class TableReader(FileReader, ABC):
                 if column.is_array:
                     # Array columns in CSV are JSON-encoded; default inference handles them correctly.
                     continue
-                parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
+                parse_function_by_column[column.name] = partial(  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                     convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
                 )
         return parse_function_by_column
@@ -412,6 +420,135 @@ class ParquetReader(TableReader):
 
         with pq.ParquetFile(self.input_file) as parquet_file:
             return parquet_file.metadata.num_rows
+
+
+class SQLiteReader(TableReader):
+    """Reads one table from a SQLite database written by the SQLiteWriter.
+
+    Args:
+        input_file: The SQLite database file.
+        table: The table to read. Can be omitted if the database contains a single table.
+        schema: Optional schema used to parse the values. Defaults to the schema stored with the table.
+        keep_failed_cells: If True, cells that fail to parse are kept in the `failed_cell` attribute.
+    """
+
+    FORMAT = ".sqlite"
+    BATCH_SIZE = 1000
+
+    def __init__(
+        self,
+        input_file: Path,
+        table: str | None = None,
+        schema: Sequence[SchemaColumn] | None = None,
+        keep_failed_cells: bool = False,
+    ) -> None:
+        super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=keep_failed_cells)
+        table_by_name = {table_.name: table_ for table_ in self.list_tables(input_file)}
+        if table is None:
+            if len(table_by_name) != 1:
+                raise ToolkitValueError(
+                    f"Expected exactly one table in {input_file.as_posix()!r}, found {len(table_by_name)}. "
+                    "Specify which table to read."
+                )
+            table = next(iter(table_by_name))
+        elif table not in table_by_name:
+            raise ToolkitValueError(
+                f"Table {table!r} not found in {input_file.as_posix()!r}. "
+                f"Available tables: {humanize_collection(table_by_name.keys())}."
+            )
+        self.table = table
+        self.schema = schema if schema is not None else table_by_name[table].schema
+        self._column_by_name = {column.name: column for column in self.schema}
+
+    @classmethod
+    def list_tables(cls, input_file: Path) -> list[SQLiteTable]:
+        """List the data tables, with their schema and metadata, in a SQLite database written by Toolkit."""
+        if not input_file.exists():
+            raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
+        try:
+            with closing(cls._connect(input_file)) as connection:
+                has_metadata = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (SQLITE_METADATA_TABLE,)
+                ).fetchone()
+                if not has_metadata:
+                    raise ToolkitValueError(
+                        f"{input_file.as_posix()!r} is not a SQLite database written by Toolkit. "
+                        f"The {SQLITE_METADATA_TABLE!r} table is missing."
+                    )
+                rows = connection.execute(
+                    f"SELECT table_name, schema, metadata FROM {quote_sqlite_identifier(SQLITE_METADATA_TABLE)} "
+                    "ORDER BY rowid"
+                ).fetchall()
+        except sqlite3.Error as e:
+            raise ToolkitValueError(f"Failed to read SQLite database {input_file.as_posix()!r}: {e}") from e
+        return [
+            SQLiteTable(
+                name=name,
+                schema=[SchemaColumn.load(column) for column in json.loads(schema)],
+                metadata=json.loads(metadata) if metadata is not None else None,
+            )
+            for name, schema, metadata in rows
+        ]
+
+    @staticmethod
+    def _connect(input_file: Path) -> sqlite3.Connection:
+        return sqlite3.connect(f"{input_file.resolve().as_uri()}?mode=ro", uri=True)
+
+    def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
+        with closing(self._connect(self.input_file)) as connection:
+            cursor = connection.execute(f"SELECT * FROM {quote_sqlite_identifier(self.table)}")
+            column_names = [description[0] for description in cursor.description]
+            row_no = 0
+            while rows := cursor.fetchmany(self.BATCH_SIZE):
+                for row in rows:
+                    row_no += 1
+                    parsed: dict[str, JsonVal] = {}
+                    for name, value in zip(column_names, row):
+                        try:
+                            parsed[name] = self._parse_value(value, self._column_by_name.get(name))
+                        except ValueError as e:
+                            parsed[name] = None
+                            if self.keep_failed_cells:
+                                self.failed_cell.append(
+                                    FailedParsing(row=row_no, column=name, value=str(value), error=str(e))
+                                )
+                    yield parsed
+
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
+        raise NotImplementedError("This is not used by SQLiteReader, as it reads directly from the database.")
+
+    @staticmethod
+    def _parse_value(value: JsonVal, column: SchemaColumn | None) -> JsonVal:
+        if value is None or column is None:
+            return value
+        if column.is_array or column.type == "json":
+            if not isinstance(value, str):
+                return value
+            parsed = json.loads(value)
+            if column.is_array and column.type in ("timestamp", "date"):
+                return convert_str_to_data_type(parsed, column.type, is_array=True)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+            return parsed
+        if column.type == "boolean":
+            return bool(value)
+        if column.type in ("timestamp", "date"):
+            return convert_str_to_data_type(value, column.type)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        return value
+
+    @classmethod
+    def _read_sample_rows(cls, input_file: Path, sniff_rows: int) -> tuple[Sequence[str], list[dict[str, str]]]:
+        reader = cls(input_file)
+        sample_rows: list[dict[str, str]] = []
+        for row in reader.read_chunks():
+            if len(sample_rows) >= sniff_rows:
+                break
+            sample_rows.append({key: str(value) if value is not None else "" for key, value in row.items()})
+        if not sample_rows:
+            raise ToolkitValueError(f"No data found in the file: {input_file.as_posix()!r}.")
+        return [column.name for column in reader.schema or []], sample_rows
+
+    def count(self) -> int:
+        with closing(self._connect(self.input_file)) as connection:
+            return connection.execute(f"SELECT COUNT(*) FROM {quote_sqlite_identifier(self.table)}").fetchone()[0]
 
 
 FILE_READ_CLS_BY_FORMAT: Mapping[str, type[FileReader]] = {}

@@ -48,7 +48,7 @@ def suffix_description(
         return f"{description[:truncation]}...{suffix}"
 
 
-def sanitize_spreadsheet_title(title: str) -> str:
+def sanitize_spreadsheet_title(title: str | None) -> str:
     """Sanitizes a title for use in a spreadsheet by removing invalid characters.
 
     Args:

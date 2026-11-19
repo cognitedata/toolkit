@@ -19,12 +19,11 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import ClientCredentials
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter, WorkflowFilterItem
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -32,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     WorkflowOrchestrationAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,
@@ -63,6 +63,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
@@ -75,10 +76,8 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
     TransformationTask,
 )
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._function import FunctionIO
-from ._group_scoped import GroupResourceScopedIO
 from ._simulators import SimulatorRoutineIO
 from ._streams import StreamIO
 from ._transformation import TransformationIO
@@ -98,14 +97,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
     kind = "Workflow"
-    dependencies = frozenset(
-        {
-            GroupAllScopedIO,
-            TransformationIO,
-            FunctionIO,
-            DataSetsIO,
-        }
-    )
+    dependencies = frozenset({DataSetsIO})
     yaml_cls = WorkflowYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
@@ -124,7 +116,9 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
             yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: WorkflowRequest | WorkflowResponse | dict) -> ExternalId:
+    def get_id(cls, item: WorkflowRequest | WorkflowResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -136,7 +130,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowRequest:
@@ -151,19 +145,20 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
         return dumped
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.create(items)
+    def create(self, items: Sequence[WorkflowRequest]) -> Sequence[WorkflowResponse]:
+        return self.client.workflows.create(items)
 
-    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.update(items)
+    def update(self, items: Sequence[WorkflowRequest]) -> Sequence[WorkflowResponse]:
+        return self.client.workflows.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.workflows.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -172,16 +167,16 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
-            for workflows in self.client.tool.workflows.iterate(limit=None):
+            for workflows in self.client.workflows.iterate(limit=None):
                 yield from workflows
             return
-        data_sets = self.client.tool.datasets.retrieve(
+        data_sets = self.client.datasets.retrieve(
             [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
         )
         if not data_sets:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
         data_set = data_sets[0]
-        for workflows in self.client.tool.workflows.iterate(limit=None):
+        for workflows in self.client.workflows.iterate(limit=None):
             for workflow in workflows:
                 if workflow.data_set_id == data_set.id:
                     yield workflow
@@ -200,7 +195,7 @@ class WorkflowVersionIO(
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
     kind = "WorkflowVersion"
-    dependencies = frozenset({WorkflowIO})
+    dependencies = frozenset({WorkflowIO, FunctionIO, TransformationIO, SimulatorRoutineIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowVersionYAML
 
@@ -222,7 +217,11 @@ class WorkflowVersionIO(
         yield from ()
 
     @classmethod
-    def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | dict) -> WorkflowVersionId:
+    def get_id(
+        cls, item: WorkflowVersionRequest | WorkflowVersionResponse | WorkflowVersionId | dict
+    ) -> WorkflowVersionId:
+        if isinstance(item, WorkflowVersionId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("workflowExternalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -243,10 +242,8 @@ class WorkflowVersionIO(
         # JSONPaths that are part of the API and thus should not be replaced.
         raw_str = self.safe_read(filepath)
 
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             self._update_task_parameters(replaced, original)
@@ -432,25 +429,26 @@ class WorkflowVersionIO(
     def retrieve(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
         if not ids:
             return []
-        return self.client.tool.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
-        return self.client.tool.workflows.versions.create(items)
+        return self.client.workflows.versions.create(items)
 
     def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         upserted: list[WorkflowVersionResponse] = []
         for item in self.topological_sort(items):
-            upserted.extend(self.client.tool.workflows.versions.create([item]))
+            upserted.extend(self.client.workflows.versions.create([item]))
         return upserted
 
     def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: Sequence[WorkflowVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.workflows.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -458,22 +456,24 @@ class WorkflowVersionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
-        # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
-        for versions in self.client.tool.workflows.versions.iterate(limit=None):
-            if parent_ids is not None:
-                workflow_ids = {
-                    parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
-                    for parent_id in parent_ids
-                    if isinstance(parent_id, (str, ExternalId))
-                }
-                for version in versions:
-                    if version.workflow_external_id in workflow_ids:
-                        yield version
-            else:
+        if parent_ids is None:
+            for versions in self.client.workflows.versions.iterate(limit=None):
+                yield from versions
+            return
+        workflow_ids = list(
+            dict.fromkeys(
+                parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
+                for parent_id in parent_ids
+                if isinstance(parent_id, (str, ExternalId))
+            )
+        )
+        for chunk in chunker_sequence(workflow_ids, self._list_workflow_filter_limit):
+            filter_ = WorkflowFilter(workflow_filters=[WorkflowFilterItem(external_id=id_) for id_ in chunk])
+            for versions in self.client.workflows.versions.iterate(filter=filter_, limit=None):
                 yield from versions
 
     @classmethod
-    def as_str(cls, id: WorkflowVersionId) -> str:
+    def as_filename(cls, id: WorkflowVersionId) -> str:
         if id.version is None:
             version = ""
         elif id.version.startswith("v"):
@@ -514,7 +514,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, GroupResourceScopedIO, GroupAllScopedIO, StreamIO})
+    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, StreamIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowTriggerYAML
 
@@ -523,16 +523,18 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     class _MetadataKey:
         secret_hash = "cognite-toolkit-auth-hash"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
-        self._authentication_by_id: dict[str, ClientCredentials] = {}
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
+        self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property
     def display_name(self) -> str:
         return "workflow triggers"
 
     @classmethod
-    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | dict) -> ExternalId:
+    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -542,7 +544,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -569,23 +571,23 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
                     to_pause.append(external_id)
                 elif item.is_paused is False and created_item.is_paused:
                     to_resume.append(external_id)
-        if to_pause and Flags.V09.is_enabled():
-            self.client.tool.workflows.triggers.pause(to_pause)
+        if to_pause:
+            self.client.workflows.triggers.pause(to_pause)
             for external_id in to_pause:
                 created[external_id].is_paused = True
-        if to_resume and Flags.V09.is_enabled():
-            self.client.tool.workflows.triggers.resume(to_resume)
+        if to_resume:
+            self.client.workflows.triggers.resume(to_resume)
             for external_id in to_resume:
                 created[external_id].is_paused = False
         return list(created.values())
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
+        if credentials is None:
+            raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {item.external_id!r}")
         try:
-            item.authentication = NonceCredentials(
-                nonce=self.client.iam.sessions.create(credentials, session_type="CLIENT_CREDENTIALS").nonce
-            )
-            result = self.client.tool.workflows.triggers.create([item])
+            item.authentication = NonceCredentials(nonce=self.client.sessions.create_single(credentials).nonce)
+            result = self.client.workflows.triggers.create([item])
             if not result:
                 return None
             return result[0]
@@ -595,18 +597,19 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
             raise e
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowTriggerResponse]:
-        all_triggers = self.client.tool.workflows.triggers.list(limit=None)
+        all_triggers = self.client.workflows.triggers.list(limit=None)
         lookup = {id_.external_id for id_ in ids}
         return [trigger for trigger in all_triggers if trigger.external_id in lookup]
 
     def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.triggers.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.workflows.triggers.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -614,7 +617,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowTriggerResponse]:
-        triggers = self.client.tool.workflows.triggers.list(limit=None)
+        triggers = self.client.workflows.triggers.list(limit=None)
         if parent_ids is not None:
             # Parent = Workflow
             workflow_ids = {
@@ -673,10 +676,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         # Remove response-only fields
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        if Flags.V09.is_enabled() and local and "isPaused" not in local and resource.is_paused is False:
+        if local and "isPaused" not in local and resource.is_paused is False:
             # Remove isPaused as it is set to the default value from the serves.
-            dumped.pop("isPaused", None)
-        elif not Flags.V09.is_enabled():
             dumped.pop("isPaused", None)
 
         # Remove input if None to match local format

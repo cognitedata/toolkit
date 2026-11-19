@@ -3,10 +3,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import ClientCredentials, OidcCredentials
+from cognite.client.data_classes import OidcCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     get_transformation_destination_columns,
@@ -21,12 +22,12 @@ class TestTryFindError:
         "credentials, expected",
         [
             pytest.param(
-                ClientCredentials("${ENVIRONMENT_VAR}", "1234"),
+                ClientCredentialsSessionRequest(client_id="${ENVIRONMENT_VAR}", client_secret="1234"),
                 "The environment variable is not set: ENVIRONMENT_VAR.",
                 id="Missing environment variable",
             ),
             pytest.param(
-                ClientCredentials("${ENV1}", "${ENV2}"),
+                ClientCredentialsSessionRequest(client_id="${ENV1}", client_secret="${ENV2}"),
                 "The environment variables are not set: ENV1 and ENV2.",
                 id="Missing environment variable",
             ),
@@ -43,7 +44,9 @@ class TestTryFindError:
             pytest.param(None, None, id="empty"),
         ],
     )
-    def test_try_find_error(self, credentials: OidcCredentials | ClientCredentials | None, expected: str | None):
+    def test_try_find_error(
+        self, credentials: OidcCredentials | ClientCredentialsSessionRequest | None, expected: str | None
+    ):
         assert try_find_error(credentials) == expected
 
 
@@ -554,7 +557,7 @@ class TestReadAuth:
                     "clientId": "my_id",
                     "clientSecret": "my_secret",
                 },
-                ClientCredentials("my_id", "my_secret"),
+                ClientCredentialsSessionRequest(client_id="my_id", client_secret="my_secret"),
                 id="Client credentials",
             ),
             pytest.param(
@@ -588,10 +591,10 @@ class TestReadAuth:
             ),
         ],
     )
-    def test_read_valid_auth(self, auth: object, expected: ClientCredentials | OidcCredentials) -> None:
+    def test_read_valid_auth(self, auth: object, expected: ClientCredentialsSessionRequest | OidcCredentials) -> None:
         config = MagicMock(spec=ToolkitClientConfig)
         result = read_auth(auth, config, "only-used-in-errors", "only-used-in-errors", allow_oidc=True)
-        assert isinstance(result, ClientCredentials | OidcCredentials)
+        assert isinstance(result, ClientCredentialsSessionRequest | OidcCredentials)
         assert result.dump() == expected.dump()
 
     @pytest.mark.parametrize(
@@ -641,7 +644,7 @@ class TestReadAuth:
             "Authentication is missing for compute resource 'my_compute_resource'. "
             "Falling back to the Toolkit credentials"
         ) in warning
-        assert isinstance(result, ClientCredentials)
+        assert isinstance(result, ClientCredentialsSessionRequest)
         assert result.dump() == {
             "clientId": "my_id",
             "clientSecret": "my_secret",

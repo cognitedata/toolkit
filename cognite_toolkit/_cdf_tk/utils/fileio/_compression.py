@@ -52,8 +52,10 @@ class GzipCompression(Compression):
 
     def open(self, mode: Literal["r", "w"]) -> TextIOWrapper:
         """Open the gzip compressed file."""
-        # MyPy (or gzip) fails to recognize that gzip.open returns a TextIOWrapper
-        return gzip.open(self.filepath, mode=f"{mode}t", encoding=self.encoding, newline=self.newline)  # type: ignore[return-value]
+        # gzip.open only returns a TextIOWrapper for text-mode literals, not an f-string.
+        if mode == "r":
+            return gzip.open(self.filepath, mode="rt", encoding=self.encoding, newline=self.newline)
+        return gzip.open(self.filepath, mode="wt", encoding=self.encoding, newline=self.newline)
 
 
 _all_compression_types: list[type[Compression]] = get_concrete_subclasses(Compression)  # type: ignore[type-abstract]

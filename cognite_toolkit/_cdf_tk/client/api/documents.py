@@ -1,5 +1,8 @@
-from collections.abc import Iterable
-from typing import Any
+import builtins
+from collections.abc import Iterable, Sequence
+from typing import Any, Literal
+
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -9,17 +12,26 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
     DocumentAggregateCountItem,
+    DocumentElement,
+    DocumentElementsResponse,
+    DocumentPassage,
     DocumentPropertyPath,
     DocumentResponse,
     DocumentSearchHit,
+    DocumentStatusResponse,
+    DocumentTemporaryLink,
     DocumentUniqueBucket,
 )
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 _SOURCE_FILE_METADATA: tuple[str, str] = ("sourceFile", "metadata")
 _UNIQUE_AGGREGATE_LIMIT_MAX = 10_000
 _SEARCH_HIGHLIGHT_MAX_LIMIT = 20
+_PASSAGES_SEARCH_MAX_LIMIT = 10
+_STATUS_ITEM_LIMIT = 1000
 
 
 class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
@@ -38,7 +50,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     @staticmethod
     def _documents_list_body(
         filter: dict[str, Any] | None,
-        sort: list[dict[str, Any]] | None,
+        sort: builtins.list[dict[str, Any]] | None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {}
         if filter is not None:
@@ -57,7 +69,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         *,
         query: str | None = None,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int = 100,
         cursor: str | None = None,
         highlight: bool = False,
@@ -163,7 +175,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         query: str | None = None,
         filter: dict[str, Any] | None = None,
         limit: int = 100,
-    ) -> list[DocumentUniqueBucket]:
+    ) -> builtins.list[DocumentUniqueBucket]:
         """Top distinct values for a field, each with a count and normalized ``values`` list.
 
         Uses ``uniqueValues`` for almost all paths, and ``uniqueProperties`` when ``property`` is
@@ -187,10 +199,122 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         response = self._post_aggregate(body)
         return ResponseItems[DocumentUniqueBucket].model_validate_json(response.body).items
 
+    def _post(
+        self, path: str, body: dict[str, Any], accept: str = "application/json", api_version: str | None = None
+    ) -> SuccessResponse:
+        request = RequestMessage(
+            endpoint_url=self._make_url(path),
+            method="POST",
+            body_content=body,
+            accept=accept,
+            disable_gzip=self._disable_gzip,
+            api_version=api_version,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def _get(self, path: str, accept: str) -> SuccessResponse:
+        request = RequestMessage(endpoint_url=self._make_url(path), method="GET", accept=accept)
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def content(self, item: InternalId | ExternalId | InstanceId) -> str:
+        """Retrieve the extracted plain text of a document.
+
+        See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsContentPost
+        """
+        return self._post("/documents/content", item.dump(), accept="text/plain").body
+
+    def elements(
+        self,
+        item: InternalId | ExternalId | InstanceId,
+        granularity: Literal["words", "lines", "elements"] = "words",
+    ) -> builtins.list[DocumentElement]:
+        """Retrieve the parsed content of a document as titles, paragraphs, lists, and tables (alpha).
+
+        Args:
+            item: The document.
+            granularity: Whether text is returned per word, per line, or per element.
+
+        Returns:
+            The elements of the document, in reading order.
+        """
+        response = self._post("/documents/elements", {**item.dump(), "granularity": granularity}, api_version="alpha")
+        return DocumentElementsResponse.model_validate_json(response.body).elements
+
+    def search_passages(
+        self,
+        filter: dict[str, JsonValue],
+        limit: int = 10,
+        chunk_count: int = 1,
+    ) -> builtins.list[DocumentPassage]:
+        """Semantic search for passages of documents.
+
+        Args:
+            filter: Passage filter, typically with a semanticSearch leaf, for example
+                {"semanticSearch": {"property": ["content"], "value": "pump maintenance"}}.
+            limit: Maximum number of passages to return, at most 10.
+            chunk_count: Expand each passage with this many neighbouring chunks on each side, 1 to 4.
+
+        Returns:
+            The matching passages.
+
+        See https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsPassagesSearch
+        """
+        if not 0 < limit <= _PASSAGES_SEARCH_MAX_LIMIT:
+            raise ValueError(f"Limit must be between 1 and {_PASSAGES_SEARCH_MAX_LIMIT}, got {limit}.")
+        body: dict[str, Any] = {
+            "filter": filter,
+            # The API requires an expansion strategy, and its keys are snake_case.
+            "expansionStrategy": {"strategy": "symmetric", "chunk_count": chunk_count},
+            "limit": limit,
+        }
+        response = self._post("/documents/passages/search", body)
+        return ResponseItems[DocumentPassage].model_validate_json(response.body).items
+
+    def status(
+        self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[DocumentStatusResponse]:
+        """Retrieve how far the processing of documents has come, per kind of derived content (beta).
+
+        Args:
+            items: The documents.
+            ignore_unknown_ids: Whether to skip documents that do not exist.
+
+        Returns:
+            The processing status of each document.
+        """
+        results: builtins.list[DocumentStatusResponse] = []
+        for chunk in chunker_sequence(items, _STATUS_ITEM_LIMIT):
+            body = {"items": [item.dump() for item in chunk], "ignoreUnknownIds": ignore_unknown_ids}
+            response = self._post("/documents/status", body, api_version="beta")
+            results.extend(ResponseItems[DocumentStatusResponse].model_validate_json(response.body).items)
+        return results
+
+    def preview_image(self, document_id: int, page_number: int = 1) -> bytes:
+        """Retrieve a PNG preview of a page of a document. Previews exist for the first 10 pages.
+
+        See https://api-docs.cognite.com/20230101/tag/Document-preview/operation/documentsPreviewImagePage
+        """
+        return self._get(f"/documents/{document_id}/preview/image/pages/{page_number}", accept="image/png").content
+
+    def preview_pdf(self, document_id: int) -> bytes:
+        """Retrieve a PDF preview of a document.
+
+        See https://api-docs.cognite.com/20230101/tag/Document-preview/operation/documentsPreviewPdf
+        """
+        return self._get(f"/documents/{document_id}/preview/pdf", accept="application/pdf").content
+
+    def preview_pdf_temporary_link(self, document_id: int) -> DocumentTemporaryLink:
+        """Retrieve a temporary link to a PDF preview of a document.
+
+        See https://api-docs.cognite.com/20230101/tag/Document-preview/operation/documentsPreviewPdfTemporaryLink
+        """
+        response = self._get(f"/documents/{document_id}/preview/pdf/temporarylink", accept="application/json")
+        return DocumentTemporaryLink.model_validate_json(response.body)
+
     def paginate(
         self,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[DocumentResponse]:
@@ -213,9 +337,9 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     def iterate(
         self,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[DocumentResponse]]:
+    ) -> Iterable[builtins.list[DocumentResponse]]:
         """Iterate over document list pages in CDF.
 
         Args:
@@ -234,9 +358,9 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     def list(
         self,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int | None = 100,
-    ) -> list[DocumentResponse]:
+    ) -> builtins.list[DocumentResponse]:
         """List documents in CDF.
 
         Args:

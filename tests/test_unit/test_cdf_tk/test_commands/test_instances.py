@@ -22,7 +22,7 @@ class TestInstancesCommand:
     def test_list_calls_search_endpoint(self) -> None:
         client = MagicMock()
         node = _node()
-        client.tool.instances.search.return_value = [node]
+        client.instances.search.return_value = [node]
         cmd = InstancesAPICommand(skip_tracking=True, silent=True)
         result = cmd.list(
             client,
@@ -32,7 +32,7 @@ class TestInstancesCommand:
         )
 
         assert result == [node]
-        client.tool.instances.search.assert_called_once_with(
+        client.instances.search.assert_called_once_with(
             view=ViewId(space="my_space", external_id="Asset", version="v1"),
             filter={"equals": {"property": ["node", "space"], "value": "my_space"}},
             limit=10,
@@ -41,12 +41,12 @@ class TestInstancesCommand:
 
     def test_list_passes_instance_type(self) -> None:
         client = MagicMock()
-        client.tool.instances.search.return_value = []
+        client.instances.search.return_value = []
         cmd = InstancesAPICommand(skip_tracking=True, silent=True)
         result = cmd.list(client, view="my_space:Asset/v1", instance_type="edge")
 
         assert result == []
-        client.tool.instances.search.assert_called_once_with(
+        client.instances.search.assert_called_once_with(
             view=ViewId(space="my_space", external_id="Asset", version="v1"),
             filter=None,
             limit=25,

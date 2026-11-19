@@ -113,7 +113,7 @@ class TestInteractivePrompts:
     def test_no_tracing(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         module_path = _make_module(tmp_path / "org")
         # Answers: name, route path, desc, has_body, add_another, tracing backend
-        with MockQuestionary(_MOCK_TARGET, monkeypatch, ["Prompted Function", "/process", "My route", True, False, ""]):
+        with MockQuestionary(_MOCK_TARGET, ["Prompted Function", "/process", "My route", True, False, ""]):
             _cmd().init(module_path=module_path, external_id="prompted-func")
         func_dir = module_path / "functions" / "prompted-func"
         text = (func_dir / "handler.py").read_text()
@@ -122,7 +122,7 @@ class TestInteractivePrompts:
 
     def test_tracing_backend_selection(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         module_path = _make_module(tmp_path / "org")
-        with MockQuestionary(_MOCK_TARGET, monkeypatch, ["My Func", "/hello", "Hello", False, False, "lightstep"]):
+        with MockQuestionary(_MOCK_TARGET, ["My Func", "/hello", "Hello", False, False, "lightstep"]):
             _cmd().init(module_path=module_path, external_id="ls-func")
         text = (module_path / "functions" / "ls-func" / "handler.py").read_text()
         assert 'backend="lightstep"' in text
@@ -142,7 +142,7 @@ class TestOverwriteGuard:
         handler_path = module_path / "functions" / "my-func" / "handler.py"
         original_content = handler_path.read_text()
 
-        with MockQuestionary(_MOCK_TARGET, monkeypatch, [confirm_overwrite, True]):
+        with MockQuestionary(_MOCK_TARGET, [confirm_overwrite, True]):
             _cmd().init(
                 module_path=module_path,
                 external_id="my-func",

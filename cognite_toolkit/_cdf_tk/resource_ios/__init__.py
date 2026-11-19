@@ -13,7 +13,7 @@
 # limitations under the License.
 import itertools
 from collections import defaultdict
-from typing import Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
@@ -51,6 +51,8 @@ from ._industrial_tool import StreamlitIO
 from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
+from ._neat import NeatIO
+from ._postgres_gateway import PostgresGatewayTableIO, PostgresGatewayUserIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
@@ -82,9 +84,6 @@ if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
-if not FeatureFlag.is_enabled(Flags.SIGNALS):
-    _EXCLUDED_CRUDS.add(SignalSinkIO)
-    _EXCLUDED_CRUDS.add(SignalSubscriptionIO)
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductIO)
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
@@ -93,19 +92,16 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
 if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
     _EXCLUDED_CRUDS.add(AppVersionIO)
-if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-    _EXCLUDED_CRUDS.add(SkillIO)
-if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
-    _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
 if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
     _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
-if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
-    _EXCLUDED_CRUDS.add(SAPInstanceIO)
-    _EXCLUDED_CRUDS.add(SAPEndpointIO)
-    _EXCLUDED_CRUDS.add(SchemaMappingIO)
-if not FeatureFlag.is_enabled(Flags.INTEGRATIONS):
-    _EXCLUDED_CRUDS.add(IntegrationsIO)
-    _EXCLUDED_CRUDS.add(IntegrationConfigsIO)
+if not FeatureFlag.is_enabled(Flags.NEAT):
+    _EXCLUDED_CRUDS.add(NeatIO)
+if not FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+    _EXCLUDED_CRUDS.add(PostgresGatewayUserIO)
+    _EXCLUDED_CRUDS.add(PostgresGatewayTableIO)
+if FeatureFlag.is_enabled(Flags.v010):
+    # Will be considered data and only be supported in data plugin.
+    _EXCLUDED_CRUDS.add(SequenceRowIO)
 
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
@@ -157,10 +153,9 @@ RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
 RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
 
-ResourceTypes: TypeAlias = Literal[
+_GAResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
-    "skills",
     "apps",
     "auth",
     "cdf_applications",
@@ -187,6 +182,11 @@ ResourceTypes: TypeAlias = Literal[
     "streamlit",
     "workflows",
 ]
+
+if TYPE_CHECKING or FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+    ResourceTypes: TypeAlias = Literal[_GAResourceTypes, "postgres_gateway"]
+else:
+    ResourceTypes: TypeAlias = _GAResourceTypes
 
 
 def get_resource_build_io(resource_dir: str, kind: str) -> type[BaseResourceIO]:
@@ -238,6 +238,8 @@ __all__ = [
     "LabelIO",
     "LocationFilterIO",
     "NodeIO",
+    "PostgresGatewayTableIO",
+    "PostgresGatewayUserIO",
     "RawDatabaseIO",
     "RawTableIO",
     "RelationshipIO",

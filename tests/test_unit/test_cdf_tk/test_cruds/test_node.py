@@ -240,7 +240,7 @@ class TestNodeCRUDLookupConstrainedProperties:
         )
         client = MagicMock()
 
-        client.tool.containers.retrieve.return_value = [container]
+        client.containers.retrieve.return_value = [container]
         loader = NodeIO(client)
         loader._lookup_constrained_properties({container_id})
 
@@ -257,7 +257,7 @@ class TestNodeCRUDLookupConstrainedProperties:
         view_id = view.as_id()
 
         client = MagicMock()
-        client.tool.views.retrieve.return_value = [view]
+        client.views.retrieve.return_value = [view]
         loader = NodeIO(client)
         loader._lookup_constrained_properties({view_id})
 
@@ -268,7 +268,7 @@ class TestNodeCRUDLookupConstrainedProperties:
 
         # The container cannot be resolved (not found, or no read access).
         client = MagicMock()
-        client.tool.containers.retrieve.return_value = []
+        client.containers.retrieve.return_value = []
         loader = NodeIO(client)
         loader._lookup_constrained_properties({unknown_container_id})
 

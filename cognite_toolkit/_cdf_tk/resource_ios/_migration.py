@@ -1,8 +1,6 @@
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
-
-from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
@@ -45,7 +43,9 @@ class ResourceViewMappingIO(
         return "resource view mapping"
 
     @classmethod
-    def get_id(cls, item: ResourceViewMappingRequest | ResourceViewMappingResponse | dict) -> ExternalId:
+    def get_id(cls, item: ResourceViewMappingRequest | ResourceViewMappingResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -55,7 +55,7 @@ class ResourceViewMappingIO(
         return {"externalId": id.external_id}
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -78,27 +78,26 @@ class ResourceViewMappingIO(
 
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
-        views = self.client.data_modeling.views.retrieve(
-            dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
-        )
+        views = self.client.views.retrieve([view_id])
         if len(views) > 0:
             return None
         return f"{self.display_name} requires the {view_id!s} to be deployed. run `cdf migrate prepare` to deploy it."
 
-    def create(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
-        return self.client.migration.resource_view_mapping.create(items)
+    def create(self, items: Sequence[ResourceViewMappingRequest]) -> list[ExternalId]:
+        created = self.client.migration.resource_view_mapping.create(items)
+        return [ExternalId(external_id=item.external_id) for item in created]
 
-    def update(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
-        return self.client.migration.resource_view_mapping.create(items)
+    def update(self, items: Sequence[ResourceViewMappingRequest]) -> list[ExternalId]:
+        return self.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
         node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
-        return len(result)
+        return [ExternalId(external_id=node.external_id) for node in result]
 
     def _iterate(
         self,

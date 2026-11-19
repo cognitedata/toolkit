@@ -53,7 +53,7 @@ def test_reloading_asgi_factory(function_app_path: Path, monkeypatch: pytest.Mon
 
     assert app == "asgi-app"
     load_handler.assert_called_once_with(function_app_path)
-    create_asgi_app.assert_called_once_with("handle", client_factory=RunFunctionAppCommand._create_cognite_client)
+    create_asgi_app.assert_called_once_with("handle", client_factory=RunFunctionAppCommand.create_cognite_client)
 
 
 def test_loads_relative_imports(tmp_path: Path) -> None:

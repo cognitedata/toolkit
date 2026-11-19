@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import Field, TypeAdapter, ValidationError
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -26,7 +25,6 @@ from ._file_content import (
     FileContentSelector,
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
-    FileIdentifierSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
@@ -53,10 +51,12 @@ from ._instances import (
 )
 from ._raw import RawTableSelector, SelectedTable
 from ._records import RecordContainerSelector, SelectedContainer, SelectedStream
+from ._sequences import SequenceRowSelector
 from ._three_d import ThreeDModelFilteredSelector, ThreeDModelIdSelector, ThreeDSelector
 
 Selector = Annotated[
     RawTableSelector
+    | SequenceRowSelector
     | ThreeDModelIdSelector
     | ThreeDModelFilteredSelector
     | InstanceViewSelector
@@ -77,15 +77,14 @@ Selector = Annotated[
     | FileMetadataFilesSelectorV2
     | CogniteFileTemplateSelectorV2
     | CogniteFileFilesSelectorV2
-    | FileIdentifierSelector
     | RecordContainerSelector
     | InstanceQuerySelector,
     Field(discriminator="type"),
 ]
 
-ALPHA_SELECTORS = {FileIdentifierSelector, RecordContainerSelector}
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
-SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
+DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
+SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector, config=ConfigDict(defer_build=True))
 
 
 def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
@@ -95,21 +94,38 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
         manifest_file: Path to the manifest file.
 
     Returns:
-        A selector object or a toolkit warning if loading fails or the selector is an alpha feature that is not enabled.
+        A selector object or a toolkit warning if loading fails or the selector cannot be used.
     """
     selector_dict = read_yaml_file(manifest_file, expected_output="dict")
+    return load_selector_from_dict(selector_dict, manifest_file)
+
+
+def load_selector_from_dict(selector_dict: dict[str, Any], source_file: Path) -> Selector | ToolkitWarning:
+    """Loads a selector from a dictionary.
+
+    Args:
+        selector_dict: The selector as a dictionary.
+        source_file: The file the selector was read from, used in warnings.
+
+    Returns:
+        A selector object or a toolkit warning if loading fails or the selector cannot be used.
+    """
     try:
         selector = SelectorAdapter.validate_python(selector_dict)
     except ValidationError as e:
         errors = humanize_validation_error(e)
-        return ResourceFormatWarning(manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
-    if not Flags.EXTEND_UPLOAD.is_enabled() and type(selector) in ALPHA_SELECTORS:
+        return ResourceFormatWarning(source_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
+    if type(selector) in INTERNAL:
         return MediumSeverityWarning(
-            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is in alpha. To enable it set the alpha flag 'extend-upload = true' in your CDF.toml file."
+            f"Selector type '{type(selector).__name__}' in file '{source_file}' is for internal use only and cannot be used."
         )
-    elif type(selector) in INTERNAL:
-        return MediumSeverityWarning(
-            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is for internal use only and cannot be used."
+    elif type(selector) in DEPRECATED:
+        return ResourceFormatWarning(
+            source_file,
+            (
+                f"Selector type '{type(selector).__name__}' has been deprecated and is no longer supported in version 0.9. Please update your selector to use the new format.",
+            ),
+            text="Invalid selector in metadata file, skipping.",
         )
     return selector
 
@@ -138,7 +154,6 @@ __all__ = [
     "FileContentSelector",
     "FileDataModelingTemplate",
     "FileDataModelingTemplateSelector",
-    "FileIdentifierSelector",
     "FileMetadataContentSelectorV2",
     "FileMetadataFilesSelectorV2",
     "FileMetadataTemplate",
@@ -162,8 +177,10 @@ __all__ = [
     "SelectedView",
     "Selector",
     "SelectorAdapter",
+    "SequenceRowSelector",
     "ThreeDModelIdSelector",
     "ThreeDSelector",
     "TimeSeriesColumn",
     "load_selector",
+    "load_selector_from_dict",
 ]

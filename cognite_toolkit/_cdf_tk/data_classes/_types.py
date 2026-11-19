@@ -1,0 +1,59 @@
+from pathlib import Path
+from typing import Annotated, Literal, TypeAlias
+
+from pydantic import AfterValidator
+
+KNOWN_FILE_EXTENSIONS = {".json", ".yaml", ".yml", ".py", ".sql", ".md"}
+
+
+def _is_likely_dir(p: Path) -> bool:
+    return p.suffix.lower() not in KNOWN_FILE_EXTENSIONS
+
+
+def _is_relative_file_path(p: Path) -> Path:
+    if not p.suffix:
+        raise ValueError(f"{p.as_posix()!r} is not a file.")
+    if p.is_absolute():
+        raise ValueError(f"{p.as_posix()!r} is not a relative path.")
+    return p
+
+
+def _is_absolute_file_path(p: Path) -> Path:
+    if not p.suffix:
+        raise ValueError(f"{p.as_posix()!r} is not a file.")
+    if not p.is_absolute():
+        raise ValueError(f"{p.as_posix()!r} is not an absolute path.")
+    return p
+
+
+def _is_relative_dir_path(p: Path) -> Path:
+    if p.suffix:
+        raise ValueError(f"{p.as_posix()!r} is not a directory.")
+    if p.is_absolute():
+        raise ValueError(f"{p.as_posix()!r} is not a relative path.")
+    return p
+
+
+def _is_absolute_dir_path(p: Path) -> Path:
+    if not _is_likely_dir(p):
+        raise ValueError(f"{p.as_posix()!r} is not a directory.")
+    if not p.is_absolute():
+        raise ValueError(f"{p.as_posix()!r} is not an absolute path.")
+    return p
+
+
+def _is_url(value: str) -> str:
+    if "://" not in value and not value.startswith("/"):
+        raise ValueError(f"{value!r} is not a URL or a URL path such as '/models/views'.")
+    return value
+
+
+RelativeFilePath: TypeAlias = Annotated[Path, AfterValidator(_is_relative_file_path)]
+AbsoluteFilePath: TypeAlias = Annotated[Path, AfterValidator(_is_absolute_file_path)]
+RelativeDirPath: TypeAlias = Annotated[Path, AfterValidator(_is_relative_dir_path)]
+AbsoluteDirPath: TypeAlias = Annotated[Path, AfterValidator(_is_absolute_dir_path)]
+# A complete URL, or only the path part of one, for example, '/models/views'.
+URL: TypeAlias = Annotated[str, AfterValidator(_is_url)]
+
+
+ValidationType: TypeAlias = Literal["dev", "prod"]

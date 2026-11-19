@@ -46,7 +46,9 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
         return "schema mappings"
 
     @classmethod
-    def get_id(cls, item: SchemaMappingRequest | SchemaMappingResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: SchemaMappingRequest | SchemaMappingResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "Schema mapping"))
         return item.as_id()
@@ -56,7 +58,7 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -83,11 +85,12 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
             return []
         return self.client.sap_writeback.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.sap_writeback.mappings.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.sap_writeback.mappings.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -115,7 +118,9 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
         return "SAP instances"
 
     @classmethod
-    def get_id(cls, item: SAPInstanceRequest | SAPInstanceResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: SAPInstanceRequest | SAPInstanceResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "SAP instance"))
         return item.as_id()
@@ -125,7 +130,7 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -156,11 +161,12 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
             return []
         return self.client.sap_writeback.instances.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.sap_writeback.instances.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.sap_writeback.instances.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -189,7 +195,9 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
         return "SAP endpoints"
 
     @classmethod
-    def get_id(cls, item: SAPEndpointRequest | SAPEndpointResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: SAPEndpointRequest | SAPEndpointResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "SAP endpoint"))
         return item.as_id()
@@ -199,7 +207,7 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -228,11 +236,12 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
             return []
         return self.client.sap_writeback.endpoints.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.sap_writeback.endpoints.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.sap_writeback.endpoints.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

@@ -2,9 +2,15 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes import DataSet, TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    AggregateDatapointsResponse,
+    DatapointsQueryRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import DatapointsIO
 from cognite_toolkit._cdf_tk.dataio.selectors import DataPointsDataSetSelector, DataPointsFileSelector
@@ -12,35 +18,58 @@ from cognite_toolkit._cdf_tk.dataio.selectors._datapoints import ExternalIdColum
 
 
 @pytest.fixture(scope="session")
-def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> tuple[TimeSeries, TimeSeries]:
-    ts = TimeSeriesWrite(
-        name="Test TimeSeries for Datapoints IO",
-        external_id="test_timeseries_datapoints_io",
-        is_step=False,
-        is_string=False,
-        data_set_id=toolkit_dataset.id,
+def upload_dataset(toolkit_client: ToolkitClient) -> DataSetResponse:
+    dataset = DataSetRequest(
+        external_id="toolkit_tests_dataset", name="Toolkit Test DataSet", description="Toolkit DataSet used in tests"
     )
-    ts2 = TimeSeriesWrite(
-        name="Test TimeSeries 2 for Datapoints IO",
-        external_id="test_timeseries_2_datapoints_io",
-        is_step=False,
-        is_string=True,
-        data_set_id=toolkit_dataset.id,
-    )
-    retrieved1 = toolkit_client.time_series.retrieve(external_id=ts.external_id)
-    retrieved2 = toolkit_client.time_series.retrieve(external_id=ts2.external_id)
-    if retrieved1 is None:
-        retrieved1 = toolkit_client.time_series.create(ts)
-    if retrieved2 is None:
-        retrieved2 = toolkit_client.time_series.create(ts2)
-    return retrieved1, retrieved2
+    retrieved = toolkit_client.datasets.retrieve([dataset.as_id()], ignore_unknown_ids=True)
+    if retrieved:
+        return retrieved[0]
+    return toolkit_client.datasets.create([dataset])[0]
+
+
+@pytest.fixture(scope="session")
+def two_timeseries(
+    toolkit_client: ToolkitClient, upload_dataset: DataSetResponse
+) -> tuple[TimeSeriesResponse, TimeSeriesResponse]:
+    requests = [
+        TimeSeriesRequest(
+            name="Test TimeSeries for Datapoints IO",
+            external_id="test_timeseries_datapoints_io",
+            is_step=False,
+            is_string=False,
+            data_set_id=upload_dataset.id,
+        ),
+        TimeSeriesRequest(
+            name="Test TimeSeries 2 for Datapoints IO",
+            external_id="test_timeseries_2_datapoints_io",
+            is_step=False,
+            is_string=True,
+            data_set_id=upload_dataset.id,
+        ),
+    ]
+    result: list[TimeSeriesResponse] = []
+    for request in requests:
+        assert request.external_id is not None
+        retrieved = toolkit_client.timeseries.retrieve(
+            [ExternalId(external_id=request.external_id)], ignore_unknown_ids=True
+        )
+        result.append(retrieved[0] if retrieved else toolkit_client.timeseries.create([request])[0])
+    return result[0], result[1]
 
 
 class TestUploadCommand:
     def test_upload_datapoints(
-        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        two_timeseries: tuple[TimeSeriesResponse, TimeSeriesResponse],
+        tmp_path: Path,
     ) -> None:
         ts1, ts2 = two_timeseries
+        ts1_external_id = ts1.external_id
+        ts2_external_id = ts2.external_id
+        assert ts1_external_id is not None
+        assert ts2_external_id is not None
         assert ts1.is_string is False
         assert ts2.is_string is True
         selector = DataPointsFileSelector(
@@ -48,7 +77,7 @@ class TestUploadCommand:
             columns=(
                 ExternalIdColumn(
                     column="value",
-                    external_id=ts1.external_id,
+                    external_id=ts1_external_id,
                     dtype="numeric",
                 ),
                 InternalIdColumn(
@@ -75,30 +104,38 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        datapoints = toolkit_client.time_series.data.retrieve_arrays(
-            external_id=ts1.external_id,
+        results = toolkit_client.timeseries.datapoints.retrieve(
+            [
+                DatapointsQueryRequest(external_id=ts1_external_id),
+                DatapointsQueryRequest(external_id=ts2_external_id),
+            ],
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
-        assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"
-        datapoints2 = toolkit_client.time_series.data.retrieve_arrays(
-            external_id=ts2.external_id,
-            start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
-            end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
-        )
-        assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
+        assert len(results) == 2
+        for result in results:
+            assert len(result.datapoints) == 10, f"Expected 10 datapoints, got {len(result.datapoints)}"
 
     def test_upload_download_datapoints(
-        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        two_timeseries: tuple[TimeSeriesResponse, TimeSeriesResponse],
+        tmp_path: Path,
     ) -> None:
         ts1, _ = two_timeseries
         client = toolkit_client
+        ts1_external_id = ts1.external_id
+        data_set_id = ts1.data_set_id
+        assert ts1_external_id is not None
+        assert data_set_id is not None
         assert ts1.is_string is False
+        data_set_external_id = client.lookup.data_sets.external_id(data_set_id)
+        assert data_set_external_id is not None
 
         upload_dir = tmp_path / "upload"
         upload_dir.mkdir(parents=True, exist_ok=True)
         selector = DataPointsDataSetSelector(
-            data_set_external_id=client.lookup.data_sets.external_id(ts1.data_set_id),
+            data_set_external_id=data_set_external_id,
             start=int(datetime.fromisoformat("1989-01-01T00:00:00Z").timestamp() * 1000),
             end=int(datetime.fromisoformat("1989-01-02T00:00:00Z").timestamp() * 1000),
             download_dir_name="datapoints",
@@ -109,7 +146,7 @@ class TestUploadCommand:
         rows: list[str] = []
         for i in range(10):
             timestamp_ms = int(datetime.fromisoformat(f"1989-01-01T00:00:{i:02d}Z").timestamp() * 1000)
-            rows.append(f"{ts1.external_id},{timestamp_ms},{i * 5}.0")
+            rows.append(f"{ts1_external_id},{timestamp_ms},{i * 5}.0")
         csv_content += "\n" + "\n".join(rows)
         csv_file.write_text(csv_content)
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
@@ -121,14 +158,19 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        aggregate_result = client.time_series.data.retrieve(
-            external_id=ts1.external_id,
+        aggregate_results = toolkit_client.timeseries.datapoints.retrieve(
+            [DatapointsQueryRequest(external_id=ts1_external_id)],
             start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
             end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
-            aggregates="count",
+            aggregates=["count"],
             granularity="1d",
         )
-        assert aggregate_result.count[0] == 10, f"Expected 10 datapoints, got {aggregate_result.count[0]}"
+        assert len(aggregate_results) == 1
+        aggregate_result = aggregate_results[0]
+        assert isinstance(aggregate_result, AggregateDatapointsResponse)
+        assert aggregate_result.datapoints, "Expected aggregate datapoints"
+        count = aggregate_result.datapoints[0].count
+        assert count == 10, f"Expected 10 datapoints, got {count}"
 
         io = DatapointsIO(client)
         download_cmd = DownloadCommand(silent=True, skip_tracking=True)

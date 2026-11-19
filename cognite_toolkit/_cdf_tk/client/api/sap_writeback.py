@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -42,7 +43,7 @@ class SAPInstancesAPI(CDFResourceAPI[SAPInstanceResponse]):
     ) -> PagedResponse[SAPInstanceResponse]:
         return PagedResponse[SAPInstanceResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SAPInstanceRequest]) -> list[SAPInstanceResponse]:
+    def create(self, items: Sequence[SAPInstanceRequest]) -> builtins.list[SAPInstanceResponse]:
         """Create SAP instances.
 
         Args:
@@ -52,7 +53,9 @@ class SAPInstancesAPI(CDFResourceAPI[SAPInstanceResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[SAPInstanceResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[SAPInstanceResponse]:
         """Retrieve SAP instances by external ID.
 
         Args:
@@ -92,7 +95,7 @@ class SAPInstancesAPI(CDFResourceAPI[SAPInstanceResponse]):
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[SAPInstanceResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[SAPInstanceResponse]]:
         """Iterate over SAP instances.
 
         Args:
@@ -102,7 +105,7 @@ class SAPInstancesAPI(CDFResourceAPI[SAPInstanceResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[SAPInstanceResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[SAPInstanceResponse]:
         """List SAP instances.
 
         Args:
@@ -133,7 +136,7 @@ class SAPEndpointsAPI(CDFResourceAPI[SAPEndpointResponse]):
     ) -> PagedResponse[SAPEndpointResponse]:
         return PagedResponse[SAPEndpointResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SAPEndpointRequest]) -> list[SAPEndpointResponse]:
+    def create(self, items: Sequence[SAPEndpointRequest]) -> builtins.list[SAPEndpointResponse]:
         """Create SAP endpoints.
 
         Args:
@@ -143,7 +146,9 @@ class SAPEndpointsAPI(CDFResourceAPI[SAPEndpointResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[SAPEndpointResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[SAPEndpointResponse]:
         """Retrieve SAP endpoints by external ID.
 
         Args:
@@ -194,7 +199,7 @@ class SAPEndpointsAPI(CDFResourceAPI[SAPEndpointResponse]):
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[SAPEndpointResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[SAPEndpointResponse]]:
         """Iterate over SAP endpoints.
 
         Args:
@@ -204,7 +209,7 @@ class SAPEndpointsAPI(CDFResourceAPI[SAPEndpointResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[SAPEndpointResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[SAPEndpointResponse]:
         """List SAP endpoints.
 
         Args:
@@ -234,7 +239,7 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
     ) -> PagedResponse[SchemaMappingResponse]:
         return PagedResponse[SchemaMappingResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SchemaMappingRequest]) -> list[SchemaMappingResponse]:
+    def create(self, items: Sequence[SchemaMappingRequest]) -> builtins.list[SchemaMappingResponse]:
         """Create schema mappings.
 
         Args:
@@ -244,7 +249,9 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[SchemaMappingResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[SchemaMappingResponse]:
         """Retrieve schema mappings by external ID.
 
         Args:
@@ -277,7 +284,7 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[SchemaMappingResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[SchemaMappingResponse]]:
         """Iterate over schema mappings.
 
         Args:
@@ -287,7 +294,7 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[SchemaMappingResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[SchemaMappingResponse]:
         """List schema mappings.
 
         Args:
@@ -319,7 +326,7 @@ class SAPWritebackAPI(CDFResourceAPI[WritebackRequestResponse]):
     ) -> PagedResponse[WritebackRequestResponse]:
         return PagedResponse[WritebackRequestResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[WritebackRequestRequest]) -> list[WritebackRequestResponse]:
+    def create(self, items: Sequence[WritebackRequestRequest]) -> builtins.list[WritebackRequestResponse]:
         """Create writeback requests.
 
         The API accepts one request per call. Larger sequences are sent as separate calls.
@@ -333,7 +340,7 @@ class SAPWritebackAPI(CDFResourceAPI[WritebackRequestResponse]):
 
     def retrieve(
         self, items: Sequence[WritebackRequestId], ignore_unknown_ids: bool = False
-    ) -> list[WritebackRequestResponse]:
+    ) -> builtins.list[WritebackRequestResponse]:
         """Retrieve writeback requests by request ID.
 
         Args:
@@ -357,7 +364,7 @@ class SAPWritebackAPI(CDFResourceAPI[WritebackRequestResponse]):
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[WritebackRequestResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[WritebackRequestResponse]]:
         """Iterate over writeback requests.
 
         Args:
@@ -367,7 +374,7 @@ class SAPWritebackAPI(CDFResourceAPI[WritebackRequestResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[WritebackRequestResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[WritebackRequestResponse]:
         """List writeback requests.
 
         Args:

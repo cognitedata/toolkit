@@ -1,14 +1,9 @@
 import re
-import sys
-from typing import Any
+from collections.abc import Iterable
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from pydantic import Field, field_validator, model_serializer, model_validator
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from pydantic import Field, field_validator
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId as ViewReferenceId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamExternalId
@@ -20,11 +15,15 @@ from cognite_toolkit._cdf_tk.constants import (
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
-from .view_field_definitions import ViewProperty, ViewReference
+from .view_field_definitions import ViewPropertyType, ViewReference
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
@@ -74,18 +73,66 @@ class ViewYAML(ToolkitResource):
         min_length=1,
         max_length=1,
     )
-    properties: dict[str, ViewProperty] | None = Field(
+    properties: dict[str, ViewPropertyType] | None = Field(
         default=None, description="Set of properties to apply to the View."
     )
 
     def as_id(self) -> ViewReferenceId:
         return ViewReferenceId(space=self.space, external_id=self.external_id, version=self.version)
 
-    @model_validator(mode="after")
-    def validate_record_view_alpha_flag(self) -> Self:
-        if self.stream_id is not None and not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
-            raise ValueError("streamId requires the record_views alpha flag to be enabled in cdf.toml [alpha_flags].")
-        return self
+    def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
+        return [
+            *super().extra_insights(source_file, resource_type),
+            *self._filter_insights(source_file),
+        ]
+
+    def _filter_insights(self, source_file: Path) -> "list[BuildWarning | Recommendation]":
+        """Reports view filters with nested filters, or with hasData filters on views."""
+        if not Flags.ALPHA_RULES.is_enabled():
+            return []
+        # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
+        from cognite_toolkit._cdf_tk.rules._base import with_position
+
+        view_id = self.as_id()
+        expressions = list(_filter_expressions(self.filter))
+        insights: list[BuildWarning | Recommendation] = []
+        if any(filter_type == "nested" for filter_type, _ in expressions):
+            recommendation = Recommendation(
+                code="DEGRADED-PERFORMANCE",
+                message=(
+                    f"View '{view_id}' has a nested filter. Nested filters follow a direct relation for every "
+                    "instance queried through the view, and are not supported by the instances inspect endpoint."
+                ),
+                fix=(
+                    "Replace the nested filter with a filter on the properties of the view's own containers, "
+                    "for example, a hasData filter on containers or an equals filter on the node type."
+                ),
+                source_file=source_file,
+                alpha=True,
+            )
+            insights.append(with_position(recommendation, keys=["nested", "filter"]))
+        view_labels = [
+            label
+            for filter_type, body in expressions
+            if filter_type == "hasData"
+            for label in _has_data_view_labels(body)
+        ]
+        if view_labels:
+            noun = "view" if len(view_labels) == 1 else "views"
+            warning = BuildWarning(
+                code="ANTI-PATTERN",
+                message=(
+                    f"View '{view_id}' has a hasData filter on the {noun} {humanize_collection(view_labels, sort=False)}. "
+                    "A hasData filter on a view is resolved through the containers of that view, and CDF rejects "
+                    f"it if that view refers back to '{view_id}'."
+                ),
+                fix="Use hasData on the containers of the referenced view, instead of the view itself.",
+                source_file=source_file,
+                alpha=True,
+            )
+            insights.append(with_position(warning, keys=["hasData", "filter"]))
+        return insights
 
     @field_validator("external_id")
     @classmethod
@@ -99,9 +146,11 @@ class ViewYAML(ToolkitResource):
 
     @field_validator("properties")
     @classmethod
-    def validate_properties_identifier(cls, val: dict[str, str]) -> dict[str, str]:
+    def validate_properties_identifier(cls, val: dict[str, str] | None) -> dict[str, str] | None:
         """Validate properties Identifier"""
-        for key in val.keys():
+        if val is None:
+            return val
+        for key in val:
             if not KEY_PATTERN.match(key):
                 raise ValueError(f"Property '{key}' does not match the required pattern: {KEY_PATTERN.pattern}")
             if key in FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER:
@@ -110,11 +159,27 @@ class ViewYAML(ToolkitResource):
                 )
         return val
 
-    @model_serializer(mode="wrap")
-    def serialize_container(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        serialized_data = handler(self)
-        if self.properties:
-            serialized_data["properties"] = {
-                key: value.model_dump(**vars(info)) for key, value in self.properties.items()
-            }
-        return serialized_data
+
+def _filter_expressions(filter_: Any) -> Iterable[tuple[str, Any]]:
+    """The filter type and body of each filter, including those within 'and', 'or', 'not', and 'nested'."""
+    if not isinstance(filter_, dict):
+        return
+    for filter_type, body in filter_.items():
+        yield filter_type, body
+        if filter_type in ("and", "or") and isinstance(body, list):
+            for item in body:
+                yield from _filter_expressions(item)
+        elif filter_type == "not":
+            yield from _filter_expressions(body)
+        elif filter_type == "nested" and isinstance(body, dict):
+            yield from _filter_expressions(body.get("filter"))
+
+
+def _has_data_view_labels(body: Any) -> list[str]:
+    if not isinstance(body, list):
+        return []
+    return [
+        f"'{ref.get('space')}:{ref.get('externalId')}(version={ref.get('version')})'"
+        for ref in body
+        if isinstance(ref, dict) and ref.get("type") == "view"
+    ]

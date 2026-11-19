@@ -16,6 +16,7 @@ class TestFunctionScheduleYAML:
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
         assert "authentication" in dumped
         # Secret is not dumped as per design, so we add it back for comparison
+        assert isinstance(data["authentication"], dict)
         dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
         assert dumped == data
 

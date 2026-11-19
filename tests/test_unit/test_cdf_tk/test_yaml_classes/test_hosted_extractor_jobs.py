@@ -1,11 +1,21 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import HostedExtractorJobYAML
+from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import (
+    HostedExtractorJobYAML,
+    IncrementalLoad,
+    IncrementalLoadType,
+    JobFormat,
+    JobFormatType,
+    NextURLIncrementalLoad,
+    RequestIncrementalLoad,
+)
 from tests.test_unit.utils import find_resources
 
 
@@ -19,7 +29,8 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "config": {"topicFilter": "some_filter"},
         },
         {
-            "Invalid value for format: invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
+            "Invalid value for format: Input tag 'invalid' found using 'type' does not match any of the expected tags: "
+            "'custom', 'cognite', 'rockwell', 'sparkplug', 'value'",
         },
         id="Invalid type",
     )
@@ -45,7 +56,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"encoding": "utf8"},
         },
         {
-            "Invalid value for format: Invalid input format missing 'type' key",
+            "Invalid value for format: Missing required field: 'type'",
         },
         id="Format missing type",
     )
@@ -126,10 +137,11 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "externalId": "myJob",
             "destinationId": "myDest",
             "sourceId": "mySource",
-            "format": {"type": "cognite", "dataModels": [{"space": f"space{i}"} for i in range(11)]},
+            "format": {"type": "cognite", "dataModels": [{"space": "space1"}]},
         },
         {
-            "Invalid value at format.dataModels: List should have at most 10 items after validation, not 11",
+            "Invalid value at format.dataModels: Input should be a valid SpaceRef object. "
+            "Got [{'space': 'space1'}] of type list."
         },
         id="CogniteFormat too many data models",
     )
@@ -140,10 +152,10 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "externalId": "myJob",
             "destinationId": "myDest",
             "sourceId": "mySource",
-            "format": {"type": "cognite", "dataModels": [{}]},
+            "format": {"type": "cognite", "dataModels": {}},
         },
         {
-            "Missing required field in format.dataModels[1]: 'space'",
+            "Missing required field in format.dataModels: 'space'",
         },
         id="CogniteFormat missing space in dataModels",
     )
@@ -173,7 +185,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": "invalid_format",
         },
         {
-            "Invalid value for format: Invalid input for format '<class 'str'>' expected dict",
+            "Invalid value for format: Input should be a valid dictionary or object to extract fields from",
         },
         id="Format non-dict type",
     )
@@ -187,7 +199,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": None,
         },
         {
-            "Invalid value for format: Invalid input for format '<class 'NoneType'>' expected dict",
+            "Invalid value for format: Input should be a valid dictionary or object to extract fields from",
         },
         id="Format null type",
     )
@@ -208,21 +220,37 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required field in config.KafkaConfig: 'topic'",
-            "Unrecognized fields in config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
-            "'pagination' and 'path'. ",
-            "Missing required field in config.MQTTConfig: 'topicFilter'",
-            "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
-            "'pagination' and 'path'. ",
-            "Invalid value at config.RestConfig.incrementalLoad: Invalid type 'nextUrl'. Expected one of "
-            "body, headerValue and queryParameter",
+            "Invalid value at config.incrementalLoad: Input tag 'nextUrl' found using "
+            "'type' does not match any of the expected tags: 'body', 'headerValue', "
+            "'queryParam'"
         },
         id="Invalid IncrementalLoad and Pagination type",
     )
 
 
+def valid_hosted_extractor_job_test_cases() -> Iterable:
+    yield pytest.param(
+        {
+            "externalId": "myJob",
+            "destinationId": "myDest",
+            "sourceId": "mySource",
+            "format": {"type": "cognite", "encoding": "utf8", "dataModels": {"space": "mySpace"}},
+            "config": {
+                "interval": "1h",
+                "path": "/some/path",
+                "method": "get",
+                "incrementalLoad": {"type": "body", "value": "some_value"},
+                "pagination": {"type": "body", "value": "some_value"},
+            },
+        },
+        id="Valid hosted extractor job with body incremental load and pagination",
+    )
+
+
 class TestHostedExtractorJobYAML:
-    @pytest.mark.parametrize("data", list(find_resources("Job", resource_dir="hosted_extractors")))
+    @pytest.mark.parametrize(
+        "data", [*find_resources("Job", resource_dir="hosted_extractors"), *valid_hosted_extractor_job_test_cases()]
+    )
     def test_load_valid_hosted_extractor_job(self, data: dict[str, object]) -> None:
         loaded = HostedExtractorJobYAML.model_validate(data)
 
@@ -236,3 +264,24 @@ class TestHostedExtractorJobYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_all_formats_in_union(self) -> None:
+        """Test that all job format types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(JobFormat))
+        subclasses = set(get_args(JobFormatType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_incremental_loads_in_union(self) -> None:
+        """Test that all incremental load types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(IncrementalLoad))
+        subclasses = set(get_args(IncrementalLoadType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_request_incremental_load_union(self) -> None:
+        """nextUrl is valid for pagination, and is excluded from request incremental load."""
+        expected_subclasses = set(get_concrete_subclasses(IncrementalLoad)) - {NextURLIncrementalLoad}
+        subclasses = set(get_args(RequestIncrementalLoad.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

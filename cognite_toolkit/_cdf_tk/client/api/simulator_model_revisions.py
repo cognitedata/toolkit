@@ -1,10 +1,12 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulatorModelRevisionFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator import SimulatorModelRevisionDataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model_revision import (
     SimulatorModelRevisionRequest,
     SimulatorModelRevisionResponse,
@@ -30,7 +32,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
+    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> builtins.list[SimulatorModelRevisionResponse]:
         """Create simulator model revisions in CDF.
 
         Args:
@@ -43,7 +45,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[SimulatorModelRevisionResponse]:
+    ) -> builtins.list[SimulatorModelRevisionResponse]:
         """Retrieve simulator model revisions from CDF.
 
         Args:
@@ -57,6 +59,29 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
             return self._request_item_split_retries(items, method="retrieve")
         else:
             return self._request_item_response(items, method="retrieve")
+
+    def retrieve_data(
+        self, model_revision_external_ids: Sequence[str]
+    ) -> builtins.list[SimulatorModelRevisionDataResponse]:
+        """Retrieve the flowsheets the connector extracted from model revisions (alpha).
+
+        Args:
+            model_revision_external_ids: External IDs of the model revisions. Each is retrieved with its own request.
+
+        Returns:
+            The extracted data of each model revision.
+        """
+        results: builtins.list[SimulatorModelRevisionDataResponse] = []
+        for external_id in model_revision_external_ids:
+            request = RequestMessage(
+                endpoint_url=self._make_url("/simulators/models/revisions/data/list"),
+                method="POST",
+                body_content={"items": [{"modelRevisionExternalId": external_id}]},
+                api_version="alpha",
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            results.extend(ResponseItems[SimulatorModelRevisionDataResponse].model_validate_json(response.body).items)
+        return results
 
     def paginate(
         self,
@@ -86,7 +111,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
         self,
         filter: SimulatorModelRevisionFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[SimulatorModelRevisionResponse]]:
+    ) -> Iterable[builtins.list[SimulatorModelRevisionResponse]]:
         """Iterate over simulator model revisions in CDF.
 
         Args:
@@ -105,14 +130,16 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
 
     def list(
         self,
+        filter: SimulatorModelRevisionFilter | None = None,
         limit: int | None = 100,
-    ) -> list[SimulatorModelRevisionResponse]:
+    ) -> builtins.list[SimulatorModelRevisionResponse]:
         """List all simulator model revisions in CDF.
 
         Args:
+            filter: Filter to apply to the simulator model revisions.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of SimulatorModelRevisionResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})

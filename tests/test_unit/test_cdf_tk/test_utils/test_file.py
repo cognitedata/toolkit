@@ -1,3 +1,4 @@
+import re
 import tempfile
 from pathlib import Path
 from zipfile import ZipFile
@@ -5,10 +6,15 @@ from zipfile import ZipFile
 import pytest
 
 from cognite_toolkit._cdf_tk.utils.file import (
+    YamlPosition,
     create_logfile_stem,
     create_temporary_zip,
+    find_first_match_position,
+    load_yaml_inject_variables,
     read_yaml_content,
     sanitize_filename,
+    yaml_find_position,
+    yaml_positions,
 )
 
 
@@ -96,6 +102,7 @@ databases:
 -   connection-string: !keyvault db-connection-secret
     name: my_db"""
         result = read_yaml_content(yaml_content)
+        assert isinstance(result, dict)
         assert result["azure-keyvault"]["password"] == "!keyvault value-secret-name"
         assert result["databases"][0]["connection-string"] == "!keyvault db-connection-secret"
         assert result["databases"][0]["name"] == "my_db"
@@ -106,6 +113,96 @@ databases:
 secret2: !keyvault secret-name-2
 normal_value: regular-string"""
         result = read_yaml_content(yaml_content)
+        assert isinstance(result, dict)
         assert result["secret1"] == "!keyvault secret-name-1"
         assert result["secret2"] == "!keyvault secret-name-2"
         assert result["normal_value"] == "regular-string"
+
+
+class TestYamlPositions:
+    def test_mapping_and_list_locations(self) -> None:
+        yaml_content = """- dbName: first
+  tableName: wrong
+- dbName: second
+  nested:
+    key: value
+"""
+        assert yaml_positions(yaml_content) == {
+            (0,): YamlPosition(1, 3),
+            (0, "dbName"): YamlPosition(1, 3),
+            (0, "tableName"): YamlPosition(2, 3),
+            (1,): YamlPosition(3, 3),
+            (1, "dbName"): YamlPosition(3, 3),
+            (1, "nested"): YamlPosition(4, 3),
+            (1, "nested", "key"): YamlPosition(5, 5),
+        }
+
+    def test_empty_content(self) -> None:
+        assert yaml_positions("") == {}
+
+
+class TestYamlFindPosition:
+    CONTENT = """- space: my_space
+  name: first
+- space: other
+  nested:
+    name: second
+"""
+
+    def test_finds_unique_value(self) -> None:
+        assert yaml_find_position(self.CONTENT, "other") == YamlPosition(3, 10)
+
+    def test_ambiguous_key_at_same_depth_is_not_found(self) -> None:
+        assert yaml_find_position(self.CONTENT, "space", as_key=True) is None
+
+    def test_key_at_multiple_depths_is_found_at_shallowest(self) -> None:
+        assert yaml_find_position(self.CONTENT, "name", as_key=True) == YamlPosition(2, 3)
+
+    def test_unique_key_is_found(self) -> None:
+        assert yaml_find_position(self.CONTENT, "nested", as_key=True) == YamlPosition(4, 3)
+
+    def test_invalid_yaml(self) -> None:
+        assert yaml_find_position("a: [", "a") is None
+
+    def test_ambiguous_key_is_found_by_occurrence(self) -> None:
+        content = "items:\n  - acl: 1\n  - acl: 2\n"
+
+        assert yaml_find_position(content, "acl", as_key=True, occurrence=1) == YamlPosition(3, 5)
+
+    def test_occurrence_out_of_range_is_not_found(self) -> None:
+        assert yaml_find_position("items:\n  - acl: 1\n", "acl", as_key=True, occurrence=1) is None
+
+    def test_occurrence_is_ambiguous_in_a_list_of_resources(self) -> None:
+        assert yaml_find_position("- a: 1\n- a: 2\n", "a", as_key=True, occurrence=1) is None
+
+
+class TestFindFirstMatchPosition:
+    CONTENT = "a: 1\nb:\n  c: {{ space }}\n  d: {{ other }}\n  e: {{ other }}\n"
+
+    def test_finds_match(self) -> None:
+        assert find_first_match_position(self.CONTENT, re.compile(r"\{\{ space \}\}")) == YamlPosition(3, 6)
+
+    def test_ambiguous_match_is_the_first(self) -> None:
+        assert find_first_match_position(self.CONTENT, re.compile(r"\{\{ other \}\}")) == YamlPosition(4, 6)
+
+    def test_no_match(self) -> None:
+        assert find_first_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None
+
+
+class TestLoadYamlInjectVariables:
+    PEM = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
+
+    YAML = "externalId: my_mqtt\nauthCertificate:\n  certificate: ${MQTT_CERT}\n"
+
+    def test_multiline_value_injected_from_env(self) -> None:
+        loaded, _ = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": self.PEM}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == self.PEM
+        assert loaded["externalId"] == "my_mqtt"
+
+    def test_escaped_newlines_are_preserved(self) -> None:
+        # Unescaping is resource specific, e.g., done by HostedExtractorSourceIO for certificates.
+        escaped = self.PEM.replace("\n", "\\n")
+        loaded, _ = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": escaped}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == escaped

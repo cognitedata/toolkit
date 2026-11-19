@@ -1,15 +1,9 @@
-import sys
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class PendingInstanceId(RequestItem):

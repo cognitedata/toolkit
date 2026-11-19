@@ -85,7 +85,7 @@ def invalid_test_cases() -> Iterable:
         {
             "Invalid value for filter: Input tag 'invalid_topic' found using 'topic' "
             "does not match any of the expected tags: 'cognite_integrations', 'cognite_workflows', "
-            "'cognite_hosted_extractors'",
+            "'cognite_hosted_extractors', 'cognite_sandbox', 'cognite_comment_notifications'",
         },
         id="invalid-topic",
     )
@@ -96,7 +96,7 @@ def invalid_test_cases() -> Iterable:
             "filter": {"topic": "cognite_integrations"},
             "unknownField": "x",
         },
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="unknown-field",
     )
     yield pytest.param(
@@ -107,6 +107,15 @@ def invalid_test_cases() -> Iterable:
         },
         {"Missing required field in sink: 'externalId'"},
         id="email-sink-missing-external-id",
+    )
+    yield pytest.param(
+        {
+            "externalId": "sub-1",
+            "sink": {"type": "current_user"},
+            "filter": {"topic": "cognite_integrations", "startTime": 1730204346000},
+        },
+        {"Invalid value at filter.startTime: taskName must be set when startTime is set."},
+        id="integrations-start-time-without-task-name",
     )
 
 
@@ -206,7 +215,7 @@ class TestSignalSubscriptionCRUDRetrieve:
         subscriptions_api.iterate.return_value = iter([filler, [target]])
 
         client = MagicMock()
-        client.tool.signal_subscriptions = subscriptions_api
+        client.signal_subscriptions = subscriptions_api
         io = SignalSubscriptionIO(client)
 
         retrieved = io.retrieve([ExternalId(external_id="sub-beyond-first-page")])
@@ -225,7 +234,7 @@ class TestSignalSubscriptionCRUDRetrieve:
         subscriptions_api = MagicMock()
         subscriptions_api.iterate.return_value = iter([[sub_a, sub_a], [sub_b]])
 
-        io = SignalSubscriptionIO(MagicMock(tool=MagicMock(signal_subscriptions=subscriptions_api)))
+        io = SignalSubscriptionIO(MagicMock(signal_subscriptions=subscriptions_api))
 
         retrieved = io.retrieve([ExternalId(external_id="sub-a"), ExternalId(external_id="sub-b")])
 

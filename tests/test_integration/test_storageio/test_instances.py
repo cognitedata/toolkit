@@ -41,10 +41,10 @@ def node_container(toolkit_client: ToolkitClient, toolkit_space: Space) -> Conta
             "name": ContainerPropertyDefinition(type=TextProperty()),
         },
     )
-    retrieved = client.tool.containers.retrieve([container.as_id()])
+    retrieved = client.containers.retrieve([container.as_id()])
     if retrieved:
         return retrieved[0]
-    created = client.tool.containers.create([container])
+    created = client.containers.create([container])
     assert created, "Failed to create or retrieve node container"
     return created[0]
 
@@ -81,10 +81,10 @@ def node_view_with_edges(
             ),
         },
     )
-    retrieved = toolkit_client.tool.views.retrieve([view.as_id()])
+    retrieved = toolkit_client.views.retrieve([view.as_id()])
     if retrieved:
         return retrieved[0], edge_type
-    created = toolkit_client.tool.views.create([view])
+    created = toolkit_client.views.create([view])
     assert created, "Failed to create or retrieve node view"
     return created[0], edge_type
 
@@ -130,7 +130,7 @@ def two_nodes_with_edge(
         end_node=NodeId(space=toolkit_space.space, external_id=node_b.external_id),
         type=NodeId(space=toolkit_space.space, external_id=f"{node_view_source.external_id}.edge"),
     )
-    return toolkit_client.tool.instances.create([node_a, node_b, connecting_edge])
+    return toolkit_client.instances.create([node_a, node_b, connecting_edge])
 
 
 @pytest.fixture(scope="session")
@@ -194,7 +194,7 @@ def infield_apm_app_data_schedule_populated(
             ],
         ),
     ]
-    created_instances = toolkit_client.tool.instances.create(instances)
+    created_instances = toolkit_client.instances.create(instances)
     assert len(created_instances) == len(created_instances), "Failed to create instance"
     return [template_id, schedule_id, *[edge.as_id() for edge in created_instances if edge.instance_type == "edge"]]
 
@@ -296,4 +296,4 @@ class TestInstanceIO:
         expected_row = f"{toolkit_space.space},{external_id},,,1,Test Upload/Download Node"
         # There is likely more data in the view, so we cannot assert the entire file.
         assert expected_row in csv_file.read_text()
-        toolkit_client.tool.instances.delete([NodeId(space=toolkit_space.space, external_id=external_id)])
+        toolkit_client.instances.delete([NodeId(space=toolkit_space.space, external_id=external_id)])

@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -32,7 +33,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
+    def create(self, items: Sequence[TransformationScheduleRequest]) -> builtins.list[TransformationScheduleResponse]:
         """Schedule transformations with the specified configurations.
 
         Args:
@@ -44,7 +45,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[TransformationScheduleResponse]:
+    ) -> builtins.list[TransformationScheduleResponse]:
         """Retrieve transformation schedules from CDF.
 
         Args:
@@ -61,7 +62,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
 
     def update(
         self, items: Sequence[TransformationScheduleRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[TransformationScheduleResponse]:
+    ) -> builtins.list[TransformationScheduleResponse]:
         """Update transformation schedules in CDF.
 
         Args:
@@ -84,44 +85,50 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
 
     def paginate(
         self,
+        include_public: bool = True,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TransformationScheduleResponse]:
         """Fetch a page of transformation schedules from CDF.
 
         Args:
+            include_public: Whether to include schedules of public transformations.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of TransformationScheduleResponse objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-        )
+        return self._paginate(cursor=cursor, limit=limit, params={"includePublic": include_public})
 
     def iterate(
         self,
+        include_public: bool = True,
         limit: int | None = 100,
-    ) -> Iterable[list[TransformationScheduleResponse]]:
+    ) -> Iterable[builtins.list[TransformationScheduleResponse]]:
         """Iterate over all transformation schedules in CDF.
 
         Args:
+            include_public: Whether to include schedules of public transformations.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of TransformationScheduleResponse objects.
         """
-        return self._iterate(limit=limit)
+        return self._iterate(limit=limit, params={"includePublic": include_public})
 
     def list(
         self,
+        include_public: bool = True,
         limit: int | None = 100,
-    ) -> list[TransformationScheduleResponse]:
+    ) -> builtins.list[TransformationScheduleResponse]:
         """List all transformation schedules in CDF.
+
+        Args:
+            include_public: Whether to include schedules of public transformations.
+            limit: Maximum number of items to return.
 
         Returns:
             List of TransformationScheduleResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, params={"includePublic": include_public})

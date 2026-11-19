@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -6,6 +7,8 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import DatapointSubscriptionTimeSeriesId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
+    DatapointSubscriptionDataResponse,
+    DatapointSubscriptionPartition,
     DatapointSubscriptionRequest,
     DatapointSubscriptionResponse,
     DatapointSubscriptionUpdateRequest,
@@ -25,13 +28,14 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
             },
         )
         self._list_members = Endpoint(method="GET", path="/timeseries/subscriptions/members", item_limit=100)
+        self._list_data = Endpoint(method="POST", path="/timeseries/subscriptions/data/list", item_limit=100_000)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[DatapointSubscriptionResponse]:
         return PagedResponse[DatapointSubscriptionResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
+    def create(self, items: Sequence[DatapointSubscriptionRequest]) -> builtins.list[DatapointSubscriptionResponse]:
         """Create datapoint subscriptions in CDF.
 
         Args:
@@ -43,7 +47,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[DatapointSubscriptionResponse]:
+    ) -> builtins.list[DatapointSubscriptionResponse]:
         """Retrieve datapoint subscriptions from CDF.
 
         Args:
@@ -56,7 +60,9 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def update(self, items: Sequence[DatapointSubscriptionUpdateRequest]) -> list[DatapointSubscriptionResponse]:
+    def update(
+        self, items: Sequence[DatapointSubscriptionUpdateRequest]
+    ) -> builtins.list[DatapointSubscriptionResponse]:
         """Update datapoint subscriptions in CDF.
 
         Args:
@@ -76,7 +82,9 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def list_members(self, external_id: str, limit: int | None = 100) -> list[DatapointSubscriptionTimeSeriesId]:
+    def list_members(
+        self, external_id: str, limit: int | None = 100
+    ) -> builtins.list[DatapointSubscriptionTimeSeriesId]:
         """List time series IDs subscribed to by a datapoint subscription.
 
         Args:
@@ -89,7 +97,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         cursor: str | None = None
         total: int = 0
         endpoint = self._list_members
-        result: list[DatapointSubscriptionTimeSeriesId] = []
+        result: builtins.list[DatapointSubscriptionTimeSeriesId] = []
         while cursor is not None or total == 0:
             page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
             parameters: dict[str, Any] = {"externalId": external_id, "limit": page_limit}
@@ -110,6 +118,52 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
 
         return result
 
+    def list_data(
+        self,
+        external_id: str,
+        partitions: Sequence[DatapointSubscriptionPartition],
+        limit: int = 100,
+        initialize_cursors: str | None = None,
+        poll_timeout_seconds: int | None = None,
+        include_status: bool | None = None,
+        ignore_bad_datapoints: bool | None = None,
+        treat_uncertain_as_bad: bool | None = None,
+    ) -> DatapointSubscriptionDataResponse:
+        """Fetch the next batch of data changes from a datapoint subscription.
+
+        Args:
+            external_id: External ID of the datapoint subscription.
+            partitions: Partitions to read, each with the cursor returned by the previous call.
+            limit: Maximum number of data points to return across all partitions.
+            initialize_cursors: Where partitions without a cursor start, for example 'now' or '2d-ago'.
+            poll_timeout_seconds: Seconds to wait for new data when there is none, at most 5.
+            include_status: Whether to include status codes for data points.
+            ignore_bad_datapoints: Whether to leave out data points with a bad status.
+            treat_uncertain_as_bad: Whether to treat data points with an uncertain status as bad.
+
+        Returns:
+            The data changes, and the cursors to use for the next call.
+        """
+        if not 0 < limit <= self._list_data.item_limit:
+            raise ValueError(f"Limit must be between 1 and {self._list_data.item_limit}, got {limit}.")
+        body = self._filter_out_none_values(
+            {
+                "externalId": external_id,
+                "partitions": [partition.dump() for partition in partitions],
+                "limit": limit,
+                "initializeCursors": initialize_cursors,
+                "pollTimeoutSeconds": poll_timeout_seconds,
+                "includeStatus": include_status,
+                "ignoreBadDataPoints": ignore_bad_datapoints,
+                "treatUncertainAsBad": treat_uncertain_as_bad,
+            }
+        )
+        request = RequestMessage(
+            endpoint_url=self._make_url(self._list_data.path), method=self._list_data.method, body_content=body
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return DatapointSubscriptionDataResponse.model_validate_json(response.body)
+
     def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[DatapointSubscriptionResponse]:
         """Paginate over datapoint subscriptions in CDF.
 
@@ -122,7 +176,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[DatapointSubscriptionResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[DatapointSubscriptionResponse]]:
         """Iterate over all datapoint subscriptions in CDF.
 
         Args:
@@ -133,7 +187,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[DatapointSubscriptionResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[DatapointSubscriptionResponse]:
         """List all datapoint subscriptions in CDF.
 
         Returns:

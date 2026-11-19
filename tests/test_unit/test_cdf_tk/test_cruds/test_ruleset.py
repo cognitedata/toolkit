@@ -204,8 +204,8 @@ class TestRuleSetsAPIRetrieve:
     ) -> None:
         api = RuleSetsAPI(HTTPClient(toolkit_config))
         rule_set = {"externalId": "my_rules", "name": "My Rules", "createdTime": 1000}
-        respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(
-            return_value=httpx2.Response(status_code=200, json={"items": [rule_set]})
+        respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).respond(
+            status_code=200, json={"items": [rule_set]}
         )
 
         api.retrieve([ExternalId(external_id="my_rules")])

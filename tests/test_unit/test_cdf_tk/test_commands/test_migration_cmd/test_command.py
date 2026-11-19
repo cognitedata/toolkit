@@ -17,7 +17,6 @@ from cognite.client.data_classes.data_modeling import (
     NodeOrEdgeData,
     View,
 )
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ItemsFailedRequest
@@ -61,6 +60,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container im
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import ProjectStatisticsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     LifecycleObject,
     LimitsObject,
@@ -255,33 +255,46 @@ def _make_stream_response(
     )
 
 
-class _ChunkTrackingUploadIO:
-    CHUNK_SIZE = 1000
-    KIND = "Instances"
-
-    def __init__(self) -> None:
-        self.upload_chunk_sizes: list[int] = []
-        self.logger = MagicMock()
-
-    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
-        self.upload_chunk_sizes.append(len(data_chunk))
-        return []
+def _mock_upload_io() -> MagicMock:
+    target = MagicMock()
+    target.CHUNK_SIZE = 1000
+    target.KIND = "Instances"
+    target.upload_items.return_value = []
+    return target
 
 
-class _FailingUploadIO:
-    CHUNK_SIZE = 1000
-    KIND = "Instances"
+def _fail_all_items(data_chunk: Page, http_client: object, selector: object | None = None) -> list[ItemsFailedRequest]:
+    return [
+        ItemsFailedRequest(
+            ids=[item.tracking_id for item in data_chunk.items],
+            error_message="Aborting further splitting of requests after 50 failed attempts.",
+        )
+    ]
 
-    def __init__(self) -> None:
-        self.logger = MagicMock()
 
-    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
-        return [
-            ItemsFailedRequest(
-                ids=[item.tracking_id for item in data_chunk.items],
-                error_message="Aborting further splitting of requests after 50 failed attempts.",
-            )
-        ]
+def _project_statistics(instances_limit: int) -> ProjectStatisticsResponse:
+    return ProjectStatisticsResponse.model_validate(
+        {
+            "spaces": {"count": 0, "limit": 1_000},
+            "containers": {"count": 0, "limit": 10_000},
+            "views": {"count": 0, "limit": 100_000},
+            "dataModels": {"count": 1, "limit": 10_000},
+            "containerProperties": {"count": 0, "limit": 1_000_000},
+            "instances": {
+                "nodes": 1000,
+                "edges": 0,
+                "softDeletedNodes": 0,
+                "softDeletedEdges": 0,
+                "instancesLimit": instances_limit,
+                "softDeletedInstancesLimit": 100_000_000,
+                "instances": 1000,
+                "softDeletedInstances": 0,
+            },
+            "concurrentReadLimit": 50,
+            "concurrentWriteLimit": 20,
+            "concurrentDeleteLimit": 10,
+        }
+    )
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -382,7 +395,7 @@ class TestMigrationCommand:
         expected_instance = [
             NodeRequest(
                 space=space,
-                external_id=asset.external_id,
+                external_id=f"asset_{i}",
                 sources=[
                     InstanceSource(
                         source=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
@@ -409,7 +422,7 @@ class TestMigrationCommand:
                     ),
                 ],
             ).dump()
-            for asset in assets
+            for i, asset in enumerate(assets)
         ]
         assert actual_instances == expected_instance
         result = results_by_selector[str(selector)]
@@ -1186,7 +1199,7 @@ class TestMigrationCommand:
 
     def test_upload_chunks_pages_larger_than_chunk_size(self, tmp_path: Path) -> None:
         command = MigrationCommand(silent=True)
-        target = _ChunkTrackingUploadIO()
+        target = _mock_upload_io()
         page = Page(
             worker_id="main",
             items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(1001)],
@@ -1194,20 +1207,22 @@ class TestMigrationCommand:
         upload = command._upload(
             selected=MagicMock(__str__=lambda self: "TestView"),
             write_client=MagicMock(),
-            target=target,  # type: ignore[arg-type]
+            target=target,
             destination="Instances",
             dry_run=False,
+            continue_on_error=False,
             log_dir=tmp_path,
             total_item_count=1001,
             start_item=0,
         )
         upload(page)
 
-        assert target.upload_chunk_sizes == [1000, 1]
+        assert [len(call.kwargs["data_chunk"]) for call in target.upload_items.call_args_list] == [1000, 1]
 
     def test_abort_when_all_items_in_chunk_fail(self, tmp_path: Path) -> None:
         command = MigrationCommand(silent=True)
-        target = _FailingUploadIO()
+        target = _mock_upload_io()
+        target.upload_items.side_effect = _fail_all_items
         page = Page(
             worker_id="main",
             items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(2)],
@@ -1215,9 +1230,10 @@ class TestMigrationCommand:
         upload = command._upload(
             selected=MagicMock(__str__=lambda self: "ChecklistItem_v7_node"),
             write_client=MagicMock(),
-            target=target,  # type: ignore[arg-type]
+            target=target,
             destination="Instances",
             dry_run=False,
+            continue_on_error=False,
             log_dir=tmp_path,
             total_item_count=2,
             start_item=0,
@@ -1261,6 +1277,7 @@ class TestMigrationCommand:
                 logger=logger,
                 write_client=MagicMock(),
                 log_dir=tmp_path,
+                continue_on_error=False,
                 dry_run=False,
                 verbose=False,
                 console=MagicMock(),
@@ -1273,7 +1290,6 @@ class TestMigrationCommand:
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([])
             with pytest.raises(ToolkitMigrationError):
                 MigrationCommand.validate_migration_model_available(client)
 
@@ -1286,7 +1302,7 @@ class TestMigrationCommand:
             model2 = MagicMock(spec=DataModel)
             model2.as_id.return_value = MODEL_ID
 
-            client.tool.data_models.retrieve.return_value = DataModelList([model1, model2])
+            client.data_models.retrieve.return_value = DataModelList([model1, model2])
 
             with pytest.raises(ToolkitMigrationError) as exc_info:
                 MigrationCommand.validate_migration_model_available(client)
@@ -1300,8 +1316,6 @@ class TestMigrationCommand:
             model.as_id.return_value = MODEL_ID
             # Model has views but missing the required ones
             model.views = [INSTANCE_SOURCE_VIEW_ID]  # Missing VIEW_SOURCE_VIEW_ID
-
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
 
             with pytest.raises(ToolkitMigrationError, match=r"Invalid migration model. Missing views"):
                 MigrationCommand.validate_migration_model_available(client)
@@ -1317,29 +1331,18 @@ class TestMigrationCommand:
             # Model has all required views
             model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
 
-            client.tool.data_models.retrieve.return_value = DataModelList([model])
+            client.data_models.retrieve.return_value = DataModelList([model])
 
             # Should not raise any exception
             MigrationCommand.validate_migration_model_available(client)
 
-            client.tool.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
+            client.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = MigrationCommand(silent=True)
 
         with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatistics)
-            stats.instances = InstanceStatistics(
-                nodes=1000,
-                edges=0,
-                soft_deleted_edges=0,
-                soft_deleted_nodes=0,
-                instances_limit=1500,
-                soft_deleted_instances_limit=10_000,
-                instances=1000,
-                soft_deleted_instances=0,
-            )
-            client.data_modeling.statistics.project.return_value = stats
+            client.statistics.retrieve.return_value = _project_statistics(instances_limit=1500)
             with pytest.raises(ToolkitValueError) as exc_info:
                 cmd.validate_available_capacity(client, 10_000)
 
@@ -1349,18 +1352,7 @@ class TestMigrationCommand:
         cmd = MigrationCommand(silent=True)
 
         with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatistics)
-            stats.instances = InstanceStatistics(
-                nodes=1000,
-                edges=0,
-                soft_deleted_edges=0,
-                soft_deleted_nodes=0,
-                instances_limit=5_000_000,
-                soft_deleted_instances_limit=100_000_000,
-                instances=1000,
-                soft_deleted_instances=0,
-            )
-            client.data_modeling.statistics.project.return_value = stats
+            client.statistics.retrieve.return_value = _project_statistics(instances_limit=5_000_000)
             cmd.validate_available_capacity(client, 10_000)
 
     def test_validate_stream_capacity_insufficient_records(self) -> None:

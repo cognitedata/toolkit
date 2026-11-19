@@ -10,7 +10,7 @@ from pydantic import JsonValue
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
     FeatureConfiguration,
@@ -143,11 +143,15 @@ def _mock_client(
     client.infield.apm_config.list.return_value = list(apm_configs)
     client.infield.cdm_config.list.return_value = list(cdm_configs)
 
-    def retrieve(spaces: list[str]) -> list[SimpleNamespace]:
-        selected = spaces if existing_spaces is None else [space for space in spaces if space in existing_spaces]
+    def retrieve(spaces: list[SpaceId]) -> list[SimpleNamespace]:
+        space_names = [space.space for space in spaces]
+        if existing_spaces is None:
+            selected = space_names
+        else:
+            selected = [space for space in space_names if space in existing_spaces]
         return [SimpleNamespace(space=space, nodes=4, edges=1) for space in selected]
 
-    client.data_modeling.statistics.spaces.retrieve.side_effect = retrieve
+    client.statistics.spaces.retrieve.side_effect = retrieve
     return cast(ToolkitClient, client)
 
 
@@ -246,7 +250,7 @@ class TestInFieldSpaceSelection:
         client = _mock_client(*_standard_infield_configs())
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]):
+        with MockQuestionary(infield_setup.__name__, ["app_space", "cdm_app"]):
             spaces = user_input.prompt_migration_spaces()
 
         assert spaces == InfieldMigrationSpaces(source="app_space", _target="cdm_app")
@@ -256,7 +260,7 @@ class TestInFieldSpaceSelection:
         client = _mock_client([_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, ["shared_app"]):
+        with MockQuestionary(infield_setup.__name__, ["shared_app"]):
             spaces = user_input.prompt_migration_spaces()
 
         assert spaces == InfieldMigrationSpaces(source="shared_app", _target=None)
@@ -264,7 +268,7 @@ class TestInFieldSpaceSelection:
     def test_prompt_flags_returns_answers(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         log_dir = tmp_path / "migration_logs"
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, [str(log_dir), False, True]):
+        with MockQuestionary(infield_setup.__name__, [str(log_dir), False, True]):
             result = InFieldUserInput.prompt_flags(log_dir, dry_run=False, verbose=True)
 
         assert result == (log_dir, False, True)
@@ -384,7 +388,7 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, operation))
 
         with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["unused", "unused"]),
+            MockQuestionary(infield_setup.__name__, ["unused", "unused"]),
             pytest.raises(typer.BadParameter),
         ):
             user_input.prompt_migration_spaces()
@@ -426,7 +430,7 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]),
+            MockQuestionary(infield_setup.__name__, ["app_space", "cdm_app"]),
             pytest.raises(typer.BadParameter),
         ):
             user_input.prompt_migration_spaces()
@@ -439,7 +443,7 @@ class TestInFieldSpaceSelection:
         )
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]):
+        with MockQuestionary(infield_setup.__name__, ["app_space", "cdm_app"]):
             spaces = user_input.prompt_migration_spaces()
 
         console = cast(_RecordingConsole, client.console)
@@ -459,7 +463,7 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", None]),
+            MockQuestionary(infield_setup.__name__, ["app_space", None]),
             pytest.raises(typer.BadParameter),
         ):
             user_input.prompt_migration_spaces()

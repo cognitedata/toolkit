@@ -35,7 +35,9 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerConstraintId,
     ContainerId,
+    ContainerIndexId,
     DataModelId,
     EdgeId,
     ExternalId,
@@ -106,13 +108,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
     ResourceContainerIO,
     ResourceIO,
     SuccessExtra,
+    WarningHandler,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -148,8 +151,6 @@ from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
     ViewReference,
 )
 
-from ._auth import GroupAllScopedIO
-
 
 @final
 class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAML]):
@@ -159,12 +160,12 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     resource_write_cls = SpaceRequest
     kind = "Space"
     yaml_cls = SpaceYAML
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._deleted_time_by_id: dict[SpaceId, float] = {}
 
     @property
@@ -173,7 +174,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SpaceRequest]) -> ScopeDefinition:
-        return AllScope()
+        return space_scoped_resource(items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
@@ -181,7 +182,9 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
+    def get_id(cls, item: SpaceRequest | SpaceResponse | SpaceId | dict) -> SpaceId:
+        if isinstance(item, SpaceId):
+            return item
         if isinstance(item, dict):
             return SpaceId(space=item["space"])
         return item.as_id()
@@ -191,7 +194,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: SpaceId) -> str:
+    def as_filename(cls, id: SpaceId) -> str:
         return sanitize_filename(id.space)
 
     @classmethod
@@ -215,26 +218,28 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
                 elapsed_since_delete = time.perf_counter() - self._deleted_time_by_id[item_id]
                 if elapsed_since_delete < self.delete_recreate_limit_seconds:
                     time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
-        return self.client.tool.spaces.create(items)
+        return self.client.spaces.create(items)
 
     def retrieve(self, ids: Sequence[SpaceId]) -> list[SpaceResponse]:
-        return self.client.tool.spaces.retrieve(list(ids))
+        return self.client.spaces.retrieve(list(ids))
 
     def update(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[SpaceId]) -> int:
-        existing = self.client.tool.spaces.retrieve(list(ids))
+    def delete(self, ids: Sequence[SpaceId]) -> list[SpaceId]:
+        existing = self.client.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
-            print(
-                f"  [bold yellow]WARNING:[/] Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Spaces {humanize_collection(is_global)} are global and cannot be deleted, skipping delete, for these."
+                )
             )
         to_delete = [space_ref for space_ref in ids if space_ref.space not in is_global]
-        self.client.tool.spaces.delete(to_delete)
+        self.client.spaces.delete(to_delete)
         for item_id in to_delete:
             self._deleted_time_by_id[item_id] = time.perf_counter()
-        return len(to_delete)
+        return to_delete
 
     def _iterate(
         self,
@@ -243,9 +248,9 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SpaceResponse]:
         if space:
-            yield from self.client.tool.spaces.retrieve([SpaceId(space=space)])
+            yield from self.client.spaces.retrieve([SpaceId(space=space)])
         else:
-            for batch in self.client.tool.spaces.iterate(limit=None):
+            for batch in self.client.spaces.iterate(limit=None):
                 yield from batch
 
     def count(self, ids: Sequence[SpaceId]) -> int:
@@ -264,10 +269,10 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         print(f"[bold]Deleting existing data in spaces {ids}...[/]")
         nr_of_deleted = 0
         for edge_ids in self._iterate_over_edges(spaces):
-            self.client.tool.instances.delete(edge_ids)
+            self.client.instances.delete(edge_ids)
             nr_of_deleted += len(edge_ids)
         for node_ids in self._iterate_over_nodes(spaces):
-            self.client.tool.instances.delete(node_ids)
+            self.client.instances.delete(node_ids)
             nr_of_deleted += len(node_ids)
         return nr_of_deleted
 
@@ -275,14 +280,14 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="node", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for instances in self.client.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
     def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeId]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="edge", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for instances in self.client.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
@@ -297,8 +302,8 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     _doc_url = "Containers/operation/ApplyContainers"
     sub_folder_name = "containers"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._container_by_id: dict[ContainerId, ContainerResponse] = {}
 
     @property
@@ -315,7 +320,9 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
+    def get_id(cls, item: ContainerRequest | ContainerResponse | ContainerId | dict) -> ContainerId:
+        if isinstance(item, ContainerId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -381,13 +388,10 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             if isinstance((cdf_value := dumped.get(key)), dict) and isinstance((local_value := local.get(key)), dict):
                 for cdf_id, cdf_item in cdf_value.items():
                     local_item = local_value.get(cdf_id)
-                    if (
-                        isinstance(local_item, dict)
-                        and "bySpace" not in local_item
-                        and isinstance(cdf_item, dict)
-                        and cdf_item.get("bySpace") is False
-                    ):
-                        cdf_item.pop("bySpace", None)
+                    if isinstance(local_item, dict) and isinstance(cdf_item, dict):
+                        for index_prop, default_value in [("bySpace", False), ("cursorable", False)]:
+                            if cdf_item.get(index_prop) == default_value and index_prop not in local_item:
+                                cdf_item.pop(index_prop, None)
         local_prop_by_id = local.get("properties", {})
         for prop_id, cdf_prop in dumped.get("properties", {}).items():
             if prop_id not in local_prop_by_id:
@@ -401,15 +405,40 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
                 if has_local and cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
+            cdf_unit = cdf_type.get("unit", {})
+            local_unit = local_type.get("unit", {})
+            if (
+                has_local
+                and isinstance(cdf_unit, dict)
+                and isinstance(local_unit, dict)
+                and "space" not in local_unit
+                and cdf_unit.get("space") == "cdf_units"
+            ):
+                cdf_unit.pop("space", None)
             if has_local and "usedFor" not in local and dumped.get("usedFor") == "node":
                 # Only drop if set to default by server.
                 dumped.pop("usedFor", None)
         return dumped
 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+        return self._upsert(items, mode="create")
+
+    def _upsert(self, items: Sequence[ContainerRequest], mode: Literal["create", "update"]) -> list[ContainerResponse]:
         created: list[ContainerResponse] = []
         for batch in self._compute_deploy_batches(items):
-            created.extend(self.client.tool.containers.create(batch))
+            if Flags.v010.is_enabled() and mode == "update":
+                constraint_ids, index_ids = self._find_modified_or_deleted_constraints_and_indexes(batch)
+                self.client.containers.delete_constraints(
+                    sorted(constraint_ids, key=lambda x: (x.space, x.external_id, x.identifier))
+                )
+                self.client.containers.delete_indexes(
+                    sorted(index_ids, key=lambda x: (x.space, x.external_id, x.identifier))
+                )
+            responses = self.client.containers.create(batch)
+            # Keep the lookup cache in sync, otherwise retrieve() would return stale containers.
+            for response in responses:
+                self._container_by_id[response.as_id()] = response
+            created.extend(responses)
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ContainerRequest]) -> list[list[ContainerRequest]]:
@@ -434,30 +463,67 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, containers_by_id, CONTAINER_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
-            MediumSeverityWarning(
-                f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
-                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                )
+            )
         return batches
 
+    def _find_modified_or_deleted_constraints_and_indexes(
+        self, items: list[ContainerRequest]
+    ) -> tuple[set[ContainerConstraintId], set[ContainerIndexId]]:
+        modified_deleted_constraints: set[ContainerConstraintId] = set()
+        modified_deleted_indexes: set[ContainerIndexId] = set()
+        cdf_container = self._lookup_containers([self.get_id(item) for item in items], warn=False)
+        for item in items:
+            item_id = self.get_id(item)
+            if item_id not in cdf_container:
+                continue
+            local_dict = item.dump()
+            # dump_resource normalizes server-set default values to match the local representation.
+            cdf_dict = self.dump_resource(cdf_container[item_id], local_dict)
+
+            local_constraints = local_dict.get("constraints") or {}
+            for constraint_id, cdf_constraint in (cdf_dict.get("constraints") or {}).items():
+                if local_constraints.get(constraint_id) != cdf_constraint:
+                    modified_deleted_constraints.add(
+                        ContainerConstraintId(space=item.space, external_id=item.external_id, identifier=constraint_id)
+                    )
+
+            local_indexes = local_dict.get("indexes") or {}
+            for index_id, cdf_index in (cdf_dict.get("indexes") or {}).items():
+                if local_indexes.get(index_id) != cdf_index:
+                    modified_deleted_indexes.add(
+                        ContainerIndexId(space=item.space, external_id=item.external_id, identifier=index_id)
+                    )
+        return modified_deleted_constraints, modified_deleted_indexes
+
     def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
-        return self.client.tool.containers.retrieve(list(ids))
+        if Flags.v010.is_enabled():
+            # We need the container in the update method to check which constraints and indexes have been modified or deleted,
+            # so we cache them here to avoid a second API call.
+            return list(self._lookup_containers(ids, warn=False).values())
+        else:
+            return self.client.containers.retrieve(list(ids))
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        updated = self.create(items)
-        # The API might silently fail to apply some changes.
-        updated_by_id = {item.as_id(): item for item in updated}
-        for local in items:
-            item_id = local.as_id()
-            local_dict = local.dump()
-            if item_id not in updated_by_id:
-                raise ToolkitAPIError(
-                    f"The container {item_id} was not updated due to an unknown error.",
-                    code=500,
-                )
-            cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
-            if cdf_dict != local_dict:
-                self._print_container_diff_warning(item_id, local_dict, cdf_dict)
+        updated = self._upsert(items, mode="update")
+        if not Flags.v010.is_enabled():
+            # The API might silently fail to apply some changes.
+            updated_by_id = {item.as_id(): item for item in updated}
+            for local in items:
+                item_id = local.as_id()
+                local_dict = local.dump()
+                if item_id not in updated_by_id:
+                    raise ToolkitAPIError(
+                        f"The container {item_id} was not updated due to an unknown error.",
+                        code=500,
+                    )
+                cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
+                if cdf_dict != local_dict:
+                    self._print_container_diff_warning(item_id, local_dict, cdf_dict)
         return updated
 
     def _print_container_diff_warning(
@@ -485,12 +551,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         if only_in_cdf_indexes:
             lines.append(f"• Indexes missing in your local YAML: [bold]{', '.join(only_in_cdf_indexes)}[/bold]")
 
-        HighSeverityWarning("\n".join(lines)).print_warning(console=self.console)
-
-        self.console.print(
+        lines.append(
             f"{HINT_LEAD_TEXT}To remove this warning, you can run [bold]cdf modules pull[/bold] to retrieve the missing container config from CDF. This will overwrite your local YAML file(s)."
         )
-        self.console.print(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see {URL.dm_changes_docs}")
+        lines.append(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see {URL.dm_changes_docs}")
+        self.on_warning(HighSeverityWarning("\n".join(lines)))
 
         is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
         if is_verbose:
@@ -504,9 +569,12 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         else:
             self.console.print("    Use -v/--verbose for a full diff.")
 
-    def delete(self, ids: Sequence[ContainerId]) -> int:
-        self.client.tool.containers.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ContainerId]) -> list[ContainerId]:
+        id_list = list(ids)
+        self.client.containers.delete(id_list)
+        for container_id in id_list:
+            self._container_by_id.pop(container_id, None)
+        return id_list
 
     def _iterate(
         self,
@@ -514,27 +582,25 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ContainerResponse]:
-        for batch in self.client.tool.containers.iterate(
-            filter=ContainerFilter(space=space) if space else None, limit=None
-        ):
+        for batch in self.client.containers.iterate(filter=ContainerFilter(space=space) if space else None, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[ContainerId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
-        existing_containers = self.client.tool.containers.retrieve(list(ids))
+        existing_containers = self.client.containers.retrieve(list(ids))
         return sum(len(batch) for batch in self._iterate_over_nodes(existing_containers)) + sum(
             len(batch) for batch in self._iterate_over_edges(existing_containers)
         )
 
     def drop_data(self, ids: Sequence[ContainerId]) -> int:
         nr_of_deleted = 0
-        existing_containers = self.client.tool.containers.retrieve(list(ids))
+        existing_containers = self.client.containers.retrieve(list(ids))
         for node_ids in self._iterate_over_nodes(existing_containers):
-            self.client.tool.instances.delete(node_ids)
+            self.client.instances.delete(node_ids)
             nr_of_deleted += len(node_ids)
         for edge_ids in self._iterate_over_edges(existing_containers):
-            self.client.tool.instances.delete(edge_ids)
+            self.client.instances.delete(edge_ids)
             nr_of_deleted += len(edge_ids)
         return nr_of_deleted
 
@@ -546,10 +612,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.data_modeling.instances(
-                chunk_size=1000, instance_type="node", filter=is_container, limit=-1
+            for instances in self.client.instances.iterate(
+                filter=InstanceFilter(instance_type="node", filter=is_container.dump()),
+                limit=None,
             ):
-                yield [NodeId(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
+                yield [NodeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
     def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[EdgeId]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
@@ -560,21 +627,26 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.data_modeling.instances(
-                chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
+            for instances in self.client.instances.iterate(
+                filter=InstanceFilter(instance_type="edge", filter=is_container.dump()),
+                limit=None,
             ):
-                yield [EdgeId(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
+                yield [EdgeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
-    def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, ContainerResponse]:
+    def _lookup_containers(
+        self, container_ids: Sequence[ContainerId], warn: bool = True
+    ) -> dict[ContainerId, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
         if ids_to_lookup:
-            retrieved_containers = self.client.tool.containers.retrieve(ids_to_lookup)
+            retrieved_containers = self.client.containers.retrieve(ids_to_lookup)
             for container in retrieved_containers:
                 self._container_by_id[container.as_id()] = container
-        if missing_container_ids := set(container_ids) - set(self._container_by_id.keys()):
-            MediumSeverityWarning(
-                f"Containers {missing_container_ids} not found or you don't have permission to access them."
-            ).print_warning(console=self.console)
+        if warn and (missing_container_ids := set(container_ids) - set(self._container_by_id.keys())):
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Containers {humanize_collection(missing_container_ids)} not found or you don't have permission to access them."
+                )
+            )
         return {
             container_id: self._container_by_id[container_id]
             for container_id in container_ids
@@ -641,7 +713,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     @classmethod
-    def as_str(cls, id: ContainerId) -> str:
+    def as_filename(cls, id: ContainerId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -650,6 +722,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     resource_cls = ViewResponse
     resource_write_cls = ViewRequest
     kind = "View"
+    # StreamIO is added in _streams.py to avoid a circular import.
     dependencies = frozenset({SpaceIO, ContainerIO})
     yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"
@@ -659,8 +732,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         self,
         client: ToolkitClient,
         topological_sort_implements: bool = False,
+        on_warning: WarningHandler | None = None,
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self._topological_sort_implements = topological_sort_implements
         self._view_by_id: dict[ViewId, ViewResponse] = {}
 
@@ -678,7 +752,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
+    def get_id(cls, item: ViewRequest | ViewResponse | ViewId | dict) -> ViewId:
+        if isinstance(item, ViewId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -696,10 +772,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         from ._streams import StreamIO  # local import avoids circular import with _streams.py
 
         yield SpaceIO, SpaceId(space=resource.space)
-
-        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
-            for stream_id in resource.stream_id or []:
-                yield StreamIO, ExternalId(external_id=stream_id)
+        for stream_id in resource.stream_id or []:
+            yield StreamIO, ExternalId(external_id=stream_id)
 
         for implement in resource.implements or []:
             yield ViewIO, implement.as_id()
@@ -736,8 +810,6 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def dump_resource(self, resource: ViewResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
-        if not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
-            dumped.pop("streamId", None)
         if not dumped.get("properties") and not local.get("properties"):
             if "properties" in local:
                 # In case the properties is an empty dict, we still want to keep it in the dump.
@@ -766,8 +838,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
                     view_id.dump() for view_id in self.topological_sort_implements(resource.implements)
                 ]
             except ToolkitCycleError as e:
-                warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
-                warning.print_warning(console=self.console)
+                self.on_warning(MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}"))
 
         for key in ["filter", "name", "description"]:
             if dumped.get(key) is None and key not in local:
@@ -829,7 +900,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:
-            created.extend(self.client.tool.views.create(batch))
+            created.extend(self.client.views.create(batch))
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
@@ -864,28 +935,28 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, views_by_id, VIEW_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
-            MediumSeverityWarning(
-                f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
-                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                )
+            )
         return batches
 
     def retrieve(self, ids: Sequence[ViewId | ViewNoVersionId]) -> list[ViewResponse]:
-        return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)
+        return self.client.views.retrieve(list(ids), include_inherited_properties=False)
 
     def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[ViewId]) -> int:
+    def delete(self, ids: Sequence[ViewId]) -> list[ViewId]:
         to_delete = list(ids)
-        nr_of_deleted = 0
         attempt_count = 5
-        for attempt_no in range(attempt_count):
-            self.client.tool.views.delete(to_delete)
-            nr_of_deleted += len(to_delete)
-            existing = [view.as_id() for view in self.client.tool.views.retrieve(to_delete)]
+        for _attempt_no in range(attempt_count):
+            self.client.views.delete(to_delete)
+            existing = [view.as_id() for view in self.client.views.retrieve(to_delete)]
             if not existing:
-                return nr_of_deleted
+                return list(ids)
             sleep(2)
             to_delete = existing
         msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
@@ -893,7 +964,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             self.console.print(msg)
         else:
             print(msg)
-        return nr_of_deleted
+        remaining = set(to_delete)
+        return [view_id for view_id in ids if view_id not in remaining]
 
     def _iterate(
         self,
@@ -901,18 +973,18 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
+        for batch in self.client.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
             yield from batch
 
     @classmethod
-    def as_str(cls, id: ViewId) -> str:
+    def as_filename(cls, id: ViewId) -> str:
         return sanitize_filename(id.external_id)
 
     def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, ViewResponse]:
         """Looks up views by their IDs and caches them."""
         missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
         if missing_ids:
-            retrieved_views = self.client.tool.views.retrieve(missing_ids, include_inherited_properties=True)
+            retrieved_views = self.client.views.retrieve(missing_ids, include_inherited_properties=True)
             for view in retrieved_views:
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
@@ -989,9 +1061,11 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         view_by_ids = self._lookup_views(view_ids)
         if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
-            MediumSeverityWarning(
-                f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Views {humanize_collection(missing_view_ids)} not found or you don't have permission to access them, skipping dependency check."
+                )
+            )
             return view_ids, []
 
         view_to_containers: dict[ViewId, set[ContainerId]] = {}
@@ -1001,7 +1075,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             for container_id in view_to_containers[view_id]:
                 container_to_views[container_id].add(view_id)
 
-        container_crud = ContainerIO.create_io(self.client)
+        container_crud = ContainerIO(self.client, on_warning=self.on_warning)
         container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
             list(container_to_views.keys())
         )
@@ -1066,7 +1140,9 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
+    def get_id(cls, item: DataModelRequest | DataModelResponse | DataModelId | dict) -> DataModelId:
+        if isinstance(item, DataModelId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1123,13 +1199,13 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
-        return self.client.tool.data_models.create(items)
+        return self.client.data_models.create(items)
 
     def retrieve(self, ids: Sequence[DataModelId]) -> list[DataModelResponse]:
-        return self.client.tool.data_models.retrieve(list(ids))
+        return self.client.data_models.retrieve(list(ids))
 
     def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
-        updated = self.create(items)
+        updated = self.client.data_models.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
         updated_by_id = {item.as_id(): item for item in updated}
@@ -1155,9 +1231,10 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
 
         return updated
 
-    def delete(self, ids: Sequence[DataModelId]) -> int:
-        self.client.tool.data_models.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:
+        id_list = list(ids)
+        self.client.data_models.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -1165,13 +1242,13 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        for batch in self.client.tool.data_models.iterate(
+        for batch in self.client.data_models.iterate(
             filter=DataModelFilter(space=space, include_global=False, all_versions=True), limit=None
         ):
             yield from batch
 
     @classmethod
-    def as_str(cls, id: DataModelId) -> str:
+    def as_filename(cls, id: DataModelId) -> str:
         return sanitize_filename(id.external_id)
 
 
@@ -1191,8 +1268,9 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         self,
         client: ToolkitClient,
         view_id: ViewId | None = None,
+        on_warning: WarningHandler | None = None,
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         # View ID is used to retrieve nodes with properties.
         self.view_id = view_id
         self._constrained_properties_by_source: dict[ViewId | ContainerId, set[str]] = {}
@@ -1211,7 +1289,9 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
+    def get_id(cls, item: NodeRequest | NodeResponse | NodeId | dict) -> NodeId:
+        if isinstance(item, NodeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1250,7 +1330,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         if sources:
             try:
                 node_id = resource.as_id()
-                res = self.client.tool.instances.retrieve([node_id], source=sources[0])
+                res = self.client.instances.retrieve([node_id], source=sources[0])
             except ToolkitAPIError:
                 ...
             else:
@@ -1270,11 +1350,13 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
 
         return dumped
 
-    def create(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[NodeRequest]) -> list[NodeId]:
         created: list[InstanceSlimDefinition] = []
         for batch in self._compute_deploy_batches(items):
-            created.extend(self.client.tool.instances.create(batch))
-        return created
+            created.extend(self.client.instances.create(batch))
+        return [
+            NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
+        ]
 
     def _compute_deploy_batches(self, items: Sequence[NodeRequest]) -> list[list[NodeRequest]]:
         """Sorts nodes into batches based on container-constrained direct relations between them.
@@ -1323,14 +1405,14 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
 
         container_refs = [ref for ref in to_resolve if isinstance(ref, ContainerId)]
         if container_refs:
-            for container in self.client.tool.containers.retrieve(container_refs):
+            for container in self.client.containers.retrieve(container_refs):
                 self._constrained_properties_by_source[container.as_id()] = self._constrained_property_names(
                     container.properties
                 )
 
         view_refs = [ref for ref in to_resolve if isinstance(ref, ViewId)]
         if view_refs:
-            for view in self.client.tool.views.retrieve(view_refs, include_inherited_properties=True):
+            for view in self.client.views.retrieve(view_refs, include_inherited_properties=True):
                 self._constrained_properties_by_source[view.as_id()] = self._constrained_property_names(view.properties)
 
     @staticmethod
@@ -1378,20 +1460,22 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             if self.view_id
             else None
         )
-        results = self.client.tool.instances.retrieve(list(ids), source=source_ref)
+        results = self.client.instances.retrieve(list(ids), source=source_ref)
         return [r for r in results if isinstance(r, NodeResponse)]
 
-    def update(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
+    def update(self, items: Sequence[NodeRequest]) -> list[NodeId]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[NodeId]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
         try:
-            deleted = self.client.tool.instances.delete(list(ids))
+            deleted = self.client.instances.delete(list(ids))
         except ToolkitAPIError as e:
             if "not exist" in str(e) and "space" in str(e).lower():
-                return 0
+                return []
             raise e
-        return len(deleted)
+        return [
+            NodeId(space=item.space, external_id=item.external_id) for item in deleted if item.instance_type == "node"
+        ]
 
     def _iterate(
         self,
@@ -1409,7 +1493,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             space=[space] if space else None,
             source=source_ref,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for batch in self.client.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, NodeResponse):
                     yield inst
@@ -1422,7 +1506,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         return 0
 
     @classmethod
-    def as_str(cls, id: NodeId) -> str:
+    def as_filename(cls, id: NodeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -1439,8 +1523,8 @@ class GraphQLIO(
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
         self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
         self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
@@ -1450,7 +1534,9 @@ class GraphQLIO(
         return "graph QL schemas"
 
     @classmethod
-    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelId:
+    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | DataModelId | dict) -> DataModelId:
+        if isinstance(item, DataModelId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1490,7 +1576,7 @@ class GraphQLIO(
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=f"Cannot find GraphQL file for data model {identifier}. Expected {graphql_file.name} adjacent to {filepath.as_posix()}.",
                 source_path=graphql_file,
             )
@@ -1536,11 +1622,13 @@ class GraphQLIO(
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
         for item in raw_list:
@@ -1586,7 +1674,7 @@ class GraphQLIO(
             hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
-                LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()
+                self.on_warning(LowSeverityWarning(f"Description is above limit for {model_id}. Truncating..."))
                 description = description[: 1024 - len(suffix) + 1 - 3] + "..."
             description += f" {suffix}"
             item["description"] = description
@@ -1622,7 +1710,7 @@ class GraphQLIO(
                 item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
             else:
                 item_with_dml = item
-            created = self.client.tool.graphql_data_models.create([item_with_dml])
+            created = self.client.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
         return created_list
 
@@ -1633,20 +1721,19 @@ class GraphQLIO(
         return safe_read(filepath)
 
     def retrieve(self, ids: Sequence[DataModelId]) -> list[GraphQLDataModelResponse]:
-        return self.client.tool.graphql_data_models.retrieve(list(ids), inline_views=False)
+        return self.client.graphql_data_models.retrieve(list(ids), inline_views=False)
 
     def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[DataModelId]) -> int:
+    def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:
         retrieved = self.retrieve(ids)
         views = {view for dml in retrieved for view in dml.views or []}
-        self.client.tool.graphql_data_models.delete(list(ids))
-        deleted = len(ids)
+        id_list = list(ids)
+        self.client.graphql_data_models.delete(id_list)
         if views:
-            self.client.tool.views.delete(list(views))
-            deleted += len(views)
-        return deleted
+            self.client.views.delete(list(views))
+        return id_list
 
     def _iterate(
         self,
@@ -1655,7 +1742,7 @@ class GraphQLIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModelResponse]:
         filter_ = DataModelFilter(space=space) if space else None
-        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_, limit=None):
+        for batch in self.client.graphql_data_models.iterate(filter=filter_, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[DataModelId]) -> int:
@@ -1663,7 +1750,9 @@ class GraphQLIO(
         return sum(len(d.views or []) for d in retrieved)
 
     def drop_data(self, ids: Sequence[DataModelId]) -> int:
-        return self.delete(ids)
+        retrieved = self.retrieve(ids)
+        view_count = len({view for dml in retrieved for view in dml.views or []})
+        return len(self.delete(ids)) + view_count
 
     def _topological_sort(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelRequest]:
         to_sort = {item.as_id(): item for item in items}
@@ -1712,7 +1801,9 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:
+    def get_id(cls, item: EdgeRequest | EdgeResponse | EdgeId | dict) -> EdgeId:
+        if isinstance(item, EdgeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1725,7 +1816,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: EdgeId) -> str:
+    def as_filename(cls, id: EdgeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod
@@ -1757,7 +1848,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
         if sources:
             try:
                 node_id = resource.as_id()
-                res = self.client.tool.instances.retrieve([node_id], source=sources[0])
+                res = self.client.instances.retrieve([node_id], source=sources[0])
             except ToolkitAPIError:
                 ...
             else:
@@ -1776,24 +1867,29 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
 
         return dumped
 
-    def create(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.instances.create(list(items))
+    def create(self, items: Sequence[EdgeRequest]) -> list[EdgeId]:
+        created = self.client.instances.create(list(items))
+        return [
+            EdgeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "edge"
+        ]
 
     def retrieve(self, ids: Sequence[EdgeId]) -> list[EdgeResponse]:
-        results = self.client.tool.instances.retrieve(list(ids))
+        results = self.client.instances.retrieve(list(ids))
         return [r for r in results if isinstance(r, EdgeResponse)]
 
-    def update(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.instances.create(list(items))
+    def update(self, items: Sequence[EdgeRequest]) -> list[EdgeId]:
+        return self.create(items)
 
-    def delete(self, ids: Sequence[EdgeId]) -> int:
+    def delete(self, ids: Sequence[EdgeId]) -> list[EdgeId]:
         try:
-            deleted = self.client.tool.instances.delete(list(ids))
+            deleted = self.client.instances.delete(list(ids))
         except ToolkitAPIError as e:
             if "not exist" in str(e) and "space" in str(e).lower():
-                return 0
+                return []
             raise e
-        return len(deleted)
+        return [
+            EdgeId(space=item.space, external_id=item.external_id) for item in deleted if item.instance_type == "edge"
+        ]
 
     def _iterate(
         self,
@@ -1805,7 +1901,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
             instance_type="edge",
             space=[space] if space else None,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for batch in self.client.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, EdgeResponse):
                     yield inst

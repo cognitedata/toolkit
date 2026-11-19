@@ -9,6 +9,7 @@ Based on the alpha API specification:
 - https://api-docs.cognite.com/20230101-alpha/tag/Integration-Errors
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -95,7 +96,7 @@ class IntegrationTasksAPI(CDFResourceAPI[IntegrationTaskHistory]):
         integration_external_id: str | None = None,
         task_name: str | None = None,
         last_per_task: bool | None = None,
-    ) -> Iterable[list[IntegrationTaskHistory]]:
+    ) -> Iterable[builtins.list[IntegrationTaskHistory]]:
         """Iterate over task history.
 
         Args:
@@ -121,7 +122,7 @@ class IntegrationTasksAPI(CDFResourceAPI[IntegrationTaskHistory]):
         integration_external_id: str | None = None,
         task_name: str | None = None,
         last_per_task: bool | None = None,
-    ) -> list[IntegrationTaskHistory]:
+    ) -> builtins.list[IntegrationTaskHistory]:
         """List task history.
 
         Args:
@@ -216,7 +217,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
         for item in items:
             item.integration_external_id = integration_external_id
 
-    def create(self, items: Sequence[IntegrationActionRequest]) -> list[IntegrationActionResponse]:
+    def create(self, items: Sequence[IntegrationActionRequest]) -> builtins.list[IntegrationActionResponse]:
         """Create actions for an integration.
 
         The extractor is asked to run pending actions the next time it checks in.
@@ -227,7 +228,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
         Returns:
             The created actions.
         """
-        results: list[IntegrationActionResponse] = []
+        results: builtins.list[IntegrationActionResponse] = []
         grouped = self._group_items_by_text_field(items, "integration_external_id")
         for (integration_external_id,), group in grouped.items():
             created = self._request_item_response(group, "create", params={"externalId": integration_external_id})
@@ -237,7 +238,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[IntegrationActionResponse]:
+    ) -> builtins.list[IntegrationActionResponse]:
         """Retrieve actions by external ID.
 
         Args:
@@ -250,7 +251,9 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def cancel(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[IntegrationActionResponse]:
+    def cancel(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[IntegrationActionResponse]:
         """Cancel actions by external ID.
 
         Only actions that are pending, running, or already cancel-pending can be cancelled.
@@ -300,7 +303,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
         integration_external_id: str | None = None,
         created_after: int | None = None,
         include_completed: bool | None = None,
-    ) -> Iterable[list[IntegrationActionResponse]]:
+    ) -> Iterable[builtins.list[IntegrationActionResponse]]:
         """Iterate over actions.
 
         Args:
@@ -328,7 +331,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
         integration_external_id: str | None = None,
         created_after: int | None = None,
         include_completed: bool | None = None,
-    ) -> list[IntegrationActionResponse]:
+    ) -> builtins.list[IntegrationActionResponse]:
         """List actions.
 
         Args:
@@ -370,7 +373,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
     ) -> PagedResponse[IntegrationConfigListResponse]:
         return PagedResponse[IntegrationConfigListResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[IntegrationConfigRequest]) -> list[IntegrationConfigResponse]:
+    def create(self, items: Sequence[IntegrationConfigRequest]) -> builtins.list[IntegrationConfigResponse]:
         """Create configuration revisions.
 
         Each revision is created with its own request. The extractor is notified on its next check-in.
@@ -381,7 +384,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
             The created revisions, including their revision numbers and config bodies.
         """
         endpoint = self._method_endpoint_map["create"]
-        results: list[IntegrationConfigResponse] = []
+        results: builtins.list[IntegrationConfigResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -398,7 +401,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
         items: Sequence[IntegrationConfigId],
         active_at_time: int | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[IntegrationConfigResponse]:
+    ) -> builtins.list[IntegrationConfigResponse]:
         """Retrieve configuration revisions.
 
         Args:
@@ -409,7 +412,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
             The retrieved revisions, including their config bodies.
         """
         endpoint = self._method_endpoint_map["retrieve"]
-        results: list[IntegrationConfigResponse] = []
+        results: builtins.list[IntegrationConfigResponse] = []
         for item in items:
             parameters = item.dump()
             if active_at_time is not None:
@@ -455,7 +458,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
         self,
         limit: int | None = None,
         integration_external_id: str | None = None,
-    ) -> Iterable[list[IntegrationConfigListResponse]]:
+    ) -> Iterable[builtins.list[IntegrationConfigListResponse]]:
         """Iterate over configuration revision metadata.
 
         Listed revisions omit the config body.
@@ -472,7 +475,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
         self,
         limit: int | None = None,
         integration_external_id: str | None = None,
-    ) -> list[IntegrationConfigListResponse]:
+    ) -> builtins.list[IntegrationConfigListResponse]:
         """List configuration revision metadata.
 
         Listed revisions omit the config body.
@@ -537,7 +540,7 @@ class IntegrationErrorsAPI(CDFResourceAPI[IntegrationErrorResponse]):
         task: str | None = None,
         min_start_time: int | None = None,
         max_end_time: int | None = None,
-    ) -> Iterable[list[IntegrationErrorResponse]]:
+    ) -> Iterable[builtins.list[IntegrationErrorResponse]]:
         """Iterate over errors.
 
         Args:
@@ -561,7 +564,7 @@ class IntegrationErrorsAPI(CDFResourceAPI[IntegrationErrorResponse]):
         task: str | None = None,
         min_start_time: int | None = None,
         max_end_time: int | None = None,
-    ) -> list[IntegrationErrorResponse]:
+    ) -> builtins.list[IntegrationErrorResponse]:
         """List errors.
 
         Args:
@@ -620,7 +623,7 @@ class IntegrationsAPI(CDFResourceAPI[IntegrationResponse]):
     ) -> PagedResponse[IntegrationResponse]:
         return PagedResponse[IntegrationResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[IntegrationRequest]) -> list[IntegrationResponse]:
+    def create(self, items: Sequence[IntegrationRequest]) -> builtins.list[IntegrationResponse]:
         """Create integrations.
 
         Args:
@@ -630,7 +633,9 @@ class IntegrationsAPI(CDFResourceAPI[IntegrationResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[IntegrationResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[IntegrationResponse]:
         """Retrieve integrations by external ID.
 
         Args:
@@ -645,7 +650,7 @@ class IntegrationsAPI(CDFResourceAPI[IntegrationResponse]):
 
     def update(
         self, items: Sequence[IntegrationRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[IntegrationResponse]:
+    ) -> builtins.list[IntegrationResponse]:
         """Update integrations.
 
         Args:
@@ -678,7 +683,7 @@ class IntegrationsAPI(CDFResourceAPI[IntegrationResponse]):
         """
         return self._paginate(limit=limit, cursor=cursor)
 
-    def iterate(self, limit: int | None = None) -> Iterable[list[IntegrationResponse]]:
+    def iterate(self, limit: int | None = None) -> Iterable[builtins.list[IntegrationResponse]]:
         """Iterate over integrations.
 
         Args:
@@ -688,7 +693,7 @@ class IntegrationsAPI(CDFResourceAPI[IntegrationResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[IntegrationResponse]:
+    def list(self, limit: int | None = None) -> builtins.list[IntegrationResponse]:
         """List integrations.
 
         Args:

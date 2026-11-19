@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
@@ -29,11 +29,11 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
     yaml_cls = SearchConfigYAML
     dependencies = frozenset({ViewIO})
     kind = "SearchConfig"
-    _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
-    _doc_url = "Search-Config/operation/upsertSearchConfigViews"
+    _doc_base_url = "https://handbook.cogheim.net/20230101-internal/"
+    _doc_url = "search-config/upsert-view-configurations"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._internal_id_by_view: dict[ViewNoVersionId, int] | None = None
 
     @property
@@ -50,7 +50,9 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
             yield AppConfigAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | dict) -> ViewNoVersionId:
+    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | ViewNoVersionId | dict) -> ViewNoVersionId:
+        if isinstance(item, ViewNoVersionId):
+            return item
         if isinstance(item, dict):
             view = item.get("view", {})
             return ViewNoVersionId(space=view.get("space", ""), external_id=view.get("externalId", ""))
@@ -61,7 +63,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         return {"view": id.dump()}
 
     @classmethod
-    def as_str(cls, id: ViewNoVersionId) -> str:
+    def as_filename(cls, id: ViewNoVersionId) -> str:
         return sanitize_filename(f"{id.external_id}_{id.space}")
 
     @classmethod
@@ -81,7 +83,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         loaded = SearchConfigRequest._load(resource)
 
         if self._internal_id_by_view is None:
-            all_configs = self.client.tool.search_configurations.list()
+            all_configs = self.client.search_configurations.list()
             self._internal_id_by_view = {config.view: config.id for config in all_configs}
 
         if loaded.view in self._internal_id_by_view:
@@ -102,11 +104,11 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         """
         Create new search configurations using the create/upsert method
         """
-        return self.client.tool.search_configurations.create(items)
+        return self.client.search_configurations.create(items)
 
     def retrieve(self, ids: Sequence[ViewNoVersionId]) -> list[SearchConfigResponse]:
         """Retrieve search configurations by their IDs"""
-        all_configs = self.client.tool.search_configurations.list()
+        all_configs = self.client.search_configurations.list()
         id_set = set(ids)
         # The API does not support server-side filtering, so we filter in memory.
         return [config for config in all_configs if config.view in id_set]
@@ -115,9 +117,9 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         """
         Update search configurations using the update/upsert method
         """
-        return self.client.tool.search_configurations.update(items)
+        return self.client.search_configurations.update(items)
 
-    def delete(self, ids: Sequence[ViewNoVersionId]) -> int:
+    def delete(self, ids: Sequence[ViewNoVersionId]) -> list[ViewNoVersionId]:
         """
         Delete is not implemented in the API client
         """
@@ -134,5 +136,5 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
             # These filters are not supported for SearchConfig
             return iter([])
 
-        all_configs = self.client.tool.search_configurations.list()
+        all_configs = self.client.search_configurations.list()
         return iter(all_configs)

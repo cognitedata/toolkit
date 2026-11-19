@@ -1,11 +1,14 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import TransformationYAML
+from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import Destination, DestinationType
 from tests.test_unit.utils import find_resources
 
 
@@ -151,7 +154,7 @@ def invalid_transformation_test_cases() -> Iterable:
                 "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
             },
         },
-        {"Unknown field: 'authentication.read'", "Unknown field: 'authentication.write'"},
+        {"Unrecognized field: 'authentication.read'", "Unrecognized field: 'authentication.write'"},
         id="Invalid authentication - base on real use case",
     )
     yield pytest.param(
@@ -207,6 +210,7 @@ class TestTransformationYAML:
 
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
         if "authentication" in dumped:
+            assert isinstance(data["authentication"], dict)
             # Secret is not dumped as per design, so we add it back for comparison
             dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
         assert dumped == data
@@ -220,6 +224,7 @@ class TestTransformationYAML:
             # Secret is not dumped as per design, so we add it back for comparison
             auth = dumped["authentication"]
             orig_auth = data["authentication"]
+            assert isinstance(orig_auth, dict)
             if "read" in auth or "write" in auth:
                 for key in ("read", "write"):
                     if key in auth:
@@ -237,3 +242,10 @@ class TestTransformationYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_all_destinations_in_union(self) -> None:
+        """Test that all destination types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Destination))
+        subclasses = set(get_args(DestinationType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

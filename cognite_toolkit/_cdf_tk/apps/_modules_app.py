@@ -1,5 +1,5 @@
 import contextlib
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -7,23 +7,26 @@ import typer
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullV2Command
+from cognite_toolkit._cdf_tk.commands import ModuleLockCommand, ModulesCommand, PullV2Command
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._version import __version__
 
-from ._helpers import print_help_if_no_subcommand
+from ._helpers import print_help_if_no_subcommand, warn_if_missing_credentials
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
-class ModulesListFormats(str, Enum):
+class ModulesListFormats(StrEnum):
     table = "table"
     json = "json"
 
 
 class ModulesApp(typer.Typer):
-    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+    # Subcommands that need CDF credentials (the rest work offline).
+    COMMANDS_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"pull", "locks"})
+
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
@@ -31,10 +34,14 @@ class ModulesApp(typer.Typer):
         self.command()(self.pull)
         self.command()(self.list)
         self.command()(self.add)
+        if Flags.DEPLOY_PROTECTION.is_enabled():
+            self.command()(self.locks)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
         print_help_if_no_subcommand(ctx)
+        if ctx.invoked_subcommand in self.COMMANDS_REQUIRING_CREDENTIALS:
+            warn_if_missing_credentials(ctx)
 
     def init(
         self,
@@ -120,6 +127,14 @@ class ModulesApp(typer.Typer):
                 help="Print details of each change applied in the upgrade process.",
             ),
         ] = False,
+        force: Annotated[
+            bool,
+            typer.Option(
+                "--force",
+                help="Upgrade the modules even if there are uncommitted changes.",
+                hidden=not Flags.v010.is_enabled(),
+            ),
+        ] = False,
     ) -> None:
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
@@ -128,7 +143,7 @@ class ModulesApp(typer.Typer):
             client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = ModulesCommand(client=client)
-        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose))
+        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose, force=force))
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
@@ -197,7 +212,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Build environment to use.",
             ),
         ] = CDF_TOML.cdf.default_env or "dev",
@@ -207,7 +222,6 @@ class ModulesApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
@@ -245,6 +259,37 @@ class ModulesApp(typer.Typer):
             )
         )
 
+    def locks(
+        self,
+        no_unlock: Annotated[
+            bool,
+            typer.Option(
+                "--no-unlock",
+                help="Only list the module locks, do not prompt to release any of them.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="Show which locks would be released without releasing them.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """List all module locks with their status and optionally release (unlock) them."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ModuleLockCommand(client=client)
+        cmd.run(lambda: cmd.locks(client=client, unlock=not no_unlock, dry_run=dry_run))
+
     def list(
         self,
         organization_dir: Annotated[
@@ -260,7 +305,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 help="Build environment to use.",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
             ),
         ] = CDF_TOML.cdf.default_env,
         config_yaml: Annotated[
@@ -269,7 +314,6 @@ class ModulesApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",

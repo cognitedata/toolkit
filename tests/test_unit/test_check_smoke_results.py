@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import respx
-from httpx2 import Response
 
 from tests_smoke.check_smoke_results import Context, SlackMessage, check_smoke_tests_results
 
@@ -27,7 +26,7 @@ def context() -> Context:
 @pytest.fixture
 def call_slack(respx_mock: respx.MockRouter, context: Context) -> Iterator[respx.MockRouter]:
     """Fixture to mock Slack webhook calls."""
-    respx_mock.post(url=context.slack_webhook_url).mock(Response(status_code=200))
+    respx_mock.post(url=context.slack_webhook_url).respond(status_code=200)
     yield respx_mock
 
 
@@ -90,7 +89,15 @@ def failed_tests_report_cases() -> Iterator[tuple]:
                 },
             ],
         },
-        [SlackMessage(topic="CDF API", message="[test-cluster] expected 1 but got 0")],
+        [
+            SlackMessage(
+                topic="CDF API",
+                message="[test-cluster] Smoke tests: 1 issue(s) detected (passed: 1, "
+                "failed: 1, errors: 0, skipped: 0, total: 3).\n"
+                "1. (CDF API) expected 1 but got 0\n"
+                "Go to https://github.com/cognitedata/toolkit to investigate.",
+            )
+        ],
         id="single_failed_test",
     )
 

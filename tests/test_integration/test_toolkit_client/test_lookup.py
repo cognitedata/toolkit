@@ -5,7 +5,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 
 class TestLookupFunctionsIds:
     def test_lookup_functions_id(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
-        function_id = toolkit_client.lookup.functions.id(dummy_function.external_id)
+        external_id = dummy_function.external_id
+        assert external_id is not None
+        function_id = toolkit_client.lookup.functions.id(external_id)
 
         assert function_id == dummy_function.id
 

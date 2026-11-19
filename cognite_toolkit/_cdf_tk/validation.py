@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, NamedTuple, TypeVar
+from typing import Any, Final, Literal, NamedTuple, TypeAlias, TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
@@ -14,6 +14,8 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 
 __all__ = [
+    "ValidationCode",
+    "ValidationMessage",
     "humanize_validation_error",
     "humanize_validation_error_categorized",
 ]
@@ -21,10 +23,27 @@ __all__ = [
 
 T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
 
+ValidationCode: TypeAlias = Literal["INVALID-FIELD", "UNRECOGNIZED-FIELD", "UNRECOGNIZED-VALUE"]
 
-class _MessageEntry(NamedTuple):
+INVALID_FIELD_CODE: Final = "INVALID-FIELD"
+UNRECOGNIZED_FIELD_CODE: Final = "UNRECOGNIZED-FIELD"
+UNRECOGNIZED_VALUE_CODE: Final = "UNRECOGNIZED-VALUE"
+
+
+class ValidationMessage(NamedTuple):
+    """A human-readable validation message.
+
+    Args:
+        message: The message.
+        category: Either "error" or "warning".
+        loc: The location in the user input the message refers to, or None if it does not refer to exactly one.
+        code: The insight code for the message.
+    """
+
     message: str
-    category: str
+    category: Literal["error", "warning"]
+    loc: tuple[str | int, ...] | None = None
+    code: ValidationCode = INVALID_FIELD_CODE
 
 
 class _GroupEntry(NamedTuple):
@@ -32,7 +51,7 @@ class _GroupEntry(NamedTuple):
 
 
 def validate_resource_yaml_pydantic(
-    data: dict[str, object] | list[dict[str, object]], validation_cls: type[BaseModelResource] | Any, source_file: Path
+    data: dict[str, Any] | list[dict[str, Any]], validation_cls: type[BaseModelResource] | Any, source_file: Path
 ) -> WarningList:
     """Validates the resource given as a dictionary or list of dictionaries with the given pydantic model.
 
@@ -54,7 +73,10 @@ def validate_resource_yaml_pydantic(
             else:
                 TypeAdapter(validation_cls).validate_python(data, strict=True)
         elif isinstance(data, list):
-            validation_type = list[validation_cls]  # type: ignore[valid-type]
+            # Build `list[validation_cls]` as a value expression (via an ``Any``-typed alias of ``list``)
+            # so type checkers don't try to interpret the subscript as a type expression.
+            list_factory: Any = list
+            validation_type = list_factory[validation_cls]
             TypeAdapter(validation_type).validate_python(data, strict=True)
         else:
             raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
@@ -102,10 +124,12 @@ def humanize_validation_error(error: ValidationError, validation_type: Any = Non
     Returns:
         A list of human-readable error messages.
     """
-    return [message for message, _ in humanize_validation_error_categorized(error, validation_type)]
+    return [item.message for item in humanize_validation_error_categorized(error, validation_type)]
 
 
-def humanize_validation_error_categorized(error: ValidationError, validation_type: Any = None) -> list[tuple[str, str]]:
+def humanize_validation_error_categorized(
+    error: ValidationError, validation_type: Any = None, for_insights: bool = False
+) -> list[ValidationMessage]:
     """Same as ``humanize_validation_error``, but also classifies each message as "error" or "warning".
 
     Unrecognized fields and invalid enum/literal values are classified as "warning" since they do not
@@ -116,14 +140,17 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
         validation_type: The type (pydantic model, annotated union, TypeAdapter, ...) that was used for the
             validation that raised the error. If given, discriminated union tags are removed from the error
             locations, such that the locations match the paths in the user input.
+        for_insights: Whether the messages are shown under a heading derived from the message's code, e.g. in the build
+            insights. Each unrecognized field then gets its own message, and the messages for unrecognized fields and
+            values do not repeat the title.
 
     Returns:
-        A list of (message, category) tuples, where category is either "error" or "warning".
+        A list of validation messages, where the category is either "error" or "warning".
     """
 
-    # Ordered list of either a (literal message, category) entry, or a group entry referring into `field_groups_by_loc`.
-    ordered_entries: list[_MessageEntry | _GroupEntry] = []
-    field_groups_by_loc: dict[tuple[str | int, ...], dict[str, list[str]]] = {}
+    # Ordered list of either a message entry, or a group entry referring into `field_groups_by_loc`.
+    ordered_entries: list[ValidationMessage | _GroupEntry] = []
+    field_groups_by_loc: dict[tuple[str | int, ...], dict[str, list[str | int]]] = {}
     item: ErrorDetails
     core_schema = _get_core_schema(validation_type) if validation_type is not None else None
 
@@ -132,7 +159,8 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
         if core_schema is not None:
             loc = _remove_discriminator_tags(loc, core_schema)
         error_type = item["type"]
-        category = "error"
+        code: ValidationCode = INVALID_FIELD_CODE
+        category: Literal["error", "warning"] = "error"
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
         # A nested object field left empty in YAML (e.g. "view:" with nothing indented under it) is
         # reported by Pydantic as "model_type" with a None input. The field is present but empty, which
@@ -149,20 +177,29 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
                 key = "empty"
             else:
                 key = "missing"
-            group[key].append(f"{loc[-1]!r}")
+            group[key].append(loc[-1])
             continue
         if error_type == "missing":
             msg = f"Missing required field: {loc[-1]!r}"
         elif error_type == "extra_forbidden":
-            msg = f"Unknown field: {loc[-1]!r}"
+            if for_insights:
+                msg = f"{loc[-1]!r} is not a known field for this resource"
+            else:
+                msg = f"Unrecognized field: {loc[-1]!r}"
             category = "warning"
+            code = UNRECOGNIZED_FIELD_CODE
         elif error_type == "value_error":
             msg = str(item["ctx"]["error"])
         elif error_type == "literal_error":
             expected = item.get("ctx", {}).get("expected", item["msg"].removeprefix("Input should be "))
             prefix = "Expected one of" if " or " in expected else "Expected"
-            msg = f"{prefix} {expected}. Got {item['input']!r}."
+            if for_insights:
+                where = f" for {as_json_path(loc)}" if loc else ""
+                msg = f"{item['input']!r} is not a known value{where}. {prefix} {expected}."
+            else:
+                msg = f"{prefix} {expected}. Got {item['input']!r}."
             category = "warning"
+            code = UNRECOGNIZED_VALUE_CODE
         elif error_type == "list_type":
             msg = f"{item['msg']}. Got {item['input']!r}."
         elif is_metadata_string_value_error:
@@ -198,13 +235,18 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
             # Default to the Pydantic error message
             msg = item["msg"]
 
+        message_loc = loc
         if error_type.endswith("dict_type") and len(loc) > 1:
             # If this is a dict_type error for a JSON field, the location will be:
             #  dict[str,json-or-python[json=any,python=tagged-union[list[...],dict[str,...],str,bool,int,float,none]]]
             #  This is hard to read, so we simplify it to just the field name.
             loc = tuple(["dict" if isinstance(x, str) and "json-or-python" in x else x for x in loc])
 
-        if len(loc) >= 1 and error_type not in {"extra_forbidden", "missing"}:
+        if (
+            len(loc) >= 1
+            and error_type not in {"extra_forbidden", "missing"}
+            and not (for_insights and error_type == "literal_error")
+        ):
             # Note: "missing"/"extra_forbidden" errors are handled above and never reach here.
             if error_type == "literal_error":
                 # "Unrecognized value" always reads as "for a field", regardless of path depth.
@@ -215,31 +257,47 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
                 # Nested or indexed paths (e.g. "settings.template.name", "actions[1]") still read fine with "at".
                 connector = "for" if len(loc) == 1 and isinstance(loc[0], str) else "at"
             msg = f"{prefix} {connector} {as_json_path(loc)}: {msg}"
-        ordered_entries.append(_MessageEntry(msg, category))
+        ordered_entries.append(ValidationMessage(msg, category, message_loc, code))
 
-    errors: list[tuple[str, str]] = []
+    errors: list[ValidationMessage] = []
     for entry in ordered_entries:
-        if isinstance(entry, _MessageEntry):
-            errors.append((entry.message, entry.category))
+        if isinstance(entry, ValidationMessage):
+            errors.append(entry)
             continue
         group = field_groups_by_loc[entry.loc]
         path = as_json_path(entry.loc)
         if missing := group["missing"]:
             field_word = "field" if len(missing) == 1 else "fields"
-            errors.append((f"Missing required {field_word} in {path}: {humanize_collection(missing)}", "error"))
+            message = f"Missing required {field_word} in {path}: {_quote_names(missing)}"
+            # The missing field is not in the user input, so a single one is located at the object missing it.
+            errors.append(ValidationMessage(message, "error", entry.loc if len(missing) == 1 else None))
         if empty := group["empty"]:
             field_word = "field" if len(empty) == 1 else "fields"
+            message = (
+                f"Empty {field_word} in {path}: {_quote_names(empty)}. "
+                "Hint: Check that its properties are properly indented underneath it."
+            )
+            errors.append(ValidationMessage(message, "error", (*entry.loc, empty[0]) if len(empty) == 1 else None))
+        if (unknown := group["unknown"]) and for_insights:
+            for name in unknown:
+                message = f"{name!r} in '{path}' is not a known field for this resource"
+                errors.append(ValidationMessage(message, "warning", (*entry.loc, name), UNRECOGNIZED_FIELD_CODE))
+        elif unknown:
+            field_word = "field" if len(unknown) == 1 else "fields"
+            message = f"Unrecognized {field_word} in {path}: {_quote_names(unknown)}. "
             errors.append(
-                (
-                    f"Empty {field_word} in {path}: {humanize_collection(empty)}. "
-                    "Hint: Check that its properties are properly indented underneath it.",
-                    "error",
+                ValidationMessage(
+                    message,
+                    "warning",
+                    (*entry.loc, unknown[0]) if len(unknown) == 1 else None,
+                    UNRECOGNIZED_FIELD_CODE,
                 )
             )
-        if unknown := group["unknown"]:
-            field_word = "field" if len(unknown) == 1 else "fields"
-            errors.append((f"Unrecognized {field_word} in {path}: {humanize_collection(unknown)}. ", "warning"))
     return errors
+
+
+def _quote_names(names: list[str | int]) -> str:
+    return humanize_collection([f"{name!r}" for name in names])
 
 
 def _get_core_schema(validation_type: Any) -> Mapping[str, Any] | None:

@@ -18,7 +18,7 @@ class StreamlitYAML(ToolkitResource):
         max_length=255,
     )
     creator: str = Field(description="The creator of the Streamlit app.")
-    entrypoint: str | None = Field(None, description="Path to the entrypoint file of the Streamlit app.")
+    entrypoint: str = Field(description="Path to the entrypoint file of the Streamlit app.")
     description: str | None = Field(None, description="The description of the Streamlit app.")
     published: bool = Field(False, description="Whether the Streamlit app is published or not.")
     theme: Literal["Light", "Dark"] = Field("Light", description="The theme of the Streamlit app.")

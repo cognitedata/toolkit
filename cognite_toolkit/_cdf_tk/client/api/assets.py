@@ -1,12 +1,38 @@
+import builtins
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
+from pydantic import JsonValue
+
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
+    aggregate_cardinality,
+    aggregate_count,
+    aggregate_unique,
+)
+from cognite_toolkit._cdf_tk.client.api._classic_list import (
+    AggregatedAssetProperty,
+    ObjectIds,
+    Sort,
+    TimeRange,
+    aggregated_properties_normalized,
+    classic_list_body,
+    classic_search_body,
+    dump_model,
+    int_ids,
+    object_ids,
+    str_ids,
+    time_range,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, GeoLocationFilter, LabelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import (
+    AssetPropertyPath,
+    ClassicAggregateUniqueBucket,
+)
 
 
 class AssetsAPI(CDFResourceAPI[AssetResponse]):
@@ -19,6 +45,8 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
                 "update": Endpoint(method="POST", path="/assets/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/assets/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/assets/aggregate", item_limit=1000),
+                "search": Endpoint(method="POST", path="/assets/search", item_limit=1000),
             },
         )
 
@@ -28,7 +56,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[AssetRequest]) -> list[AssetResponse]:
+    def create(self, items: Sequence[AssetRequest]) -> builtins.list[AssetResponse]:
         """Create assets in CDF.
 
         Args:
@@ -38,22 +66,31 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> list[AssetResponse]:
+    def retrieve(
+        self,
+        items: Sequence[InternalOrExternalId],
+        ignore_unknown_ids: bool = False,
+        *,
+        aggregated_properties: bool | Sequence[AggregatedAssetProperty] = False,
+    ) -> builtins.list[AssetResponse]:
         """Retrieve assets from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            aggregated_properties: Includes ``childCount``, ``path``, and/or ``depth``. ``True`` includes all three.
         Returns:
             List of retrieved AssetResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        aggregated = aggregated_properties_normalized(aggregated_properties)
+        extra_body: dict[str, Any] = {"ignoreUnknownIds": ignore_unknown_ids}
+        if aggregated is not None:
+            extra_body["aggregatedProperties"] = aggregated
+        return self._request_item_response(items, method="retrieve", extra_body=extra_body)
 
     def update(
         self, items: Sequence[AssetRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[AssetResponse]:
+    ) -> builtins.list[AssetResponse]:
         """Update assets in CDF.
 
         Args:
@@ -81,48 +118,315 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
 
     def paginate(
         self,
-        aggregated_properties: bool = False,
-        filter: ClassicFilter | None = None,
+        aggregated_properties: bool | Sequence[AggregatedAssetProperty] = False,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         limit: int = 100,
         cursor: str | None = None,
+        *,
+        name: str | None = None,
+        parent_ids: int | Sequence[int] | None = None,
+        parent_external_ids: str | Sequence[str] | None = None,
+        root_ids: ObjectIds | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        metadata: dict[str, str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        root: bool | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
     ) -> PagedResponse[AssetResponse]:
-        """Iterate over all assets in CDF.
+        """Fetch one page of assets.
 
-        Returns:
-            PagedResponse of AssetResponse objects.
+        Takes the same filter arguments as :meth:`list`.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/listAssets>`_.
         """
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={
-                "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
-                "filter": filter.dump() if filter else None,
-            },
+            body=self._list_body(
+                aggregated_properties=aggregated_properties,
+                filter=filter,
+                name=name,
+                parent_ids=parent_ids,
+                parent_external_ids=parent_external_ids,
+                root_ids=root_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                metadata=metadata,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                root=root,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                advanced_filter=advanced_filter,
+                sort=sort,
+                partition=partition,
+            ),
         )
 
     def iterate(
         self,
-        aggregated_properties: bool = False,
-        filter: ClassicFilter | None = None,
+        aggregated_properties: bool | Sequence[AggregatedAssetProperty] = False,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[AssetResponse]]:
-        """Iterate over all assets in CDF.
+        *,
+        name: str | None = None,
+        parent_ids: int | Sequence[int] | None = None,
+        parent_external_ids: str | Sequence[str] | None = None,
+        root_ids: ObjectIds | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        metadata: dict[str, str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        root: bool | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
+    ) -> Iterable[builtins.list[AssetResponse]]:
+        """Iterate over assets in CDF.
 
-        Returns:
-            Sequence of AssetResponse objects.
+        Takes the same filter arguments as :meth:`list`. ``limit`` is the maximum number of
+        assets to return in total; ``None`` reads every matching asset.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/listAssets>`_.
         """
         return self._iterate(
             limit=limit,
-            body={
-                "aggregatedProperties": ["childCount", "path", "depth"] if aggregated_properties else [],
-                "filter": filter.dump() if filter else None,
-            },
+            body=self._list_body(
+                aggregated_properties=aggregated_properties,
+                filter=filter,
+                name=name,
+                parent_ids=parent_ids,
+                parent_external_ids=parent_external_ids,
+                root_ids=root_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                metadata=metadata,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                root=root,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                advanced_filter=advanced_filter,
+                sort=sort,
+                partition=partition,
+            ),
         )
 
-    def list(self, limit: int | None = 100) -> list[AssetResponse]:
-        """List all asset references in CDF.
+    def list(
+        self,
+        limit: int | None = 100,
+        *,
+        aggregated_properties: bool | Sequence[AggregatedAssetProperty] = False,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        parent_ids: int | Sequence[int] | None = None,
+        parent_external_ids: str | Sequence[str] | None = None,
+        root_ids: ObjectIds | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        metadata: dict[str, str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        root: bool | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
+    ) -> builtins.list[AssetResponse]:
+        """List assets in CDF.
 
-        Returns:
-            List of AssetResponse objects.
+        ``filter`` is a strict filter. Individual arguments override the same field on ``filter``.
+        ``advanced_filter`` is the filter DSL (``equals``, ``prefix``, ``exists``, and so on, combined
+        with ``and``, ``or``, and ``not``). ``sort`` is one item or a list of ``{property, order, nulls}``.
+        ``partition`` is an ``"M/N"`` string; follow the cursor within that partition to read it all.
+        ``aggregated_properties`` includes ``childCount``, ``path``, and/or ``depth``. ``True`` includes all three.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/listAssets>`_.
         """
-        return self._list(limit=limit)
+        return self._list(
+            limit=limit,
+            body=self._list_body(
+                aggregated_properties=aggregated_properties,
+                filter=filter,
+                name=name,
+                parent_ids=parent_ids,
+                parent_external_ids=parent_external_ids,
+                root_ids=root_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                metadata=metadata,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                root=root,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                advanced_filter=advanced_filter,
+                sort=sort,
+                partition=partition,
+            ),
+        )
+
+    @staticmethod
+    def _list_body(
+        *,
+        aggregated_properties: bool | Sequence[AggregatedAssetProperty] = False,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        parent_ids: int | Sequence[int] | None = None,
+        parent_external_ids: str | Sequence[str] | None = None,
+        root_ids: ObjectIds | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        metadata: dict[str, str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        root: bool | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
+    ) -> dict[str, Any]:
+        aggregated = aggregated_properties_normalized(aggregated_properties)
+        return classic_list_body(
+            filter=filter,
+            fields={
+                "name": name,
+                "parentIds": int_ids(parent_ids),
+                "parentExternalIds": str_ids(parent_external_ids),
+                "rootIds": object_ids(root_ids),
+                "assetSubtreeIds": object_ids(asset_subtree_ids, asset_subtree_external_ids),
+                "dataSetIds": object_ids(data_set_ids, data_set_external_ids),
+                "metadata": metadata,
+                "source": source,
+                "createdTime": time_range(created_time),
+                "lastUpdatedTime": time_range(last_updated_time),
+                "root": root,
+                "externalIdPrefix": external_id_prefix,
+                "labels": dump_model(labels),
+                "geoLocation": dump_model(geo_location),
+            },
+            advanced_filter=advanced_filter,
+            sort=sort,
+            partition=partition,
+            extra={"aggregatedProperties": aggregated} if aggregated is not None else None,
+        )
+
+    def search(
+        self,
+        query: str | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        limit: int = 100,
+    ) -> builtins.list[AssetResponse]:
+        """Search assets by text. Results are sorted by relevance.
+
+        ``query`` searches the name and description and generally gives better results than ``name`` and
+        ``description``, which are prefix and fuzzy searches on a single field. ``filter`` is the same strict
+        filter as :meth:`list`. Search is meant for human-centric use cases, use :meth:`list` in programs.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/searchAssets>`_.
+        """
+        body = classic_search_body(filter=filter, search={"query": query, "name": name, "description": description})
+        return self._search(body, limit)
+
+    def count(
+        self,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        property: AssetPropertyPath | None = None,
+    ) -> int:
+        """Count assets matching optional filters.
+
+        When ``property`` is set, count assets where that property is present.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/aggregateAssets>`_.
+        """
+        return aggregate_count(self, filter=filter, advanced_filter=advanced_filter, property=property)
+
+    def cardinality(
+        self,
+        property: AssetPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Approximate number of distinct values for ``property``.
+
+        Uses ``cardinalityProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``cardinalityValues`` for every other path.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/aggregateAssets>`_.
+        """
+        return aggregate_cardinality(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
+
+    def unique(
+        self,
+        property: AssetPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> builtins.list[ClassicAggregateUniqueBucket]:
+        """Distinct values for ``property``, each with a count.
+
+        Uses ``uniqueProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``uniqueValues`` for every other path. Text values are aggregated case-insensitively.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/aggregateAssets>`_.
+        """
+        return aggregate_unique(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )

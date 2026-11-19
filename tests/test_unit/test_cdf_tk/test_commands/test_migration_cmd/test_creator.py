@@ -3,7 +3,6 @@ from typing import Any
 
 import pytest
 import yaml
-from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
@@ -11,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     FeatureConfiguration,
     RootLocationConfiguration,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import ClassicAggregateUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     NodeId,
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -56,7 +57,7 @@ class TestCreator:
         _ = MigrationCommand(silent=True).create(
             client=toolkit_client_approval.client,
             creator=InstanceSpaceCreator(
-                toolkit_client_approval.client, data_set_external_ids=[ds.external_id for ds in data_sets]
+                toolkit_client_approval.client, data_set_external_ids=[f"dataset_{letter}" for letter in "ABC"]
             ),
             dry_run=dry_run,
             verbose=False,
@@ -67,7 +68,7 @@ class TestCreator:
         created_spaces = toolkit_client_approval.created_resources["SpaceResponse"] if not dry_run else []
         assert all(isinstance(space, SpaceRequest) for space in created_spaces)
         expected_created = {ds.external_id for ds in data_sets} if not dry_run else set()
-        assert {space.space for space in created_spaces} == expected_created
+        assert {space.space for space in created_spaces if isinstance(space, SpaceRequest)} == expected_created
 
     def test_create_instance_spaces_missing_external_id(
         self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
@@ -166,13 +167,20 @@ class TestCreator:
     ) -> None:
         toolkit_client_approval.append(DataModelResponse, COGNITE_MIGRATION_MODEL)
         toolkit_client_approval.append(ViewResponse, VIEWS)
-        asset_sources = UniqueResultList([UniqueResult(100, ["aveva"]), UniqueResult(50, ["custom"])])
-        event_sources = UniqueResultList([UniqueResult(400, ["sap"]), UniqueResult(200, ["internal"])])
-        file_sources = UniqueResultList([UniqueResult(1000, ["sharepoint"])])
+        asset_sources = [
+            ClassicAggregateUniqueBucket(count=100, values=["aveva"]),
+            ClassicAggregateUniqueBucket(count=50, values=["custom"]),
+        ]
+        event_sources = [
+            ClassicAggregateUniqueBucket(count=400, values=["sap"]),
+            ClassicAggregateUniqueBucket(count=200, values=["internal"]),
+        ]
+        file_sources = [DocumentUniqueBucket(count=1000, values=["sharepoint"])]
         client = toolkit_client_approval.mock_client
-        client.assets.aggregate_unique_values.return_value = asset_sources
-        client.events.aggregate_unique_values.return_value = event_sources
-        client.documents.aggregate_unique_values.return_value = file_sources
+        client.lookup.data_sets.id.return_value = 1
+        client.assets.unique.return_value = asset_sources
+        client.events.unique.return_value = event_sources
+        client.documents.unique.return_value = file_sources
         client.migration.created_source_system.list.return_value = [
             CreatedSourceSystem(
                 space="my_other_space",
@@ -197,7 +205,7 @@ class TestCreator:
         expected_external_ids = {"aveva", "custom", "internal", "sharepoint"}
         created_nodes = toolkit_client_approval.created_resources["InstanceDefinition"]
         assert all(isinstance(node, NodeRequest) for node in created_nodes)
-        assert {node.external_id for node in created_nodes} == expected_external_ids
+        assert {node.external_id for node in created_nodes if isinstance(node, NodeRequest)} == expected_external_ids
 
     def test_create_infield_config(self, data_regression: DataRegressionFixture, tmp_path: Path) -> None:
         apm_config_path = MIGRATION_DIR / "infield_config" / "default_infield_config_minimal.yaml"
@@ -205,7 +213,7 @@ class TestCreator:
 
         output: dict[str, Any] = {}
         with monkeypatch_toolkit_client() as client:
-            asset_external_id = apm_config.feature_configuration.root_location_configurations[0].asset_external_id
+            _, asset_external_id = next(APMConfigResponse.iterate_root_locations([apm_config]))
             client.migration.lookup.assets.return_value = NodeId(space="migrated", external_id=asset_external_id)
             creator = InfieldCDMConfigCreator(client, apm_configs=[apm_config])
             for to_create in creator.create_resources():
@@ -213,14 +221,16 @@ class TestCreator:
                     output.setdefault(to_create.display_name, []).append(resource.config_data)
 
                     # Ensure that the config is valid according to the YAML schema
-                    to_create.crud_cls.yaml_cls.model_validate(resource.config_data)
+                    assert resource.config_data is not None
+                    to_create.crud_cls.validate_object(resource.config_data)
 
         data_regression.check(output)
 
     def test_create_infield_config_skips_invalid_root_location(self) -> None:
         apm_config_path = MIGRATION_DIR / "infield_config" / "default_infield_config_minimal.yaml"
         apm_config = APMConfigResponse.model_validate(yaml.safe_load(apm_config_path.read_text()))
-        valid_root_location = apm_config.feature_configuration.root_location_configurations[0]
+        _, valid_asset_external_id = next(APMConfigResponse.iterate_root_locations([apm_config]))
+        assert apm_config.feature_configuration and apm_config.feature_configuration.root_location_configurations
         apm_config.feature_configuration.root_location_configurations.append(
             RootLocationConfiguration(
                 external_id="missing_required_fields",
@@ -230,9 +240,7 @@ class TestCreator:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.migration.lookup.assets.return_value = NodeId(
-                space="migrated", external_id=valid_root_location.asset_external_id
-            )
+            client.migration.lookup.assets.return_value = NodeId(space="migrated", external_id=valid_asset_external_id)
             creator = InfieldCDMConfigCreator(client, apm_configs=[apm_config])
             resources_by_kind = {
                 to_create.display_name: to_create.resources for to_create in creator.create_resources()

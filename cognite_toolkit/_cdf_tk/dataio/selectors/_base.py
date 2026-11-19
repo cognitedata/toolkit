@@ -23,7 +23,7 @@ DirectoryName: TypeAlias = Annotated[str, PlainValidator(_check_is_sanitized_fil
 class SelectorObject(BaseModel):
     """This is used as base class for all selector objects including nested ones."""
 
-    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True, defer_build=True)
 
 
 class DataSelector(SelectorObject, ABC):

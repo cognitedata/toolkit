@@ -1,4 +1,4 @@
-from ._base import CellValue, Chunk, DataType, PrimaryCellValue, SchemaColumn
+from ._base import CellValue, Chunk, DataType, PrimaryCellValue, SchemaColumn, SQLiteTable
 from ._compression import (
     COMPRESSION_BY_NAME,
     COMPRESSION_BY_SUFFIX,
@@ -15,6 +15,7 @@ from ._readers import (
     MultiFileReader,
     NDJsonReader,
     ParquetReader,
+    SQLiteReader,
     YAMLReader,
     YMLReader,
 )
@@ -25,6 +26,7 @@ from ._writers import (
     FileWriter,
     NDJsonWriter,
     ParquetWriter,
+    SQLiteWriter,
     YAMLWriter,
     YMLWriter,
 )
@@ -52,6 +54,9 @@ __all__ = [
     "ParquetReader",
     "ParquetWriter",
     "PrimaryCellValue",
+    "SQLiteReader",
+    "SQLiteTable",
+    "SQLiteWriter",
     "SchemaColumn",
     "Uncompressed",
     "YAMLReader",

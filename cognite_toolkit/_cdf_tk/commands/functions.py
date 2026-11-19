@@ -30,7 +30,10 @@ _TRACING_BACKENDS = [
     Choice(title="honeycomb     — Honeycomb US (free tier available)", value="honeycomb"),
     Choice(title="lightstep     — Lightstep / ServiceNow", value="lightstep"),
 ]
-_DEFAULT_TRACING_BACKEND: str = _TRACING_BACKENDS[1].value  # type: ignore[assignment]
+_default_tracing_backend = _TRACING_BACKENDS[1].value
+if not isinstance(_default_tracing_backend, str):
+    raise RuntimeError("Default tracing backend must be a string")
+_DEFAULT_TRACING_BACKEND = _default_tracing_backend
 
 
 # Dataclasses

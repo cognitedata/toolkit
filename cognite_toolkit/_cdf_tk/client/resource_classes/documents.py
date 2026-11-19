@@ -1,6 +1,6 @@
-from typing import Any, Literal, TypeAlias, get_args
+from typing import Annotated, Any, Literal, TypeAlias, get_args
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Discriminator, Field, JsonValue, Tag, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client._types import Metadata
@@ -122,3 +122,136 @@ class DocumentUniqueBucket(BaseModelObject):
         else:
             out["values"] = []
         return out
+
+
+class DocumentTextBox(BaseModelObject):
+    """Text with the page it is on and its bounding box. Pages start at 1."""
+
+    text: str
+    page: int
+    left: float
+    right: float
+    top: float
+    bottom: float
+
+
+class DocumentLine(BaseModelObject):
+    """A line of text. With word granularity only ``words`` is set, with line granularity the text and box."""
+
+    text: str | None = None
+    page: int | None = None
+    left: float | None = None
+    right: float | None = None
+    top: float | None = None
+    bottom: float | None = None
+    words: list[DocumentTextBox] | None = None
+
+
+class DocumentCell(BaseModelObject):
+    """A cell of a table. With element granularity the text and box are set, otherwise ``lines``."""
+
+    text: str | None = None
+    page: int | None = None
+    left: float | None = None
+    right: float | None = None
+    top: float | None = None
+    bottom: float | None = None
+    lines: list[DocumentLine] | None = None
+
+
+class DocumentTextElement(DocumentCell):
+    """A title, paragraph, list, or table of contents. Only titles have a ``level``, from 1 to 3."""
+
+    type: Literal["title", "paragraph", "list", "toc"]
+    level: int | None = None
+
+
+class DocumentTableElement(BaseModelObject):
+    type: Literal["table"]
+    column_header_count: int | None = None
+    row_header_count: int | None = None
+    rows: list[list[DocumentCell]]
+
+
+class DocumentUnknownElement(BaseModelObject):
+    """An element of a type not known to the Toolkit."""
+
+    type: str | None = None
+
+
+_ELEMENT_TAG_BY_TYPE = {"title": "text", "paragraph": "text", "list": "text", "toc": "text", "table": "table"}
+
+
+def _element_tag(value: Any) -> str:
+    element_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    return _ELEMENT_TAG_BY_TYPE.get(element_type, "unknown") if isinstance(element_type, str) else "unknown"
+
+
+DocumentElement: TypeAlias = Annotated[
+    Annotated[DocumentTextElement, Tag("text")]
+    | Annotated[DocumentTableElement, Tag("table")]
+    | Annotated[DocumentUnknownElement, Tag("unknown")],
+    Discriminator(_element_tag),
+]
+
+
+class DocumentElementsResponse(BaseModelObject):
+    elements: list[DocumentElement]
+
+
+class DocumentPassageLocation(BaseModelObject):
+    page_number: int | None = None
+    left: float | None = None
+    right: float | None = None
+    up: float | None = None
+    bottom: float | None = None
+
+
+class DocumentPassageSourceFile(BaseModelObject):
+    name: str
+    hash: str | None = None
+
+
+class DocumentPassageDocument(BaseModelObject):
+    id: int
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    source_file: DocumentPassageSourceFile
+
+
+class DocumentPassage(BaseModelObject):
+    """A passage of a document that matches a passage search."""
+
+    text: str
+    locations: list[DocumentPassageLocation]
+    document: DocumentPassageDocument
+
+
+class DocumentProcessingStatus(BaseModelObject):
+    status: Literal["waiting", "running", "failed", "completed"]
+    available: bool
+    reason: str | None = None
+
+
+class DocumentPassagesStatus(DocumentProcessingStatus):
+    count: int | None = None
+
+
+class DocumentContentStatus(DocumentProcessingStatus):
+    pages: int | None = None
+
+
+class DocumentStatusResponse(BaseModelObject):
+    """How far the processing of a document has come, per kind of derived content."""
+
+    id: int | None = None
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    passages: DocumentPassagesStatus
+    elements: DocumentProcessingStatus
+    content: DocumentContentStatus
+
+
+class DocumentTemporaryLink(BaseModelObject):
+    temporary_link: str
+    expiration_time: int

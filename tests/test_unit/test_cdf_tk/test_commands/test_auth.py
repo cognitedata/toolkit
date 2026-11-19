@@ -2,13 +2,21 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
+    EventsAcl,
     GroupCapability,
     GroupResponse,
+    LabelsAcl,
+    ProjectsAcl,
     RelationshipsAcl,
+    SecurityCategoriesAcl,
+    SequencesAcl,
+    SessionsAcl,
     StreamsAcl,
+    TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.project import (
     Claim,
@@ -22,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     InspectProjectInfo,
     InspectResponse,
 )
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -69,7 +77,7 @@ def _create_inspect_response() -> InspectResponse:
 
 
 def _setup_verify_mocks(
-    client: MagicMock,
+    client: ToolkitClientMock,
     user_groups: list[GroupResponse],
     all_cdf_groups: list[GroupResponse] | None = None,
     data_modeling_status: str = "HYBRID",
@@ -77,11 +85,10 @@ def _setup_verify_mocks(
     if all_cdf_groups is None:
         all_cdf_groups = list(user_groups)
 
-    client.config.project = CDF_PROJECT
-    client.config.is_private_link = False
+    client.config = MagicMock(spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False)
 
-    client.tool.token.inspect.return_value = _create_inspect_response()
-    client.tool.token.verify_acls.return_value = []
+    client.token.inspect.return_value = _create_inspect_response()
+    client.token.verify_acls.return_value = []
 
     _user = user_groups
     _all = all_cdf_groups
@@ -89,7 +96,7 @@ def _setup_verify_mocks(
     def groups_list(all_groups: bool = False) -> list[GroupResponse]:
         return _all if all_groups else _user
 
-    client.tool.groups.list.side_effect = groups_list
+    client.groups.list.side_effect = groups_list
 
     status_mock = MagicMock()
     status_mock.this_project.data_modeling_status = data_modeling_status
@@ -167,8 +174,8 @@ class TestAuthCommand:
     def test_auth_verify_no_group_access(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.config.project = CDF_PROJECT
-            client.tool.token.inspect.return_value = _create_inspect_response()
-            client.tool.token.verify_acls.return_value = [AssetsAcl(actions=["READ"], scope=AllScope())]
+            client.token.inspect.return_value = _create_inspect_response()
+            client.token.verify_acls.return_value = [AssetsAcl(actions=["READ"], scope=AllScope())]
 
             cmd = AuthCommand(print_warning=False)
             with pytest.raises(AuthorizationError) as exc_info:
@@ -197,20 +204,16 @@ class TestAuthCommand:
                 source_id="test-source-id",
                 capabilities=[GroupCapability(acl=acl) for acl in required_acls],
             )
-            client.tool.groups.create.return_value = [updated_group]
-            client.tool.groups.delete.return_value = None
+            client.groups.create.return_value = [updated_group]
+            client.groups.delete.return_value = None
 
             monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.command.Prompt.ask", lambda *a, **k: None)
-            with MockQuestionary(
-                "cognite_toolkit._cdf_tk.commands.auth.command",
-                monkeypatch,
-                answers=[True],
-            ):
+            with MockQuestionary("cognite_toolkit._cdf_tk.commands.auth.command", answers=[True]):
                 cmd = AuthCommand(print_warning=False)
                 result = cmd.verify(client, dry_run=False, no_prompt=False)
 
             assert result.toolkit_group_id is not None
-            client.tool.groups.create.assert_called_once()
+            client.groups.create.assert_called_once()
 
 
 def test_get_capabilities_by_loader_hybrid_project() -> None:
@@ -220,6 +223,16 @@ def test_get_capabilities_by_loader_hybrid_project() -> None:
     acl_types_hybrid = {type(c) for c in acls_hybrid}
     assert AssetsAcl in acl_types_hybrid
     assert RelationshipsAcl in acl_types_hybrid
+    assert LabelsAcl in acl_types_hybrid
+    assert SecurityCategoriesAcl in acl_types_hybrid
+    assert TimeSeriesAcl in acl_types_hybrid
+    assert EventsAcl in acl_types_hybrid
+    assert SequencesAcl in acl_types_hybrid
+
+    projects_acl = next(acl for acl in acls_hybrid if isinstance(acl, ProjectsAcl))
+    assert set(projects_acl.actions) == {"LIST", "READ"}
+    sessions_acl = next(acl for acl in acls_hybrid if isinstance(acl, SessionsAcl))
+    assert set(sessions_acl.actions) == {"CREATE", "DELETE", "LIST"}
 
 
 def test_get_capabilities_by_loader_dm_only_project() -> None:
@@ -229,6 +242,13 @@ def test_get_capabilities_by_loader_dm_only_project() -> None:
     acl_types_dm_only = {type(c) for c in acl_dm_only}
     assert AssetsAcl not in acl_types_dm_only
     assert RelationshipsAcl not in acl_types_dm_only
+    assert LabelsAcl not in acl_types_dm_only
+    assert SecurityCategoriesAcl not in acl_types_dm_only
+    assert TimeSeriesAcl not in acl_types_dm_only
+    assert EventsAcl not in acl_types_dm_only
+    assert SequencesAcl not in acl_types_dm_only
+    assert ProjectsAcl in acl_types_dm_only
+    assert SessionsAcl in acl_types_dm_only
 
 
 def test_update_missing_capabilities_dm_only_project() -> None:
@@ -255,8 +275,8 @@ def test_update_missing_capabilities_dm_only_project() -> None:
         ],
     )
     with monkeypatch_toolkit_client() as client:
-        client.tool.groups.create.return_value = [created_response]
-        client.tool.groups.delete.return_value = None
+        client.groups.create.return_value = [created_response]
+        client.groups.delete.return_value = None
 
         result = AuthCommand()._update_missing_capabilities(
             client,
@@ -268,8 +288,8 @@ def test_update_missing_capabilities_dm_only_project() -> None:
         )
 
     assert result is True
-    client.tool.groups.create.assert_called_once()
-    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    client.groups.create.assert_called_once()
+    created_group_request = client.groups.create.call_args[0][0][0]
     assert len(created_group_request.capabilities) == 1
     assert isinstance(created_group_request.capabilities[0].acl, StreamsAcl)
 
@@ -301,8 +321,8 @@ def test_update_missing_capabilities_drops_source_id_when_members_present() -> N
         ],
     )
     with monkeypatch_toolkit_client() as client:
-        client.tool.groups.create.return_value = [created_response]
-        client.tool.groups.delete.return_value = None
+        client.groups.create.return_value = [created_response]
+        client.groups.delete.return_value = None
 
         result = AuthCommand()._update_missing_capabilities(
             client,
@@ -314,7 +334,7 @@ def test_update_missing_capabilities_drops_source_id_when_members_present() -> N
         )
 
     assert result is True
-    client.tool.groups.create.assert_called_once()
-    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    client.groups.create.assert_called_once()
+    created_group_request = client.groups.create.call_args[0][0][0]
     assert created_group_request.members == ["service-account@example.com"]
     assert created_group_request.source_id is None

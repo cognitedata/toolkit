@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Spaces/operation/ApplySpaces
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -31,7 +32,7 @@ class SpacesAPI(CDFResourceAPI[SpaceResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[SpaceResponse]:
         return PagedResponse[SpaceResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
+    def create(self, items: Sequence[SpaceRequest]) -> builtins.list[SpaceResponse]:
         """Apply (create or update) spaces in CDF.
 
         Args:
@@ -42,7 +43,7 @@ class SpacesAPI(CDFResourceAPI[SpaceResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[SpaceId]) -> list[SpaceResponse]:
+    def retrieve(self, items: Sequence[SpaceId]) -> builtins.list[SpaceResponse]:
         """Retrieve spaces from CDF.
 
         Args:
@@ -87,7 +88,7 @@ class SpacesAPI(CDFResourceAPI[SpaceResponse]):
         self,
         include_global: bool = False,
         limit: int | None = None,
-    ) -> Iterable[list[SpaceResponse]]:
+    ) -> Iterable[builtins.list[SpaceResponse]]:
         """Iterate over all spaces in CDF.
 
         Args:
@@ -102,7 +103,7 @@ class SpacesAPI(CDFResourceAPI[SpaceResponse]):
             params={"includeGlobal": include_global},
         )
 
-    def list(self, include_global: bool = False, limit: int | None = None) -> list[SpaceResponse]:
+    def list(self, include_global: bool = False, limit: int | None = None) -> builtins.list[SpaceResponse]:
         """List all spaces in CDF.
 
         Args:

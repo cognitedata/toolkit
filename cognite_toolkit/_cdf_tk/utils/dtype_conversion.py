@@ -5,7 +5,6 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from typing import ClassVar, Literal, overload
 
-from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling
@@ -28,6 +27,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 )
 
 from .collection import humanize_collection
+from .time import ms_to_datetime
 
 # Type alias for property values that can be written to data modeling instances.
 PropertyValueWrite = str | int | float | bool | dict | list | datetime | date | None
@@ -123,7 +123,7 @@ def convert_to_primary_property(
         values = _as_list(value)
         output: list[PropertyValueWrite] = []
         for item in values:
-            converted = converter.convert(item)  # type: ignore[arg-type]
+            converted = converter.convert(item)
             if converted is not None:
                 output.append(converted)
         return output
@@ -132,15 +132,15 @@ def convert_to_primary_property(
 
 
 def convert_str_to_data_type(
-    value: str | None,
+    value: JsonVal,
     type_: DataType,
     nullable: bool = True,
     is_array: bool = False,
 ) -> PythonTypes | None:
-    """Convert a string value to the appropriate data type based on the provided type.
+    """Convert a value to the appropriate data type based on the provided type.
 
     Args:
-        value: The value to convert, which can be a string or None.
+        value: The value to convert, typically a string, but any JSON value is accepted.
         type_: The target data type.
         nullable: Whether data type can be null.
         is_array: Whether the data type is an array.
@@ -159,7 +159,7 @@ def convert_str_to_data_type(
         values = _as_list(value)
         output: list[PythonTypes] = []
         for item in values:
-            converted = converter.convert(item)  # type: ignore[arg-type]
+            converted = converter.convert(item)
             if converted is not None:
                 output.append(converted)
         return output
@@ -214,9 +214,9 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
             and _is_midnight_and_naive(converted_value)
         ):
             # If the converted value is a datetime with no time component, return it as a date
-            return _DateConverter.schema_type, converted_value.date()
-        else:
-            return converter_cls.schema_type, converted_value
+            return _require_schema_type(_DateConverter), converted_value.date()
+        schema_type = _require_schema_type(converter_cls)
+        return schema_type, converted_value
 
     raise ValueError(
         f"Failed to infer data type from value: {value!r}. Supported types are: "
@@ -224,25 +224,89 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
     )
 
 
+def infer_data_type_from_json_value(value: JsonVal) -> tuple[DataType, bool]:
+    """Infer the data type of an already parsed JSON value.
+
+    Unlike `infer_data_type_from_value`, strings are not parsed, i.e., "123" is a string.
+
+    Args:
+        value: The JSON value to infer the data type from. None and empty lists infer as json.
+
+    Returns:
+        A tuple of the inferred data type and whether it is an array.
+    """
+    if isinstance(value, bool):
+        return "boolean", False
+    if isinstance(value, int):
+        if not (INT64_MIN <= value <= INT64_MAX):
+            return "json", False
+        return "integer", False
+    if isinstance(value, float):
+        return "float", False
+    if isinstance(value, str):
+        return "string", False
+    if isinstance(value, list):
+        element_types = [infer_data_type_from_json_value(item) for item in value if item is not None]
+        if not element_types:
+            return "json", False
+        data_type, is_array = element_types[0]
+        for other_type, other_is_array in element_types[1:]:
+            data_type, is_array = merge_data_types(data_type, is_array, other_type, other_is_array)
+            if data_type == "json":
+                return "json", False
+        if is_array:
+            # Nested arrays are not supported as typed arrays.
+            return "json", False
+        return data_type, True
+    return "json", False
+
+
+def merge_data_types(
+    left: DataType, left_is_array: bool, right: DataType, right_is_array: bool
+) -> tuple[DataType, bool]:
+    """Merge two data types into one that can hold both. Integer and float merge to float,
+    other conflicts fall back to json.
+
+    Returns:
+        A tuple of the merged data type and whether it is an array.
+    """
+    if left == right and left_is_array == right_is_array:
+        return left, left_is_array
+    if left_is_array == right_is_array and {left, right} <= {"integer", "float"}:
+        return "float", left_is_array
+    return "json", False
+
+
 def _is_midnight_and_naive(dt: datetime) -> bool:
     """Checks if a datetime object is at midnight and is naive (has no timezone)."""
     return not (dt.hour or dt.minute or dt.second or dt.microsecond or dt.tzinfo)
 
 
-def _as_list(value: str | int | float | bool | NodeId | dict[str, object] | list[object] | None) -> list[object]:
+_InputValue = str | int | float | bool | NodeId | dict | list | None
+
+
+def _as_input_value(item: object) -> _InputValue:
+    if isinstance(item, str | int | float | bool | NodeId | dict | list) or item is None:
+        return item
+    raise TypeError(f"Cannot convert {item} of type {type(item)} to a list.")
+
+
+def _as_list(value: _InputValue) -> list[_InputValue]:
     """Convert a value to a list, ensuring that it is iterable."""
     if value is None:
         return []
     elif isinstance(value, list):
-        return value
+        return [_as_input_value(item) for item in value]
     elif isinstance(value, str) and value.strip() == "":
         return []
     elif isinstance(value, str):
         try:
             data = json.loads(value)
-            return data if isinstance(data, list) else [data]
         except json.JSONDecodeError:
             return [value]
+        if isinstance(data, list):
+            return [_as_input_value(item) for item in data]
+        return [_as_input_value(data)]
     elif isinstance(value, int | float | bool | dict | NodeId):
         return [value]
     else:
@@ -272,12 +336,19 @@ class _ValueConverter(_Converter, ABC):
         elif isinstance(value, list) and not self._handles_list:
             raise ValueError(f"Expected a single value for {self.type_str}, but got a list.")
         # If the value is a list, we handle it in the subclass if it supports lists.
-        return self._convert(value)  # type: ignore[arg-type]
+        return self._convert(value)
 
     @abstractmethod
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         """Convert the value to the appropriate type."""
         raise NotImplementedError("This method should be implemented by subclasses.")
+
+
+def _require_schema_type(converter_cls: type[_ValueConverter]) -> DataType:
+    schema_type = converter_cls.schema_type
+    if schema_type is None:
+        raise ValueError(f"{converter_cls.__name__} does not define a schema type.")
+    return schema_type
 
 
 class _SpecialCaseDestinationConverter(_Converter, ABC):
@@ -400,17 +471,17 @@ class _InFieldObservationPriorityConverter(_SpecialCaseDestinationConverter):
 
 class _TextConverter(_ValueConverter):
     type_str = "text"
-    schema_type = "string"
+    schema_type: ClassVar[DataType] = "string"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         return str(value)
 
 
 class _BooleanConverter(_ValueConverter):
     type_str = "boolean"
-    schema_type = "boolean"
+    schema_type: ClassVar[DataType] = "boolean"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return bool(value)
         elif isinstance(value, str):
@@ -424,7 +495,7 @@ class _BooleanConverter(_ValueConverter):
 class _Int32Converter(_ValueConverter):
     type_str = "int32"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, int):
             output = value
         elif isinstance(value, str):
@@ -441,9 +512,9 @@ class _Int32Converter(_ValueConverter):
 
 class _Int64Converter(_ValueConverter):
     type_str = "int64"
-    schema_type = "integer"
+    schema_type: ClassVar[DataType] = "integer"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, int):
             output = value
         elif isinstance(value, str):
@@ -461,7 +532,7 @@ class _Int64Converter(_ValueConverter):
 class _Float32Converter(_ValueConverter):
     type_str = "float32"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, float | int):
             output = float(value)
         elif isinstance(value, str):
@@ -482,9 +553,9 @@ class _Float32Converter(_ValueConverter):
 
 class _Float64Converter(_ValueConverter):
     type_str = "float64"
-    schema_type = "float"
+    schema_type: ClassVar[DataType] = "float"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, float | int):
             output = float(value)
         elif isinstance(value, str):
@@ -501,10 +572,10 @@ class _Float64Converter(_ValueConverter):
 
 class _JsonConverter(_ValueConverter):
     type_str = "json"
-    schema_type = "json"
+    schema_type: ClassVar[DataType] = "json"
     _handles_list = True
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict[str, object] | list) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return value
         elif isinstance(value, dict):
@@ -527,9 +598,9 @@ class _JsonConverter(_ValueConverter):
 
 class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
-    schema_type = "timestamp"
+    schema_type: ClassVar[DataType] = "timestamp"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> datetime:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> datetime:
         if isinstance(value, int | float):
             try:
                 return ms_to_datetime(value)
@@ -545,12 +616,17 @@ class _TimestampConverter(_ValueConverter):
 
 class _EpochConverter(_ValueConverter):
     type_str = "epoch"
-    schema_type = "epoch"
+    schema_type: ClassVar[DataType] = "epoch"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> int:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> int:
         if isinstance(value, int | float):
             return int(value)
         elif isinstance(value, str):
+            try:
+                # Fast path: string of milliseconds since epoch, e.g. "1761955200000".
+                return int(value)
+            except ValueError:
+                pass
             try:
                 dt = parser.isoparse(value)
                 epoch = int(dt.timestamp() * 1000)
@@ -562,9 +638,9 @@ class _EpochConverter(_ValueConverter):
 
 class _DateConverter(_ValueConverter):
     type_str = "date"
-    schema_type = "date"
+    schema_type: ClassVar[DataType] = "date"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, str):
             try:
                 return parser.parse(value).date()
@@ -580,7 +656,7 @@ class _EnumConverter(_ValueConverter):
         super().__init__(nullable)
         self.available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         value_str = str(value).casefold()
         if value_str in self.available_types:
             return self.available_types[value_str]
@@ -601,7 +677,7 @@ class _DirectRelationshipConverter(_ValueConverter):
         super().__init__(nullable=True)
         self.direct_relation_lookup = direct_relation_lookup
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         if isinstance(value, str | int) and value in self.direct_relation_lookup:
             return self.direct_relation_lookup[value].dump(include_instance_type=False)
         raise ValueError(f"Cannot convert {value!r} to NodeReference. Invalid data type or missing in lookup.")
@@ -610,21 +686,21 @@ class _DirectRelationshipConverter(_ValueConverter):
 class _TimeSeriesReferenceConverter(_ValueConverter):
     type_str = "timeseries"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         raise ToolkitNotSupported("Timeseries reference conversion is not supported.")
 
 
 class _FileReferenceConverter(_ValueConverter):
     type_str = "file"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         raise ToolkitNotSupported("File reference conversion is not supported.")
 
 
 class _SequenceReferenceConverter(_ValueConverter):
     type_str = "sequence"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> PropertyValueWrite:
         raise ToolkitNotSupported("Sequence reference conversion is not supported.")
 
 

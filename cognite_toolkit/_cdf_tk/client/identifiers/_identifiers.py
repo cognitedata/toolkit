@@ -131,6 +131,38 @@ class RawTableId(Identifier):
         return f"{self.db_name}.{self.name}"
 
 
+class RawRowId(Identifier):
+    """Identifier for a row in a RAW table.
+
+    ``db_name`` and ``table_name`` are path parameters. The delete endpoint accepts only ``key`` in the body.
+    """
+
+    key: str
+    db_name: str
+    table_name: str
+
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
+        return {"key": self.key}
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RawRowId):
+            return NotImplemented
+        return (self.db_name, self.table_name, self.key) == (other.db_name, other.table_name, other.key)
+
+    def __hash__(self) -> int:
+        return hash((self.db_name, self.table_name, self.key))
+
+    def __str__(self) -> str:
+        return f"{self.db_name}.{self.table_name}.{self.key}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dbName-{self.db_name}.tableName-{self.table_name}.key-{self.key}"
+        return f"{self.db_name}.{self.table_name}.{self.key}"
+
+
 class SequenceRowId(Identifier):
     external_id: str = Field(description="ExternalId of the sequence")
     rows: tuple[int, ...]
@@ -289,6 +321,18 @@ class UserProfileId(Identifier):
         return self.user_identifier
 
 
+class MeterId(Identifier):
+    meter_id: str
+
+    def __str__(self) -> str:
+        return f"meterId='{self.meter_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"meterId-{self.meter_id}"
+        return self.meter_id
+
+
 class PrincipalLoginId(Identifier):
     principal: str
     id: str
@@ -327,6 +371,43 @@ class WritebackRequestId(Identifier):
         return self.request_id
 
 
+class LimitId(Identifier):
+    limit_id: str
+
+    def __str__(self) -> str:
+        return f"limitId='{self.limit_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"limitId-{self.limit_id}"
+        return self.limit_id
+
+
+class PostgresGatewayUserId(Identifier):
+    username: str
+
+    def __str__(self) -> str:
+        return f"username='{self.username}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"username-{self.username}"
+        return self.username
+
+
+class PostgresGatewayTableId(Identifier):
+    username: str
+    tablename: str
+
+    def __str__(self) -> str:
+        return f"{self.username}.{self.tablename}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"username-{self.username}.tablename-{self.tablename}"
+        return f"{self.username}.{self.tablename}"
+
+
 class SignalSinkId(Identifier):
     type: Literal["email", "user"]
     external_id: str
@@ -338,3 +419,18 @@ class SignalSinkId(Identifier):
         if include_type:
             return f"type-{self.type}.externalId-{self.external_id}"
         return f"{self.type}.{self.external_id}"
+
+
+class ThreeDJobId(Identifier):
+    """A 3D job. The space scopes the job, the job itself is not a data modeling instance."""
+
+    space: str
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"space='{self.space}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"

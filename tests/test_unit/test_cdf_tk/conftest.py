@@ -83,9 +83,9 @@ def reset_cdf_toml_singleton():
     to avoid conflicts with the repo's cdf.toml singleton.
     """
     cdf_toml._CDF_TOML = None
-    _cdf.CDF_TOML = None  # Also reset the module-level instance in _cdf.py
+    _cdf.CDF_TOML = None  # Also reset the module-level instance in _cdf.py # ty: ignore[invalid-assignment]
     FeatureFlag.flush()  # Also clear the feature flag cache
     yield
     cdf_toml._CDF_TOML = None
-    _cdf.CDF_TOML = None
+    _cdf.CDF_TOML = None  # ty: ignore[invalid-assignment]
     FeatureFlag.flush()

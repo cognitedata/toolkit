@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
-from ._datamodel import ContainerIO
+from ._datamodel import ContainerIO, ViewIO
 
 _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
@@ -51,7 +51,9 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
         return "streams"
 
     @classmethod
-    def get_id(cls, item: StreamRequest | StreamResponse | dict) -> ExternalId:
+    def get_id(cls, item: StreamRequest | StreamResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -84,9 +86,10 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamResponse]:
         return self.client.streams.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.streams.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.streams.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def count(self, ids: Sequence[ExternalId]) -> int:
         # The records API has no aggregation endpoint.
@@ -134,3 +137,7 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
             {"gte": window_start, "lt": window_end}
             for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms)
         ]
+
+
+# _datamodel cannot import StreamIO: _streams imports ContainerIO from _datamodel.
+ViewIO.dependencies = ViewIO.dependencies | {StreamIO}

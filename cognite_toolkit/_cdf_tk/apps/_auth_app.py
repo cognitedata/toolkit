@@ -6,7 +6,6 @@ from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables, parse_login_flow
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOWS
 from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -17,10 +16,9 @@ class AuthApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.verify)
-        if FeatureFlag.is_enabled(Flags.V09):
-            self.command()(self.login)
-            self.command()(self.logout)
-            self.command()(self.status)
+        self.command()(self.login)
+        self.command()(self.logout)
+        self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""

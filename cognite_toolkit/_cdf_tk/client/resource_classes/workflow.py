@@ -10,6 +10,7 @@ class Workflow(BaseModelObject):
     external_id: str
     description: str | None = None
     data_set_id: int | None = None
+    data_domain_external_id: str | None = None
     max_concurrent_executions: int | None = None
 
     def as_id(self) -> ExternalId:
@@ -26,3 +27,7 @@ class WorkflowResponse(Workflow, ResponseResource[WorkflowRequest]):
     @classmethod
     def request_cls(cls) -> type[WorkflowRequest]:
         return WorkflowRequest
+
+
+class WorkflowCreateResponse(WorkflowResponse):
+    warnings: list[str] | None = None

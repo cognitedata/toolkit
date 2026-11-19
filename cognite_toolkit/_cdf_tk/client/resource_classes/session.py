@@ -57,11 +57,18 @@ class Session(BaseModelObject):
 
     id: int
     type: SessionType | None = None
-    status: SessionStatus | None = None
-    nonce: str | None = None
     client_id: str | None = None
-    creation_time: int | None = None
-    expiration_time: int | None = None
 
     def as_id(self) -> InternalId:
         return InternalId(id=self.id)
+
+
+class SessionResponse(Session):
+    creation_time: int | None = None
+    expiration_time: int | None = None
+    status: SessionStatus | None = None
+
+
+class SessionCreateResponse(Session):
+    status: SessionStatus
+    nonce: str

@@ -1,10 +1,10 @@
 from collections.abc import Iterable
 
 import pytest
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_IO_BY_FOLDER_NAME,
@@ -30,7 +30,7 @@ def _example_cases() -> Iterable:
 
 class TestSAPWritebackExamples:
     @pytest.mark.parametrize("data, yaml_cls", list(_example_cases()))
-    def test_example_roundtrip(self, data: dict[str, object], yaml_cls: type) -> None:
+    def test_example_roundtrip(self, data: dict[str, object], yaml_cls: type[BaseModel]) -> None:
         loaded = yaml_cls.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
@@ -43,11 +43,8 @@ class TestSAPWritebackIO:
             loader.folder_name == "SAPwritebacks"
             for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
         )
-        if Flags.SAP_WRITEBACK.is_enabled():
-            enabled = {loader.kind for loader in RESOURCE_IO_BY_FOLDER_NAME["SAPwritebacks"]}
-            assert enabled == included
-        else:
-            assert "SAPwritebacks" not in RESOURCE_IO_BY_FOLDER_NAME
+        enabled = {loader.kind for loader in RESOURCE_IO_BY_FOLDER_NAME["SAPwritebacks"]}
+        assert enabled == included
 
     def test_endpoint_depends_on_instance_and_mapping(self) -> None:
         resource = SAPEndpointYAML.model_validate(

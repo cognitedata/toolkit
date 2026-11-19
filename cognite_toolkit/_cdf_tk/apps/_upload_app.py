@@ -6,14 +6,33 @@ import typer
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands import UploadCommand
+from cognite_toolkit._cdf_tk.commands._upload import INSTANCE_FILE_READER_BY_FORMAT
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.fileio import SQLiteReader
 
 from ._helpers import print_help_if_no_subcommand
 
 DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
+
+
+def _validate_table_file(value: str) -> bool | str:
+    path = Path(value)
+    if not path.is_file():
+        return "Enter the path to an existing file."
+    if path.suffix not in INSTANCE_FILE_READER_BY_FORMAT:
+        return f"The file must be one of the formats {humanize_collection(INSTANCE_FILE_READER_BY_FORMAT.keys())}."
+    return True
+
+
+def _prompt_table_file() -> Path:
+    answer = questionary.path(
+        "Enter the path to the CSV or Parquet file you want to upload:", validate=_validate_table_file
+    ).unsafe_ask()
+    return Path(answer).resolve()
 
 
 def _validate_cdf_project(cli_cdf_project: str | None, client_cdf_project: str) -> None:
@@ -41,6 +60,8 @@ class UploadApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.upload_main)
         self.command("dir")(self.upload_dir)
+        if Flags.EXTEND_UPLOAD.is_enabled():
+            self.command("instances")(self.upload_instances)
 
     @staticmethod
     def upload_main(ctx: typer.Context) -> None:
@@ -76,21 +97,12 @@ class UploadApp(typer.Typer):
                 help="If set, the command will look for resource configuration files in adjacent folders and create them if they do not exist.",
             ),
         ] = False,
-        skip_verify_cdf_project: Annotated[
-            bool,
-            typer.Option(
-                "--skip-verify-cdf-project",
-                help="If set, the command will skip the verification step that checks if the CDF project in the environment variables matches the one provided by the user.",
-                hidden=Flags.V09.is_enabled(),
-            ),
-        ] = False,
         cdf_project: Annotated[
             str | None,
             typer.Option(
                 "--cdf-project",
                 help="The CDF Project you are uploading to. This is used to verify against the credentials you have set. "
                 "If it is not passed, you will be prompted for it.",
-                hidden=not Flags.V09.is_enabled(),
             ),
         ] = None,
         skip_strict_mode: Annotated[
@@ -98,7 +110,6 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--skip-strict-mode",
                 help="When uploading Charts with monitoring jobs and/or scheduled calculations. Skipping strict mode allows you to reuse the toolkit credentials when creating these jobs. This is only recommended for sandbox projects.",
-                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
             ),
         ] = False,
         overwrite: Annotated[
@@ -106,7 +117,6 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--overwrite",
                 help="If the data type supports it, overwrite the data in CDF with the local data.",
-                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
             ),
         ] = False,
         verbose: Annotated[
@@ -121,23 +131,13 @@ class UploadApp(typer.Typer):
         """Commands to upload data to CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = UploadCommand(client=client)
-        if Flags.V09.is_enabled():
-            _validate_cdf_project(cdf_project, client.config.project)
-        elif not skip_verify_cdf_project:
-            client.console.print(
-                f"You are about to upload data to the CDF project [bold]{client.config.project}[/bold], as set in your environment variables."
-            )
-            typed_project = questionary.text(
-                "To confirm, please type the name of the project: ",
-            ).unsafe_ask()
-            if typed_project != client.config.project:
-                client.console.print(
-                    f"The CDF project you typed does not match your credentials {typed_project!r}≠{client.config.project!r}. Exiting..."
-                )
-                raise typer.Abort()
+        _validate_cdf_project(cdf_project, client.config.project)
 
         if input_dir is None:
-            input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}")})
+            data_files = list(DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}"))
+            if Flags.EXTEND_DOWNLOAD.is_enabled():
+                data_files.extend(DEFAULT_INPUT_DIR.rglob(f"**/*{SQLiteReader.FORMAT}"))
+            input_candidate = sorted({p.parent for p in data_files})
             if not input_candidate:
                 typer.echo(f"No data manifests found in default directory: {DEFAULT_INPUT_DIR}")
                 raise typer.Exit(code=1)
@@ -169,5 +169,50 @@ class UploadApp(typer.Typer):
                 client=client,
                 skip_strict_mode=skip_strict_mode,
                 overwrite=overwrite,
+            )
+        )
+
+    @staticmethod
+    def upload_instances(
+        ctx: typer.Context,
+        data_file: Annotated[
+            Path | None,
+            typer.Argument(
+                help="The CSV or Parquet file with one instance per row. If not specified, an interactive prompt "
+                "will ask for the file.",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                resolve_path=True,
+            ),
+        ] = None,
+        cdf_project: Annotated[
+            str | None,
+            typer.Option(
+                "--cdf-project",
+                help="The CDF Project you are uploading to. This is used to verify against the credentials you have set. "
+                "If it is not passed, you will be prompted for it.",
+            ),
+        ] = None,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Guided upload of a CSV or Parquet file as instances to a view. Creates the manifest file for you."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = UploadCommand(client=client)
+        selected_file = data_file or _prompt_table_file()
+
+        cmd.run(
+            lambda: cmd.upload_instances(
+                data_file=selected_file,
+                client=client,
+                verbose=verbose,
+                validate_project=lambda: _validate_cdf_project(cdf_project, client.config.project),
             )
         )

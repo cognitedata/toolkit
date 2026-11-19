@@ -8,10 +8,10 @@ import zipfile
 from collections import Counter
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
+import httpx2
 import questionary
-import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -40,15 +40,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    FileReadError,
-    IgnoredFileWarning,
-    InsightDefinition,
-    ModelSyntaxError,
-    ModelSyntaxWarning,
-    Recommendation,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
@@ -63,8 +54,16 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Package,
     Packages,
 )
+from cognite_toolkit._cdf_tk.data_classes._insights import (
+    ERROR_TYPE,
+    RECOMMENDATION_TYPE,
+    WARNING_TYPE,
+    BuildError,
+    BuildWarning,
+    InsightDefinition,
+    Recommendation,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, ToolkitPanel, ToolkitPanelSection, ToolkitTable
@@ -76,33 +75,24 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_write,
     yaml_safe_dump,
 )
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 INDENT = "  "
 POINTER = INDENT + "▶"
 
+
 # Named Rich colors so Windows terminals show green/yellow/red without truecolor.
 _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
-    FileReadError.__name__: ("red", "✗"),
-    ConsistencyError.__name__: ("red", "✗"),
-    ModelSyntaxError.__name__: ("red", "✗"),
-    IgnoredFileWarning.__name__: ("yellow", "○"),
-    ModelSyntaxWarning.__name__: ("yellow", "!"),
-    Recommendation.__name__: ("green", "*"),
+    ERROR_TYPE: ("red", "✗"),
+    WARNING_TYPE: ("yellow", "!"),
+    RECOMMENDATION_TYPE: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
-    FileReadError.__name__: FileReadError.severity,
-    ConsistencyError.__name__: ConsistencyError.severity,
-    ModelSyntaxError.__name__: ModelSyntaxError.severity,
-    IgnoredFileWarning.__name__: IgnoredFileWarning.severity,
-    ModelSyntaxWarning.__name__: ModelSyntaxWarning.severity,
-    Recommendation.__name__: Recommendation.severity,
+    ERROR_TYPE: BuildError.severity,
+    WARNING_TYPE: BuildWarning.severity,
+    RECOMMENDATION_TYPE: Recommendation.severity,
 }
 _INSIGHT_ORDER: tuple[str, ...] = tuple(
     name for name, _ in sorted(_INSIGHT_SEVERITY.items(), key=lambda item: item[1], reverse=True)
@@ -110,7 +100,7 @@ _INSIGHT_ORDER: tuple[str, ...] = tuple(
 
 
 _FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
-    downloader_cls._type: downloader_cls  # type: ignore
+    downloader_cls._type: downloader_cls  # type: ignore[type-abstract]
     for downloader_cls in FileDownloader.__subclasses__()
 }
 
@@ -178,7 +168,7 @@ class ModulesCommand(ToolkitCommand):
         self,
         organization_dir: Path,
         selected_packages: Packages,
-        environments: list[EnvType],
+        environments: builtins.list[EnvType],
         modules_source_path: Path,
         mode: Literal["new", "clean", "update"] | None,
         download_data: bool = False,
@@ -328,7 +318,7 @@ class ModulesCommand(ToolkitCommand):
         select_all: bool = False,
         clean: bool = False,
         user_select: str | None = None,
-        user_environments: list[str] | None = None,
+        user_environments: builtins.list[EnvType] | None = None,
         user_download_data: bool | None = None,
         library_url: str | None = None,
         library_checksum: str | None = None,
@@ -407,6 +397,7 @@ class ModulesCommand(ToolkitCommand):
             print("Exiting...")
             raise typer.Exit()
 
+        environments: list[EnvType]
         if user_environments is None:
             environments = questionary.checkbox(
                 "Which environments would you like to include?",
@@ -481,7 +472,7 @@ class ModulesCommand(ToolkitCommand):
             ).unsafe_ask()
         return download_data
 
-    def _select_modules_in_package(self, package: Package) -> list[ModuleDirectory]:
+    def _select_modules_in_package(self, package: Package) -> builtins.list[ModuleDirectory]:
         dependencies: set[str] = set()
         for module in package.modules:
             if not module.module_toml:
@@ -513,7 +504,7 @@ class ModulesCommand(ToolkitCommand):
             validate=lambda choices: True if choices else "You must select at least one module.",
         ).unsafe_ask()
 
-    def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
+    def _select_packages(self, packages: Packages, existing_module_names: builtins.list[str] | None = None) -> Packages:
         adding_to_existing = False
         if existing_module_names is not None:
             adding_to_existing = True
@@ -580,7 +571,7 @@ class ModulesCommand(ToolkitCommand):
         self,
         packages: Packages,
         module_name: str,
-        existing_module_names: list[str],
+        existing_module_names: builtins.list[str],
     ) -> Packages:
         """
         Find a package or module by name and return it as a Packages selection.
@@ -738,7 +729,7 @@ class ModulesCommand(ToolkitCommand):
             raise typer.Exit()
         return "clean"
 
-    def upgrade(self, organization_dir: Path, verbose: bool = False) -> Changes:
+    def upgrade(self, organization_dir: Path, verbose: bool = False, force: bool = False) -> Changes:
         module_version = self._get_module_version(organization_dir)
         cli_version = parse_version(__version__)
 
@@ -760,15 +751,36 @@ class ModulesCommand(ToolkitCommand):
             )
             return Changes()
 
-        if not CLICommands.use_git():
+        git_installed = Git.is_installed()
+        use_git = git_installed and Git.is_git_repo()
+        if not git_installed:
             self.warn(MediumSeverityWarning("git is not installed. It is strongly recommended to use version control."))
+        elif not use_git:
+            self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
         else:
-            if not CLICommands.has_initiated_repo():
-                self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
-            else:
-                if CLICommands.has_uncommitted_changes():
-                    print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
-                    return Changes()
+            try:
+                uncommitted = Git.get_uncommitted_changes(
+                    (organization_dir / MODULES).resolve(),
+                    f"{organization_dir.resolve().as_posix()}/config.*.yaml",
+                    Path.cwd() / "cdf.toml",
+                    Path.cwd() / ".github" / "workflows",
+                )
+            except RuntimeError as e:
+                self.warn(MediumSeverityWarning(f"Could not check for uncommitted changes: {e}"))
+                uncommitted = []
+            if uncommitted and force:
+                self.warn(
+                    MediumSeverityWarning(
+                        f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
+                        "Proceeding with the upgrade because --force is set."
+                    )
+                )
+            elif uncommitted:
+                print(
+                    f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
+                    "Please commit your changes before upgrading the modules."
+                )
+                return Changes()
         # Update the docstring of the change 'UpdateModuleVersion' to be more informative
         UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING.format(
             module_version=module_version, cli_version=cli_version
@@ -830,7 +842,6 @@ class ModulesCommand(ToolkitCommand):
                 print(Markdown(change.__doc__ or "Missing description."))
                 print(Rule())
 
-        use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All automatic changes have been applied."]
         color = "green"
         if total_changed:
@@ -882,7 +893,7 @@ class ModulesCommand(ToolkitCommand):
             "resource_folders": len(resource_folders),
             "resources": len(module.resource_lineage),
             "insights": {name: count for name, count in sorted(module.insights_summary.items()) if count},
-            "syntax_warnings": module.insights_summary.get(ModelSyntaxWarning.__name__, 0),
+            "syntax_warnings": module.insights_summary.get(WARNING_TYPE, 0),
             "build_result": "Success" if module.is_success else module.status,
             "location": cls._module_location_display(module.module_path, organization_dir),
         }
@@ -906,12 +917,7 @@ class ModulesCommand(ToolkitCommand):
             organization_dir = Path.cwd()
         effective_build_env = build_env_name or DEFAULT_ENV
         verify_module_directory(organization_dir, effective_build_env)
-
-        if Flags.V09.is_enabled():
-            config_yaml_input = config_yaml
-        else:
-            config_path = organization_dir / BuildConfigYAML.get_filename(effective_build_env)
-            config_yaml_input = config_path if config_path.is_file() else None
+        config_yaml_input = config_yaml
         lineage = BuildV2Command(
             print_warning=self.print_warning,
             skip_tracking=True,
@@ -968,7 +974,7 @@ class ModulesCommand(ToolkitCommand):
             insight_lines.append("[green]✓[/] No insights")
 
         if failed:
-            max_severity = max(max_severity, ModelSyntaxError.severity)
+            max_severity = max(max_severity, BuildError.severity)
 
         match max_severity:
             case severity if severity < 15:
@@ -1017,7 +1023,7 @@ class ModulesCommand(ToolkitCommand):
                 self._format_module_status(module),
                 f"{len(module.resource_lineage):,}",
                 self._format_module_insights(module.insights_summary),
-                self._format_syntax_warnings(module.insights_summary.get(ModelSyntaxWarning.__name__, 0)),
+                self._format_syntax_warnings(module.insights_summary.get(WARNING_TYPE, 0)),
             )
 
         print(table)
@@ -1039,7 +1045,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_module_insights(cls, insights_summary: dict[str, int]) -> str:
         lines = []
         for insight_type, count in cls._ordered_insight_counts(insights_summary):
-            if insight_type == ModelSyntaxWarning.__name__:
+            if insight_type == WARNING_TYPE:
                 continue
             lines.append(cls._format_insight_line(insight_type, count))
         if not lines:
@@ -1050,7 +1056,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_syntax_warnings(count: int) -> str:
         if count == 0:
             return "[green]0[/]"
-        style, icon = _INSIGHT_STYLE[ModelSyntaxWarning.__name__]
+        style, icon = _INSIGHT_STYLE[WARNING_TYPE]
         return f"[{style}]{icon} {count:,}[/]"
 
     @classmethod
@@ -1112,7 +1118,7 @@ class ModulesCommand(ToolkitCommand):
         """
         build_input = BuildV2Command._read_file_system(
             organization_dir=organization_dir,
-            config_yaml=organization_dir / f"config.{build_env}.yaml",
+            config_yamls=[organization_dir / f"config.{build_env}.yaml"],
             user_selected_modules=[f"{MODULES}/"],
         )
 
@@ -1245,19 +1251,19 @@ class ModulesCommand(ToolkitCommand):
             if file_path.exists():
                 file_path.unlink()
 
-            response = requests.get(url, stream=True)
-            response.raise_for_status()  # Raise an exception for HTTP errors
+            with httpx2.stream("GET", url, follow_redirects=True) as response:
+                response.raise_for_status()  # Raise an exception for HTTP errors
 
-            total_size = int(response.headers.get("content-length", 0))
+                total_size = int(response.headers.get("content-length", 0))
 
-            with Progress() as progress:
-                task = progress.add_task("Download", total=total_size)
-                with open(file_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        progress.update(task, advance=len(chunk))
+                with Progress() as progress:
+                    task = progress.add_task("Download", total=total_size)
+                    with open(file_path, "wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                            progress.update(task, advance=len(chunk))
 
-        except requests.exceptions.RequestException as e:
+        except httpx2.HTTPError as e:
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
 
     def _unpack(self, file_path: Path) -> None:

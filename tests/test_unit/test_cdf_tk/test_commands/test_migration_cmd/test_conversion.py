@@ -1,10 +1,9 @@
 import json
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypedDict
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -76,6 +75,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 
 
+class _CorePropertyArgs(TypedDict):
+    nullable: bool
+    immutable: bool
+    auto_increment: bool
+    constraint_state: ConstraintOrIndexState
+
+
 @pytest.fixture(scope="module")
 def direct_relation_cache() -> DirectRelationCache:
     with monkeypatch_toolkit_client() as client:
@@ -85,7 +91,7 @@ def direct_relation_cache() -> DirectRelationCache:
         }
         client.migration.lookup.files.return_value = {42: NodeId(space="test_space", external_id="file_456_instance")}
         # No native instance ID on the classic file, so resolution falls back to the InstanceSource lookup above.
-        client.tool.filemetadata.retrieve.return_value = []
+        client.filemetadata.retrieve.return_value = []
         client.migration.created_source_system.retrieve.return_value = [
             CreatedSourceSystem(
                 space="test_space",
@@ -107,8 +113,8 @@ def direct_relation_cache() -> DirectRelationCache:
         cache = DirectRelationCache(client)
         cache.update(
             [
-                EventResponse(asset_ids=[123, 1], source="source_system_1", createdTime=1, lastUpdatedTime=1, id=0),
-                AssetResponse(source="SourceA", createdTime=1, lastUpdatedTime=1, rootId=0, id=0, name=""),
+                EventResponse(asset_ids=[123, 1], source="source_system_1", created_time=1, last_updated_time=1, id=0),
+                AssetResponse(source="SourceA", created_time=1, last_updated_time=1, root_id=0, id=0, name=""),
                 AnnotationResponse(
                     annotation_type="diagrams.FileLink",
                     data={},
@@ -133,7 +139,7 @@ class TestDirectRelationCacheFileResolution:
 
     def test_resolves_file_via_native_instance_id_without_instance_source_lookup(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.retrieve.return_value = [
+            client.filemetadata.retrieve.return_value = [
                 FileMetadataResponse(
                     id=1,
                     external_id="my_file",
@@ -170,7 +176,7 @@ class TestDirectRelationCacheFileResolution:
 
     def test_falls_back_to_instance_source_lookup_when_file_has_no_native_instance_id(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.retrieve.return_value = [
+            client.filemetadata.retrieve.return_value = [
                 FileMetadataResponse(
                     id=2,
                     external_id="classic_file",
@@ -212,7 +218,7 @@ class TestDirectRelationCacheFileResolution:
 class TestCreateProperties:
     INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
     CONTAINER_ID = ContainerId(space="test_space", external_id="test_container")
-    DEFAULT_CONTAINER_ARGS: ClassVar = dict(
+    DEFAULT_CONTAINER_ARGS: ClassVar[_CorePropertyArgs] = _CorePropertyArgs(
         nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
     )
     ASSET_CENTRIC_ID = AssetCentricId(resource_type="asset", id_=123)
@@ -676,12 +682,12 @@ class TestAssetCentricConversion:
                 # Simple Asset with basic mapping
                 AssetResponse(
                     id=123,
-                    externalId="asset_123",
+                    external_id="asset_123",
                     name="Test Asset",
                     description="A test asset",
-                    createdTime=1,
-                    lastUpdatedTime=1,
-                    rootId=0,
+                    created_time=1,
+                    last_updated_time=1,
+                    root_id=0,
                 ),
                 ResourceViewMappingResponse(
                     external_id="asset_mapping",
@@ -1080,7 +1086,7 @@ class TestAssetCentricConversion:
             ),
             pytest.param(
                 AssetResponse(
-                    id=999, externalId="asset_999", name="The name", createdTime=1, lastUpdatedTime=1, rootId=0
+                    id=999, external_id="asset_999", name="The name", created_time=1, last_updated_time=1, root_id=0
                 ),
                 ResourceViewMappingResponse(
                     external_id="empty_mapping",
@@ -1183,7 +1189,7 @@ class TestAssetCentricConversion:
     )
     def test_asset_centric_to_dm(
         self,
-        resource: AssetResponse | FileMetadataResponse | EventResponse | TimeSeriesResponse | Sequence,
+        resource: AssetResponse | FileMetadataResponse | EventResponse | TimeSeriesResponse,
         view_source: ResourceViewMappingResponse,
         view_properties: dict[str, ViewResponseProperty],
         expected_properties: dict[str, Any],
@@ -1199,6 +1205,8 @@ class TestAssetCentricConversion:
         )
 
         # Check the structure of the returned NodeApply
+        assert actual is not None
+        assert actual.sources is not None
         assert actual.space == self.INSTANCE_ID.space
         assert actual.external_id == self.INSTANCE_ID.external_id
         assert 1 <= len(actual.sources) <= 2
@@ -1214,6 +1222,7 @@ class TestAssetCentricConversion:
         # Check the instance source view
         instance_source = actual.sources[-1]
         assert instance_source.source == self.INSTANCE_SOURCE_VIEW_ID
+        assert instance_source.properties is not None
         assert instance_source.properties["resourceType"] == view_source.resource_type
         assert instance_source.properties["id"] == resource.id
         if hasattr(resource, "data_set_id") and resource.data_set_id is not None:
@@ -1224,7 +1233,7 @@ class TestAssetCentricConversion:
         assert expected_issue.dump() == issue.dump()
 
     ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_37")
-    DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(
+    DEFAULT_PROPERTIES: ClassVar[_CorePropertyArgs] = _CorePropertyArgs(
         nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
     )
 
@@ -1325,6 +1334,7 @@ class TestAssetCentricConversion:
         )
 
         assert issue.dump() == expected_issue.dump()
+        assert edge is not None
         assert edge.dump() == expected_edge.dump()
 
     def test_asset_centric_to_annotation_failed(self, direct_relation_cache: DirectRelationCache) -> None:
@@ -1388,7 +1398,7 @@ class TestInstanceToInstanceConversion:
     CONTAINER_ID = ContainerId(space="dst_space", external_id="DstContainer")
     SOURCE_ID = NodeId(space="src_space", external_id="nodeA")
     NEW_ID = NodeId(space="dst_space", external_id="new_nodeA")
-    DEFAULT_ARGS: ClassVar = dict(
+    DEFAULT_ARGS: ClassVar[_CorePropertyArgs] = _CorePropertyArgs(
         nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
     )
     SOURCE_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {

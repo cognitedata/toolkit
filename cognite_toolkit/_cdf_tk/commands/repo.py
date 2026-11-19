@@ -33,7 +33,7 @@ class RepoCommand(ToolkitCommand):
         client: ToolkitClient | None = None,
     ) -> None:
         super().__init__(print_warning=print_warning, skip_tracking=skip_tracking, silent=silent, client=client)
-        self._repo_files = Path(resources.files(cognite_toolkit.__name__)) / REPO_FILES_DIR  # type: ignore [arg-type]
+        self._repo_files = Path(str(resources.files(cognite_toolkit.__name__))) / REPO_FILES_DIR
         self.skip_git_verify = skip_git_verify
 
     def init(self, cwd: Path, host: str | None = None, verbose: bool = False) -> None:

@@ -1,15 +1,16 @@
 import contextlib
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-BASE_URL = "http://blabla.cognitedata.com"
+CDF_CLUSTER = "blabla"
+BASE_URL = f"http://{CDF_CLUSTER}.cognitedata.com"
 CDF_PROJECT = "pytest-project"
 
 
 @contextlib.contextmanager
-def chdir(new_dir: Path) -> Iterator[None]:
+def chdir(new_dir: Path) -> Generator[None, None, None]:
     """
     Change directory to new_dir and return to the original directory when exiting the context.
 

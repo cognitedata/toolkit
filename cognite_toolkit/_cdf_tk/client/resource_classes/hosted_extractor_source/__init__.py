@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, TypeAdapter
+from pydantic import BeforeValidator, ConfigDict, TypeAdapter
 
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
@@ -20,6 +20,7 @@ from ._certificate import AuthCertificateRequest, CACertificateRequest, Certific
 from ._eventhub import EventHubSourceRequest, EventHubSourceResponse
 from ._kafka import KafkaBroker, KafkaSourceRequest, KafkaSourceResponse
 from ._mqtt import MQTTSourceRequest, MQTTSourceResponse
+from ._mqtt_broker import MQTTBrokerSourceRequest, MQTTBrokerSourceResponse
 from ._rest import RESTSourceRequest, RESTSourceResponse
 
 
@@ -54,21 +55,31 @@ _SOURCE_RESPONSE_BY_TYPE = registry_from_subclasses_with_type_field(
 
 
 HostedExtractorSourceRequestUnion = Annotated[
-    KafkaSourceRequest | EventHubSourceRequest | MQTTSourceRequest | RESTSourceRequest | UnknownSourceRequest,
+    KafkaSourceRequest
+    | EventHubSourceRequest
+    | MQTTSourceRequest
+    | RESTSourceRequest
+    | MQTTBrokerSourceRequest
+    | UnknownSourceRequest,
     BeforeValidator(_handle_source_request_union),
 ]
 
 HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = TypeAdapter(
-    HostedExtractorSourceRequestUnion
+    HostedExtractorSourceRequestUnion, config=ConfigDict(defer_build=True)
 )
 
 HostedExtractorSourceResponseUnion = Annotated[
-    KafkaSourceResponse | EventHubSourceResponse | MQTTSourceResponse | RESTSourceResponse | UnknownSourceResponse,
+    KafkaSourceResponse
+    | EventHubSourceResponse
+    | MQTTSourceResponse
+    | RESTSourceResponse
+    | MQTTBrokerSourceResponse
+    | UnknownSourceResponse,
     BeforeValidator(_handle_source_response_union),
 ]
 
 HostedExtractorSourceResponse: TypeAdapter[HostedExtractorSourceResponseUnion] = TypeAdapter(
-    HostedExtractorSourceResponseUnion
+    HostedExtractorSourceResponseUnion, config=ConfigDict(defer_build=True)
 )
 
 
@@ -89,6 +100,8 @@ __all__ = [
     "KafkaBroker",
     "KafkaSourceRequest",
     "KafkaSourceResponse",
+    "MQTTBrokerSourceRequest",
+    "MQTTBrokerSourceResponse",
     "MQTTSourceRequest",
     "MQTTSourceResponse",
     "RESTSourceRequest",

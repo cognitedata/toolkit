@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal, TypeAlias
 
 from pydantic import Field
@@ -7,7 +8,8 @@ from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
-FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312", "py313", "py314"]
+FunctionRuntime: TypeAlias = Literal["py311", "py312", "py313", "py314"]
+FunctionsActivationStatus: TypeAlias = Literal["inactive", "requested", "activated"]
 
 
 class FunctionBase(BaseModelObject):
@@ -28,6 +30,11 @@ class FunctionBase(BaseModelObject):
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
 
+    def as_id(self) -> ExternalId:
+        if self.external_id is None:
+            raise ValueError("Cannot create ExternalId: external_id is None")
+        return ExternalId(external_id=self.external_id)
+
 
 class FunctionRequest(FunctionBase, RequestResource):
     """Request resource for creating/updating functions."""
@@ -35,11 +42,9 @@ class FunctionRequest(FunctionBase, RequestResource):
     # This is not part of the request payload, but we store the information such that we can use it
     # to check which acl is needed to deploy the function code.
     data_set_id: int | None = Field(None, exclude=True)
-
-    def as_id(self) -> ExternalId:
-        if self.external_id is None:
-            raise ValueError("Cannot create ExternalId: external_id is None")
-        return ExternalId(external_id=self.external_id)
+    space: str | None = Field(None, exclude=True)
+    # Local directory with the function code. Not part of the request payload.
+    function_code: Path | None = Field(None, exclude=True)
 
 
 class FunctionAPIError(BaseModelObject):
@@ -55,6 +60,7 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     runtime_version: str | None = None
     status: FunctionStatus | None = None
     error: FunctionAPIError | None = None
+    last_called: int | None = None
 
     @classmethod
     def request_cls(cls) -> type[FunctionRequest]:
@@ -80,3 +86,9 @@ class FunctionLimits(BaseModelObject):
     runtimes: list[FunctionRuntime | str]
     # As of 24.04.2026 this is marked as a required field in the API, but it's currently only returned for projects on Gcloud
     response_size_mb: int | None = None
+
+
+class FunctionsActivation(BaseModelObject):
+    """Whether Cognite Functions have been requested or activated for the project."""
+
+    status: FunctionsActivationStatus | str

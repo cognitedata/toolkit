@@ -16,7 +16,7 @@ from tests_smoke.constants import SMOKE_SPACE, SMOKE_TEST_CONTAINER_EXTERNAL_ID,
 
 @pytest.fixture(scope="session")
 def smoke_container(toolkit_client: ToolkitClient, smoke_space: SpaceResponse) -> ContainerResponse:
-    return toolkit_client.tool.containers.create(
+    return toolkit_client.containers.create(
         [
             ContainerRequest(
                 space=SMOKE_SPACE,
@@ -32,7 +32,7 @@ def smoke_container(toolkit_client: ToolkitClient, smoke_space: SpaceResponse) -
 def smoke_view(
     toolkit_client: ToolkitClient, smoke_space: SpaceResponse, smoke_container: ContainerResponse
 ) -> ViewResponse:
-    return toolkit_client.tool.views.create(
+    return toolkit_client.views.create(
         [
             ViewRequest(
                 space=SMOKE_SPACE,

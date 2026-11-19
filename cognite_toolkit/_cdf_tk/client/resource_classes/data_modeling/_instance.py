@@ -2,7 +2,7 @@ import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -186,6 +186,27 @@ class InstanceSlimDefinition(BaseModelObject):
         return InstanceId(instance_id=node_id)
 
 
+class InstanceInspectResult(BaseModelObject):
+    """Inspection results for a single instance. Only the requested operations are set."""
+
+    involved_views: list[ViewId] | None = None
+    involved_containers: list[ContainerId] | None = None
+
+
+class InstanceInspectResultItem(BaseModelObject):
+    """An instance together with the results of running instance inspection operations on it."""
+
+    instance_type: Literal["node", "edge"]
+    space: str
+    external_id: str
+    inspection_results: InstanceInspectResult
+
+    def as_id(self) -> NodeId | EdgeId:
+        if self.instance_type == "node":
+            return NodeId(space=self.space, external_id=self.external_id)
+        return EdgeId(space=self.space, external_id=self.external_id)
+
+
 class UnknownInstanceRequest(InstanceRequestDefinition):
     instance_type: str
 
@@ -259,6 +280,8 @@ InstanceResponse: TypeAlias = Annotated[
 NodeOrEdgeRequest: TypeAlias = Annotated[NodeRequest | EdgeRequest, Field(discriminator="instance_type")]
 NodeOrEdgeResponse: TypeAlias = Annotated[NodeResponse | EdgeResponse, Field(discriminator="instance_type")]
 
-NodeOrEdgeRequestAdapter: TypeAdapter[NodeOrEdgeRequest] = TypeAdapter(NodeOrEdgeRequest)
+NodeOrEdgeRequestAdapter: TypeAdapter[NodeOrEdgeRequest] = TypeAdapter(
+    NodeOrEdgeRequest, config=ConfigDict(defer_build=True)
+)
 
-InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest)
+InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest, config=ConfigDict(defer_build=True))

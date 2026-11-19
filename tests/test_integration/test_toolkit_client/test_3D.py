@@ -1,12 +1,13 @@
 import pytest
+from cognite.client import CogniteClient
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 
 
 @pytest.fixture()
-def two_3d_models(toolkit_client: ToolkitClient) -> None:
-    client = toolkit_client
+def two_3d_models(cognite_client: CogniteClient) -> None:
+    client = cognite_client
     models = client.three_d.models.list(limit=2)
     if len(models) == 0:
         client.three_d.models.create(
@@ -26,8 +27,8 @@ class Test3DAPI:
     @pytest.mark.usefixtures("two_3d_models")
     def test_iterate(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
-        response = client.tool.three_d.models_classic.paginate(limit=1, include_revision_info=True)
-        response2 = client.tool.three_d.models_classic.paginate(
+        response = client.three_d.models_classic.paginate(limit=1, include_revision_info=True)
+        response2 = client.three_d.models_classic.paginate(
             limit=1, include_revision_info=True, cursor=response.next_cursor
         )
         assert isinstance(response, PagedResponse)
@@ -42,7 +43,7 @@ class Test3DAPI:
     @pytest.mark.usefixtures("two_3d_models")
     def test_list(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
-        models = client.tool.three_d.models_classic.list(limit=2, include_revision_info=False)
+        models = client.three_d.models_classic.list(limit=2, include_revision_info=False)
         assert 0 < len(models) <= 2
         missing_revision_info = [model for model in models if model.last_revision_info is not None]
         assert len(missing_revision_info) == 0

@@ -1,9 +1,10 @@
 import os
 import subprocess
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Literal, TypeAlias, get_args
+from typing import Literal, TypeAlias
 
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
@@ -13,10 +14,24 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME
 from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
+from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 _LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token", "session"]
-_VALID_LOGIN_FLOWS = get_args(_LOGIN_FLOW)
+_VALID_LOGIN_FLOWS: tuple[_LOGIN_FLOW, ...] = ("infer", "client_credentials", "interactive", "token", "session")
+
+
+def _parse_login_flow(value: str) -> _LOGIN_FLOW:
+    normalized = value.lower()
+    if normalized in _VALID_LOGIN_FLOWS:
+        return normalized
+    raise ValueError(f"LOGIN_FLOW must be one of {_VALID_LOGIN_FLOWS}")
+
+
+def _optional_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 def get_toolkit_client(env_file_name: str, enable_set_pending_ids: bool = False) -> ToolkitClient:
@@ -104,9 +119,8 @@ class EnvironmentVariables:
     CDF_TIMEOUT: int | None = None
     CDF_REDIRECT_PORT: int = 53_000
 
-    def __post_init__(self):
-        if self.LOGIN_FLOW.lower() not in _VALID_LOGIN_FLOWS:
-            raise ValueError(f"LOGIN_FLOW must be one of {_VALID_LOGIN_FLOWS}")
+    def __post_init__(self) -> None:
+        self.LOGIN_FLOW = _parse_login_flow(self.LOGIN_FLOW)
         if self.IDP_TOKEN_URL and not self.IDP_TENANT_ID:
             prefix, suffix = "https://login.microsoftonline.com/", "/oauth2/v2.0/token"
             if self.IDP_TOKEN_URL.startswith(prefix) and self.IDP_TOKEN_URL.endswith(suffix):
@@ -144,26 +158,7 @@ class EnvironmentVariables:
 
     @classmethod
     def create_from_environ(cls) -> "EnvironmentVariables":
-        if "CDF_CLUSTER" not in os.environ or "CDF_PROJECT" not in os.environ:
-            raise KeyError("CDF_CLUSTER and CDF_PROJECT must be set in the environment.", "CDF_CLUSTER", "CDF_PROJECT")
-
-        return cls(
-            CDF_CLUSTER=os.environ["CDF_CLUSTER"],
-            CDF_PROJECT=os.environ["CDF_PROJECT"],
-            LOGIN_FLOW=os.environ.get("LOGIN_FLOW", "infer"),  # type: ignore[arg-type]
-            IDP_CLIENT_ID=os.environ.get("IDP_CLIENT_ID"),
-            IDP_CLIENT_SECRET=os.environ.get("IDP_CLIENT_SECRET"),
-            CDF_TOKEN=os.environ.get("CDF_TOKEN"),
-            CDF_URL=os.environ.get("CDF_URL"),
-            IDP_TOKEN_URL=os.environ.get("IDP_TOKEN_URL"),
-            IDP_TENANT_ID=os.environ.get("IDP_TENANT_ID"),
-            IDP_AUDIENCE=os.environ.get("IDP_AUDIENCE"),
-            IDP_SCOPES=os.environ.get("IDP_SCOPES"),
-            IDP_AUTHORITY_URL=os.environ.get("IDP_AUTHORITY_URL"),
-            CDF_MAX_WORKERS=int(os.environ["CDF_MAX_WORKERS"]) if "CDF_MAX_WORKERS" in os.environ else None,
-            CDF_TIMEOUT=int(os.environ["CDF_TIMEOUT"]) if "CDF_TIMEOUT" in os.environ else None,
-            CDF_REDIRECT_PORT=int(os.environ.get("CDF_REDIRECT_PORT", 53_000)),
-        )
+        return _environment_from_strings(os.environ)
 
     @classmethod
     def default(cls) -> "EnvironmentVariables":
@@ -260,7 +255,7 @@ class EnvironmentVariables:
             project=self.CDF_PROJECT,
             credentials=self.get_credentials(),
             base_url=self.cdf_url,
-            timeout=self.CDF_TIMEOUT,
+            timeout=DEFAULT_CLIENT_TIMEOUT if self.CDF_TIMEOUT is None else self.CDF_TIMEOUT,
         )
         return ToolkitClient(config=config)
 
@@ -283,6 +278,29 @@ class EnvironmentVariables:
         return "\n".join(lines)
 
 
+def _environment_from_strings(values: Mapping[str, str]) -> EnvironmentVariables:
+    if "CDF_CLUSTER" not in values or "CDF_PROJECT" not in values:
+        raise KeyError("CDF_CLUSTER and CDF_PROJECT must be set in the environment.", "CDF_CLUSTER", "CDF_PROJECT")
+    redirect_port = values.get("CDF_REDIRECT_PORT")
+    return EnvironmentVariables(
+        CDF_CLUSTER=values["CDF_CLUSTER"],
+        CDF_PROJECT=values["CDF_PROJECT"],
+        LOGIN_FLOW=_parse_login_flow(values.get("LOGIN_FLOW", "infer")),
+        IDP_CLIENT_ID=values.get("IDP_CLIENT_ID"),
+        IDP_CLIENT_SECRET=values.get("IDP_CLIENT_SECRET"),
+        CDF_TOKEN=values.get("CDF_TOKEN"),
+        CDF_URL=values.get("CDF_URL"),
+        IDP_TOKEN_URL=values.get("IDP_TOKEN_URL"),
+        IDP_TENANT_ID=values.get("IDP_TENANT_ID"),
+        IDP_AUDIENCE=values.get("IDP_AUDIENCE"),
+        IDP_SCOPES=values.get("IDP_SCOPES"),
+        IDP_AUTHORITY_URL=values.get("IDP_AUTHORITY_URL"),
+        CDF_MAX_WORKERS=_optional_int(values.get("CDF_MAX_WORKERS")),
+        CDF_TIMEOUT=_optional_int(values.get("CDF_TIMEOUT")),
+        CDF_REDIRECT_PORT=int(redirect_port) if redirect_port is not None else 53_000,
+    )
+
+
 def _from_dotenv(evn_file: Path) -> EnvironmentVariables:
     if not evn_file.exists():
         raise FileNotFoundError(f"{evn_file} does not exist.")
@@ -295,7 +313,7 @@ def _from_dotenv(evn_file: Path) -> EnvironmentVariables:
         key, value = line.split("=", 1)
         if key in valid_variables:
             variables[key] = value
-    return EnvironmentVariables(**variables)  # type: ignore[arg-type]
+    return _environment_from_strings(variables)
 
 
 def _prompt_user() -> EnvironmentVariables:
@@ -312,8 +330,8 @@ def _prompt_user() -> EnvironmentVariables:
     except KeyError:
         variables = _prompt_cluster_and_project()
 
-    login_flow = Prompt.ask("Login flow", choices=[f for f in _VALID_LOGIN_FLOWS if f != "infer"])
-    variables.LOGIN_FLOW = login_flow  # type: ignore[assignment]
+    login_flow = _parse_login_flow(Prompt.ask("Login flow", choices=[f for f in _VALID_LOGIN_FLOWS if f != "infer"]))
+    variables.LOGIN_FLOW = login_flow
     if login_flow == "token":
         token = Prompt.ask("Enter token")
         variables.CDF_TOKEN = token

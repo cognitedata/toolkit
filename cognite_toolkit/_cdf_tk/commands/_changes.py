@@ -2,10 +2,10 @@
 
 import itertools
 import re
-import sys
 from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
+from typing import Self
 
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -14,14 +14,11 @@ from rich import print
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
-from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
+from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME, clean_name
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 class Change:
     """A change is a single migration step that can be applied to a project."""
@@ -195,7 +192,7 @@ After:
 
     def do(self) -> set[Path]:
         changed: set[Path] = set()
-        scan, _ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
+        scan, *_ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
         for module in scan.modules:
             for resource_type, files in module.resource_files_by_folder.items():
                 if resource_type == "timeseries_datapoints":
@@ -366,7 +363,7 @@ After:
 
     def do(self) -> set[Path]:
         changed:  set[Path] = set()
-        scan, _ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
+        scan, *_ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
         for module in scan.modules:
             for resource_type, files in module.resource_files_by_folder.items():
                 if resource_type == "labels":
@@ -601,6 +598,50 @@ After:
                 return parent / resource_yaml.name
         return resource_yaml
 
+class RemoveOutdatedAlphaFlags(AutomaticChange):
+    """Alpha flags in the cdf.toml file that are no longer supported by the Toolkit have been removed.
+
+For example, in cdf.toml, before:
+```toml
+[alpha_flags]
+alpha-rules = true
+outdated-flag = true
+```
+After:
+```toml
+[alpha_flags]
+alpha-rules = true
+```
+    """
+
+    deprecated_from = parse_version(__version__)
+    required_from = parse_version(__version__)
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        cdf_toml = Path.cwd() / "cdf.toml"
+        if not cdf_toml.exists():
+            return set()
+        raw = safe_read(cdf_toml)
+        valid_alpha_flags = {clean_name(flag.name) for flag in Flags}
+        new_lines: list[str] = []
+        is_alpha_section = False
+        removed_any = False
+        # We do not parse the TOML file to avoid removing comments
+        for line in raw.splitlines(keepends=True):
+            stripped = line.strip()
+            if stripped.startswith("["):
+                is_alpha_section = stripped.split("#", 1)[0].strip() == "[alpha_flags]"
+            elif is_alpha_section and "=" in stripped and not stripped.startswith("#"):
+                key = stripped.split("=", 1)[0].strip().strip("\"'")
+                if clean_name(key) not in valid_alpha_flags:
+                    removed_any = True
+                    continue
+            new_lines.append(line)
+        if not removed_any:
+            return set()
+        safe_write(cdf_toml, "".join(new_lines))
+        return {cdf_toml}
 
 class UpdateModuleVersion(AutomaticChange):
     deprecated_from = parse_version(__version__)

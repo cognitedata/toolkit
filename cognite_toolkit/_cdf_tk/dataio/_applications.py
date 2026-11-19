@@ -1,19 +1,19 @@
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
-from itertools import chain
 from typing import Any, Literal, TypeVar
 
-from cognite.client.credentials import OAuthDeviceCode
-from cognite.client.data_classes.data_modeling import EdgeId
+from cognite.client.credentials import OAuthClientCredentials, OAuthDeviceCode
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList, ItemsResultMessage
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, ExternalId, InstanceDefinitionId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -30,11 +30,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Bookmark, DataItem, Page, UploadableDataIO
@@ -74,9 +78,10 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self,
         client: ToolkitClient,
         skip_existing: bool = False,
-        skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
+        skip_backend_services: bool = False,
         skip_strict_mode: bool = False,
         api_format: Literal["request", "response"] = "request",
+        is_migration: bool = False,
     ) -> None:
         super().__init__(client, api_format=api_format)
         # We need to store existing charts as we use different endpoints depending on whether
@@ -87,6 +92,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self._skip_existing = skip_existing
         self._skip_backend_services = skip_backend_services
         self._skip_strict_mode = skip_strict_mode
+        self._is_migration = is_migration
 
     @property
     def existing_charts(self) -> set[str]:
@@ -321,7 +327,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
 
     @staticmethod
     def _collect_unique_backend_requests(
-        items: list[DataItem[ChartRequest]],
+        items: Sequence[DataItem[ChartRequest]],
         get_requests: Callable[[ChartRequest], Sequence[TChartBackendRequest] | None],
         duplicate_label: str,
     ) -> tuple[dict[ExternalId, tuple[TChartBackendRequest, str]], list[LogEntryV2]]:
@@ -382,11 +388,18 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = updated
             else:
                 if request.nonce == MISSING_NONCE:
-                    if self._skip_strict_mode:
-                        request.nonce = self.client.iam.sessions.create().nonce
+                    if self._skip_strict_mode and isinstance(
+                        creds := self.client.config.credentials, OAuthClientCredentials
+                    ):
+                        request.nonce = self.client.sessions.create_single(
+                            ClientCredentialsSessionRequest(
+                                client_id=creds.client_id,
+                                client_secret=creds.client_secret,
+                            )
+                        ).nonce
                     elif isinstance(self.client.config.credentials, OAuthDeviceCode):
                         # Reusing the user's credentials.
-                        request.nonce = self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
+                        request.nonce = self.client.sessions.create_single(TokenExchangeSessionRequest()).nonce
                     else:
                         log_entries.append(
                             LogEntryV2(
@@ -425,7 +438,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = created
         return log_entries, failed, succeeded
 
-    def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
+    def _upload_backend_services(self, items: Sequence[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
         log_entries: list[LogEntryV2] = []
 
@@ -448,21 +461,30 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         job_upsert_logs, failed_jobs, succeeded_jobs = self._upsert_unique_backend_requests(
             monitoring_job_by_id,
             existing_job_ids,
-            self.client.charts.monitoring_jobs.update,
+            self._create_monitoring_job_update_call(),
             self.client.charts.monitoring_jobs.create,
             "monitoring job",
         )
         log_entries.extend(job_upsert_logs)
 
-        existing_calculation_ids = {
-            calculation.as_id()
+        existing_calculations = {
+            calculation.as_id(): calculation
             for calculation in self.client.charts.scheduled_calculations.retrieve(
                 list(calculation_by_id.keys()), ignore_unknown_ids=True
             )
         }
+        for ext_id, (request, tracking_id) in calculation_by_id.items():
+            existing = existing_calculations.get(ext_id)
+            if (
+                existing is not None
+                and existing.target_timeseries_external_id is not None
+                and request.target_timeseries_instance_id is not None
+            ):
+                request = request.with_target_update()
+                calculation_by_id[ext_id] = request, tracking_id
         calculation_upsert_logs, failed_calculations, _ = self._upsert_unique_backend_requests(
             calculation_by_id,
-            existing_calculation_ids,
+            set(existing_calculations),
             self.client.charts.scheduled_calculations.update,
             self.client.charts.scheduled_calculations.create,
             "scheduled calculation",
@@ -520,6 +542,39 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         if log_entries:
             self.logger.log(log_entries)
         return failed_charts
+
+    def _create_monitoring_job_update_call(
+        self,
+    ) -> Callable[[Sequence[ChartMonitoringJobRequest]], list[ChartMonitoringJobResponse]]:
+        if not self._is_migration:
+            return self.client.charts.monitoring_jobs.update
+        # In Migration, we know that it is only the chart monitoring job model that is being updated,
+        # not all the other fields. Thus, we make a special update call that only update the model.
+        # This avoids the risk of hitting validation errors on the other fields, such as, the channelId,
+        # which may have become invalid since the monitoring job was created.
+
+        endpoint = self.client.charts.monitoring_jobs._method_endpoint_map["update"]
+
+        def update_model_only(items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
+            result_items: list[ChartMonitoringJobResponse] = []
+            for item in items:
+                request = RequestMessage(
+                    endpoint_url=self.client.config.create_api_url(endpoint.path),
+                    method=endpoint.method,
+                    body_content={
+                        "items": [
+                            {
+                                "externalId": item.external_id,
+                                "model": item.model.model_dump(mode="json"),
+                            }
+                        ]
+                    },
+                )
+                response = self.client.http_client.request_single_retries(request).get_success_or_raise(request)
+                result_items.extend(PagedResponse[ChartMonitoringJobResponse].model_validate_json(response.body).items)
+            return result_items
+
+        return update_model_only
 
 
 class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
@@ -630,21 +685,22 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
             # It is possible to delete and create in the same request, but we keep this separate
             # as there is a risk for deadlocks.
             # We delete all edges before nodes to avoid a deadlock.
-            delete_chunk: list[InstanceDefinitionId]
-            for delete_chunk in chain(  # type: ignore[assignment]
-                chunker_sequence(edges_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
-                chunker_sequence(nodes_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
-            ):
-                result = http_client.request_single_retries(
-                    message=RequestMessage(
-                        endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
-                        method=INSTANCE_DELETE_ENDPOINT.method,
-                        body_content={
-                            "items": [instance_id.dump() for instance_id in delete_chunk],
-                        },
+            id_groups: tuple[Sequence[InstanceDefinitionId], Sequence[InstanceDefinitionId]] = (
+                edges_to_delete,
+                nodes_to_delete,
+            )
+            for ids in id_groups:
+                for delete_chunk in chunker_sequence(list(ids), INSTANCE_DELETE_ENDPOINT.item_limit):
+                    result = http_client.request_single_retries(
+                        message=RequestMessage(
+                            endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
+                            method=INSTANCE_DELETE_ENDPOINT.method,
+                            body_content={
+                                "items": [instance_id.dump() for instance_id in delete_chunk],
+                            },
+                        )
                     )
-                )
-                results.append(result.as_item_response(item.tracking_id))
+                    results.append(result.as_item_response(item.tracking_id))
         return results
 
     def data_to_json_chunk(
@@ -832,13 +888,117 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
 
         return IndustrialCanvasRequest._load(new_item)
 
+    def check_view_references(self, reader: MultiFileReader) -> list[ToolkitWarning]:
+        """Checks the views the canvases reference before they are uploaded.
+
+        Canvases reference data modeling instances through a specific view version. If the view does not
+        exist in the target project, or the canvases reference several versions of the same view, the
+        canvases will likely not display the instances as intended.
+
+        Args:
+            reader: The reader with the canvases to upload.
+
+        Returns:
+            Warnings about missing views and views referenced in multiple versions.
+        """
+        canvas_names_by_view: dict[ViewId, set[str]] = defaultdict(set)
+        for item_json in reader.read_chunks():
+            name = self._get_name(item_json)
+            for view_id in self._get_referenced_views(item_json):
+                canvas_names_by_view[view_id].add(name)
+        if not canvas_names_by_view:
+            return []
+
+        warnings: list[ToolkitWarning] = []
+        versions_by_view: dict[tuple[str, str], list[ViewId]] = defaultdict(list)
+        for view_id in canvas_names_by_view:
+            versions_by_view[(view_id.space, view_id.external_id)].append(view_id)
+        multi_version_lines = [
+            f"  {space}:{external_id}: "
+            + "; ".join(
+                f"{view_id.version} in {self._humanize_names(canvas_names_by_view[view_id])}"
+                for view_id in sorted(view_ids, key=lambda v: v.version)
+            )
+            for (space, external_id), view_ids in sorted(versions_by_view.items())
+            if len(view_ids) > 1
+        ]
+        if multi_version_lines:
+            warnings.append(
+                MediumSeverityWarning(
+                    "The canvases reference multiple versions of the same view. Make sure each canvas "
+                    "targets the intended view version:\n" + "\n".join(multi_version_lines)
+                )
+            )
+
+        try:
+            existing_views = {view.as_id() for view in self.client.views.retrieve(list(canvas_names_by_view))}
+        except ToolkitAPIError as error:
+            warnings.append(
+                MediumSeverityWarning(
+                    f"Could not check whether the views referenced by the canvases exist: {error!s}. "
+                    "Make sure the data models the canvases reference are deployed."
+                )
+            )
+            return warnings
+        missing_lines = [
+            f"  {view_id!s} in {self._humanize_names(names)}"
+            for view_id, names in sorted(canvas_names_by_view.items(), key=lambda pair: str(pair[0]))
+            if view_id not in existing_views
+        ]
+        if missing_lines:
+            warnings.append(
+                HighSeverityWarning(
+                    f"The canvases reference views that do not exist in the CDF project "
+                    f"{self.client.config.project!r}. Deploy the data models with these views, "
+                    "otherwise the canvases cannot display the referenced instances:\n" + "\n".join(missing_lines)
+                )
+            )
+        return warnings
+
+    @classmethod
+    def _get_referenced_views(cls, item_json: dict[str, JsonVal]) -> Iterable[ViewId]:
+        references = item_json.get("fdmInstanceContainerReferences")
+        if not isinstance(references, list):
+            return
+        for reference in references:
+            if not isinstance(reference, dict):
+                continue
+            properties = cls._get_properties(reference)
+            if properties is None:
+                continue
+            space = properties.get("viewSpace")
+            external_id = properties.get("viewExternalId")
+            version = properties.get("viewVersion")
+            if isinstance(space, str) and isinstance(external_id, str) and isinstance(version, str):
+                yield ViewId(space=space, external_id=external_id, version=version)
+
+    @staticmethod
+    def _humanize_names(names: set[str], max_names: int = 5) -> str:
+        sorted_names = [repr(name) for name in sorted(names)]
+        if len(sorted_names) <= max_names:
+            return humanize_collection(sorted_names, sort=False)
+        shown = ", ".join(sorted_names[:max_names])
+        return f"{shown} and {len(sorted_names) - max_names} more canvases"
+
     @classmethod
     def _get_name(cls, item_json: dict[str, JsonVal]) -> str:
         if "name" in item_json:
             name = item_json["name"]
             if isinstance(name, str):
                 return name
-        try:
-            return item_json["canvas"]["sources"][0]["properties"]["name"]  # type: ignore[index,return-value, call-overload]
-        except (KeyError, IndexError, TypeError):
+        canvas = item_json.get("canvas")
+        if not isinstance(canvas, dict):
             return "<unknown>"
+        sources = canvas.get("sources")
+        if not isinstance(sources, list) or not sources:
+            return "<unknown>"
+        first = sources[0]
+        if not isinstance(first, dict):
+            return "<unknown>"
+        properties = first.get("properties")
+        if not isinstance(properties, dict):
+            return "<unknown>"
+        name = properties.get("name")
+        if isinstance(name, str):
+            return name
+        return "<unknown>"

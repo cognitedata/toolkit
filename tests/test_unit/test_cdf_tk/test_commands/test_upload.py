@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import respx
-from cognite.client.data_classes.raw import RowWrite, Table, TableList
+from cognite.client.data_classes.raw import RowWrite
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -13,10 +13,11 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.commands._upload import InstanceColumnMatch, SQLiteTableSource
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import RawIO
 from cognite_toolkit._cdf_tk.dataio._asset_centric import AssetDataIO
 from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
@@ -33,11 +34,16 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     Selector,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._asset_centric import DataSetSelector
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import RawTableIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, SchemaColumn, SQLiteWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
+from tests.constants import CDF_CLUSTER
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture
@@ -89,20 +95,45 @@ def raw_csv_directory(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def raw_sqlite_directory(tmp_path: Path) -> Path:
+    """Fixture to create a temporary folder with a sample SQLite database."""
+    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableIO.folder_name / f"test_table.{RawTableIO.kind}.yaml"
+    configfile.parent.mkdir(parents=True, exist_ok=True)
+    table = RAWTableRequest(db_name="test_db", name="test_table")
+    configfile.write_text(table.dump_yaml(context="toolkit"))
+    selector = RawTableSelector(
+        table=SelectedTable(db_name=table.db_name, table_name=table.name), type="rawTable", key="key"
+    )
+    columns = [
+        SchemaColumn(name="key", type="string"),
+        SchemaColumn(name="column1", type="string"),
+        SchemaColumn(name="column2", type="integer"),
+        SchemaColumn(name="column3", type="boolean"),
+    ]
+    metadata = selector.model_dump(mode="json", by_alias=True)
+    with SQLiteWriter(tmp_path, RawIO.KIND, Uncompressed, columns, metadata=metadata) as writer:
+        writer.write_chunks(
+            [{"key": f"key{i}", "column1": f"value{i}", "column2": i, "column3": i % 2 == 0} for i in range(1_000)],
+            filestem="test_db.test_table",
+        )
+    return tmp_path
+
+
+@pytest.fixture
 def raw_mock_client(
     toolkit_config: ToolkitClientConfig,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
-) -> Iterator[tuple[ToolkitClient, respx.MockRouter]]:
+) -> Iterator[tuple[ToolkitClientMock, respx.MockRouter]]:
     config = toolkit_config
     insert_url = config.create_api_url("/raw/dbs/test_db/tables/test_table/rows")
     respx_mock.post(url=insert_url).respond(status_code=200)
-    monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+    monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
     monkeypatch.setenv("CDF_PROJECT", config.project)
     with monkeypatch_toolkit_client() as client:
-        client.tool.token.verify_acls.return_value = []
+        client.token.verify_acls.return_value = []
         client.raw.tables.list.return_value = []
-        client.raw.tables.create.return_value = TableList([Table(name="test_table")])
+        client.raw.tables.create.return_value = [RAWTableResponse(db_name="test_db", name="test_table", created_time=0)]
         client.config = config
         yield client, respx_mock
 
@@ -111,7 +142,7 @@ class TestUploadCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_raw_rows_from_ndjson(
         self,
-        raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
+        raw_mock_client: tuple[ToolkitClientMock, respx.MockRouter],
         raw_json_directory: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -125,7 +156,7 @@ class TestUploadCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_raw_rows_from_csv(
         self,
-        raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
+        raw_mock_client: tuple[ToolkitClientMock, respx.MockRouter],
         raw_csv_directory: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -136,7 +167,42 @@ class TestUploadCommand:
 
         self.assert_raw_rows_uploaded(client, respx_mock)
 
-    def assert_raw_rows_uploaded(self, client: ToolkitClient, respx_mock: respx.MockRouter) -> None:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_upload_raw_rows_from_sqlite(
+        self,
+        raw_mock_client: tuple[ToolkitClientMock, respx.MockRouter],
+        raw_sqlite_directory: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.EXTEND_DOWNLOAD)
+        client, respx_mock = raw_mock_client
+
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+        cmd.upload(raw_sqlite_directory, client, deploy_resources=True, dry_run=False, verbose=False)
+
+        self.assert_raw_rows_uploaded(client, respx_mock)
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_find_sqlite_tables(self, enabled: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: enabled and flag is Flags.EXTEND_DOWNLOAD)
+        selectors = [
+            RawTableSelector(table=SelectedTable(db_name=db_name, table_name="my_table"), type="rawTable")
+            for db_name in ["db1", "db2"]
+        ]
+        database = tmp_path / f"{RawIO.KIND}.sqlite"
+        for selector in selectors:
+            metadata = selector.model_dump(mode="json", by_alias=True)
+            columns = [SchemaColumn(name="key", type="string")]
+            with SQLiteWriter(tmp_path, RawIO.KIND, Uncompressed, columns, metadata=metadata) as writer:
+                writer.write_chunks([{"key": "a"}], filestem=str(selector.table))
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+
+        result = cmd._find_data_files(tmp_path)
+
+        expected = {selector: SQLiteTableSource(database, str(selector.table)) for selector in selectors}
+        assert (result, len(cmd.warning_list)) == ((expected, 0) if enabled else ({}, 1))
+
+    def assert_raw_rows_uploaded(self, client: ToolkitClientMock, respx_mock: respx.MockRouter) -> None:
         assert len(respx_mock.calls) == 1
         call = respx_mock.calls[0]
         assert str(call.request.url).endswith("/raw/dbs/test_db/tables/test_table/rows")
@@ -144,8 +210,8 @@ class TestUploadCommand:
         assert isinstance(body, list)
         assert len(body) == 1_000
 
-        client.tool.raw.tables.create.assert_called_once()
-        raw_tables, *_ = client.tool.raw.tables.create.call_args[0]
+        client.raw.tables.create.assert_called_once()
+        raw_tables, *_ = client.raw.tables.create.call_args[0]
         assert raw_tables == [RAWTableRequest(db_name="test_db", name="test_table")]
 
     def test_upload_raw_rows_dry_run(
@@ -153,13 +219,11 @@ class TestUploadCommand:
     ) -> None:
         config = toolkit_config
         cmd = UploadCommand(silent=True, skip_tracking=True)
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_CLUSTER", config.cloud_provider)
         monkeypatch.setenv("CDF_PROJECT", config.project)
         with monkeypatch_toolkit_client() as client:
-            client.tool.token.verify_acls.return_value = []
+            client.token.verify_acls.return_value = []
             cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=True, verbose=False)
-
-            client.raw.rows.insert.assert_not_called()
             client.raw.databases.create.assert_not_called()
             client.raw.tables.create.assert_not_called()
 
@@ -171,6 +235,7 @@ class TestUploadCommand:
     ) -> None:
         """Test that _topological_sort_if_instance_selector sorts instance selectors by dependencies and preserves non-instance selectors."""
         cmd = UploadCommand(silent=True, skip_tracking=True)
+        assert cognite_core_no_3D.views is not None
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
@@ -208,7 +273,7 @@ class TestUploadCommand:
         # Check that all subclasses of InstanceSelector are part of the test data
         subclasses = set(get_concrete_subclasses(InstanceSelector))
         exceptions = {InstanceFileSelector, InstanceQuerySelector}
-        missing = subclasses - ({type(selector) for selector in data_files_by_selector.keys()} | exceptions)
+        missing = subclasses - ({type(selector) for selector in data_files_by_selector} | exceptions)
         # All instance selector subclasses should do topological sorting, except for the ones in exceptions
         assert not missing, f"Test data is missing selectors for the following InstanceSelector subclasses: {missing}"
 
@@ -226,18 +291,82 @@ class TestUploadCommand:
             DataItem(item=AssetRequest(external_id="asset_1", name="Asset 1"), tracking_id="row 1"),  # type: ignore[arg-type]
             DataItem(item=AssetRequest(external_id="asset_2", name="Asset 2"), tracking_id="row 2"),  # type: ignore[arg-type]
         ]
-        with HTTPClient(config=toolkit_config) as http_client:
-            with pytest.raises(
+        with (
+            HTTPClient(config=toolkit_config) as http_client,
+            pytest.raises(
                 ToolkitRepeatedUploadFailureError, match="Upload process was stopped due to repeatedly failed uploads"
-            ):
-                UploadCommand._upload_items(
-                    data_chunk=Page(worker_id="main", items=items),
-                    upload_client=http_client,
-                    io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
-                    selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
-                    dry_run=False,
-                    console=MagicMock(spec=Console),
-                    verbose=False,
-                    logger=NoOpLogger(),
-                    get_log_file=MagicMock(),
-                )
+            ),
+        ):
+            UploadCommand._upload_items(
+                data_chunk=Page(worker_id="main", items=items),
+                upload_client=http_client,
+                io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
+                selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
+                dry_run=False,
+                console=MagicMock(spec=Console),
+                verbose=False,
+                logger=NoOpLogger(),
+                get_log_file=MagicMock(),
+            )
+
+
+class TestUploadInstances:
+    @staticmethod
+    def _get_view(data_model: DataModelResponseWithViews, external_id: str) -> ViewResponse:
+        return next(view for view in data_model.views or [] if view.external_id == external_id)
+
+    def test_match_instance_columns(self, cognite_core_no_3D: DataModelResponseWithViews) -> None:
+        view = self._get_view(cognite_core_no_3D, "CogniteAsset")
+
+        match = UploadCommand.match_instance_columns(["space", "externalId", "name", "notAProperty"], view, "node")
+
+        assert match == InstanceColumnMatch(
+            instance_columns=["space", "externalId"],
+            property_type_by_column={"name": "text"},
+            unknown_columns=["notAProperty"],
+        )
+
+    def test_match_instance_columns_missing_required(self, cognite_core_no_3D: DataModelResponseWithViews) -> None:
+        view = self._get_view(cognite_core_no_3D, "CogniteAsset")
+
+        with pytest.raises(ToolkitValueError) as exc_info:
+            UploadCommand.match_instance_columns(["space", "externalId"], view, "edge")
+
+        assert str(exc_info.value) == (
+            "The file is missing the column(s) endNode.externalId, endNode.space, startNode.externalId, "
+            "startNode.space, type.externalId and type.space, which are required to upload edges."
+        )
+
+    def test_upload_instances_creates_manifest(
+        self, tmp_path: Path, cognite_core_no_3D: DataModelResponseWithViews
+    ) -> None:
+        data_file = tmp_path / "my_assets.csv"
+        data_file.write_text("space,externalId,name\nmy_space,asset_1,Asset 1\n", encoding="utf-8")
+        view = self._get_view(cognite_core_no_3D, "CogniteAsset")
+        answers = [view, "node", "skip"]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary([UploadCommand.__module__, DataModelingSelect.__module__], answers),
+        ):
+            client.views.list.return_value = cognite_core_no_3D.views
+            UploadCommand(silent=True, skip_tracking=True).upload_instances(data_file, client, verbose=False)
+
+        assert read_yaml_file(tmp_path / f"my_assets{DATA_MANIFEST_SUFFIX}") == {
+            "type": "instanceView",
+            "kind": "Instances",
+            "view": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"},
+            "instanceType": "node",
+            "endpoint": "query",
+        }
+
+    def test_create_instance_manifest_rejects_sqlite(self, tmp_path: Path) -> None:
+        data_file = tmp_path / "my_assets.sqlite"
+
+        with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitValueError) as exc_info:
+            UploadCommand(silent=True, skip_tracking=True).create_instance_manifest(data_file, client)
+
+        assert str(exc_info.value) == (
+            "Cannot create a manifest for 'my_assets.sqlite'. SQLite databases store the selector with each table, "
+            "upload them with 'cdf data upload dir'."
+        )

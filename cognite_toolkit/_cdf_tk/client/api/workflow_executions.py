@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Workflow-executions
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal, TypeVar
 
@@ -20,10 +21,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowExecutionId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowExecutionFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
     WorkflowExecutionDetailedResponse,
     WorkflowExecutionResponse,
-    WorkflowExecutionStatus,
 )
 
 T_ExecutionResponse = TypeVar("T_ExecutionResponse", bound=BaseModelObject)
@@ -52,8 +53,8 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         ignore_unknown_ids: bool = False,
         method: Literal["GET", "POST"] = "POST",
         body_content: dict[str, JsonValue] | None = None,
-    ) -> list[T_ExecutionResponse]:
-        result: list[T_ExecutionResponse] = []
+    ) -> builtins.list[T_ExecutionResponse]:
+        result: builtins.list[T_ExecutionResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(f"/workflows/executions/{item.id}{path_suffix}"),
@@ -102,7 +103,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
 
     def retrieve(
         self, items: Sequence[WorkflowExecutionId], ignore_unknown_ids: bool = False
-    ) -> list[WorkflowExecutionDetailedResponse]:
+    ) -> builtins.list[WorkflowExecutionDetailedResponse]:
         """Retrieve detailed workflow executions from CDF.
 
         Args:
@@ -125,7 +126,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         items: Sequence[WorkflowExecutionId],
         reason: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[WorkflowExecutionResponse]:
+    ) -> builtins.list[WorkflowExecutionResponse]:
         """Cancel workflow executions.
 
         Stops the specified executions from starting new workflow tasks and sets the
@@ -158,7 +159,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         items: Sequence[WorkflowExecutionId],
         nonce: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[WorkflowExecutionResponse]:
+    ) -> builtins.list[WorkflowExecutionResponse]:
         """Retry previously failed, timed out, or terminated workflow executions.
 
         Args:
@@ -180,115 +181,59 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
             body_content=body,
         )
 
-    def _create_list_body(
-        self,
-        workflow_version_ids: Sequence[WorkflowVersionId] | None = None,
-        created_time_start: int | None = None,
-        created_time_end: int | None = None,
-        statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
-    ) -> dict[str, Any] | None:
-        filter_body: dict[str, Any] = {}
-        if workflow_version_ids:
-            filter_body["workflowFilters"] = [
-                {"externalId": item.workflow_external_id, "version": item.version} for item in workflow_version_ids
-            ]
-        if created_time_start is not None:
-            filter_body["createdTimeStart"] = created_time_start
-        if created_time_end is not None:
-            filter_body["createdTimeEnd"] = created_time_end
-        if statuses:
-            filter_body["status"] = list(statuses)
-        return {"filter": filter_body} if filter_body else None
+    @staticmethod
+    def _create_list_body(filter: WorkflowExecutionFilter | None) -> dict[str, Any] | None:
+        if filter is None:
+            return None
+        dumped = filter.dump()
+        return {"filter": dumped} if dumped else None
 
     def paginate(
         self,
-        workflow_version_ids: Sequence[WorkflowVersionId] | None = None,
-        created_time_start: int | None = None,
-        created_time_end: int | None = None,
-        statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        filter: WorkflowExecutionFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[WorkflowExecutionResponse]:
         """Fetch a page of workflow executions from CDF.
 
         Args:
-            workflow_version_ids: Filter by workflow version identifiers.
-            created_time_start: Filter out executions created before this time (ms since epoch).
-            created_time_end: Filter out executions created after this time (ms since epoch).
-            statuses: Filter by workflow execution status.
+            filter: Filter by workflow (and optionally version), creation time, and status.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of WorkflowExecution objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body=self._create_list_body(
-                workflow_version_ids,
-                created_time_start,
-                created_time_end,
-                statuses,
-            ),
-        )
+        return self._paginate(cursor=cursor, limit=limit, body=self._create_list_body(filter))
 
     def iterate(
         self,
-        workflow_version_ids: Sequence[WorkflowVersionId] | None = None,
-        created_time_start: int | None = None,
-        created_time_end: int | None = None,
-        statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        filter: WorkflowExecutionFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[WorkflowExecutionResponse]]:
+    ) -> Iterable[builtins.list[WorkflowExecutionResponse]]:
         """Iterate over workflow executions in CDF.
 
         Args:
-            workflow_version_ids: Filter by workflow version identifiers.
-            created_time_start: Filter out executions created before this time (ms since epoch).
-            created_time_end: Filter out executions created after this time (ms since epoch).
-            statuses: Filter by workflow execution status.
-            limit: Maximum number of items to return per page.
+            filter: Filter by workflow (and optionally version), creation time, and status.
+            limit: Maximum number of items to return.
 
         Returns:
             Iterable of lists of WorkflowExecution objects.
         """
-        return self._iterate(
-            limit=limit,
-            body=self._create_list_body(
-                workflow_version_ids,
-                created_time_start,
-                created_time_end,
-                statuses,
-            ),
-        )
+        return self._iterate(limit=limit, body=self._create_list_body(filter))
 
     def list(
         self,
-        workflow_version_ids: Sequence[WorkflowVersionId] | None = None,
-        created_time_start: int | None = None,
-        created_time_end: int | None = None,
-        statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        filter: WorkflowExecutionFilter | None = None,
         limit: int | None = 100,
-    ) -> list[WorkflowExecutionResponse]:
+    ) -> builtins.list[WorkflowExecutionResponse]:
         """List workflow executions in CDF.
 
         Args:
-            workflow_version_ids: Filter by workflow version identifiers.
-            created_time_start: Filter out executions created before this time (ms since epoch).
-            created_time_end: Filter out executions created after this time (ms since epoch).
-            statuses: Filter by workflow execution status.
+            filter: Filter by workflow (and optionally version), creation time, and status.
             limit: Maximum number of items to return.
 
         Returns:
             List of WorkflowExecution objects.
         """
-        return self._list(
-            limit=limit,
-            body=self._create_list_body(
-                workflow_version_ids,
-                created_time_start,
-                created_time_end,
-                statuses,
-            ),
-        )
+        return self._list(limit=limit, body=self._create_list_body(filter))

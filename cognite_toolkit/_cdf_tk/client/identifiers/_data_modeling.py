@@ -1,17 +1,11 @@
-import sys
 from abc import ABC
 from collections.abc import Iterable
-from typing import Annotated, Any, Literal, TypeVar
+from typing import Annotated, Any, Literal, Self, TypeVar
 
 from pydantic import PlainSerializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers._identifiers import ExternalId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class SpaceId(Identifier):
@@ -310,6 +304,18 @@ class ContainerConstraintId(ContainerId):
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(constraint={self.identifier})"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"{super()._as_filename(include_type)}.identifier-{self.identifier}"
+        return f"{super()._as_filename(include_type)}.{self.identifier}"
+
+
+class ContainerPropertyId(ContainerId):
+    identifier: str
+
+    def __str__(self) -> str:
+        return f"{self.space}:{self.external_id}(property={self.identifier})"
 
     def _as_filename(self, include_type: bool = False) -> str:
         if include_type:

@@ -2,12 +2,9 @@ import re
 from abc import abstractmethod
 from collections.abc import MutableSequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from cognite.client import data_modeling as dm
-
-if TYPE_CHECKING:
-    pass
 
 
 class GraphQLParser:

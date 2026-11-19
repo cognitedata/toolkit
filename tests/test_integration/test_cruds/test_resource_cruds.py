@@ -1,10 +1,10 @@
 import contextlib
 import os
-from asyncio import sleep
 from collections.abc import Iterable
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
+from time import sleep
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -15,12 +15,9 @@ from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    ClientCredentials,
     DataSet,
     Function,
-    FunctionSchedulesList,
     FunctionScheduleWrite,
-    FunctionScheduleWriteList,
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
@@ -31,7 +28,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -45,15 +42,36 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
     GroupRequest,
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    Credentials,
+    HostedExtractorDestinationRequest,
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingRequest,
+    HostedExtractorMappingResponse,
+    Mapping,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    BasicAuthenticationRequest,
+    EventHubSourceRequest,
+    HostedExtractorSourceResponseUnion,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -71,6 +89,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorSourceIO,
+    InFieldCDMLocationConfigIO,
     LabelIO,
     NodeIO,
     SkillIO,
@@ -79,9 +101,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowVersionIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_integration.constants import RUN_UNIQUE_ID
-from tests.test_integration.helpers import retry_on_deadlock
+from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
 from tests.utils import to_deploy_status
 
 
@@ -105,8 +127,9 @@ class TestFunctionScheduleLoader:
         )
         identifier = loader.get_id(function_schedule)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
-        loader.authentication_by_id[identifier] = ClientCredentials(
-            toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
+        loader.authentication_by_id[identifier] = ClientCredentialsSessionRequest(
+            client_id=toolkit_client_config.credentials.client_id,
+            client_secret=toolkit_client_config.credentials.client_secret,
         )
 
         # Function schedules cannot be updated, they must be deleted and recreated.
@@ -124,9 +147,12 @@ class TestFunctionScheduleLoader:
         assert retrieved[0].description == function_schedule.description
 
     def test_creating_schedule_then_print_ids(
-        self, toolkit_client: ToolkitClient, toolkit_client_config: ToolkitClientConfig, dummy_function: Function
+        self,
+        toolkit_client: ToolkitClient,
+        toolkit_client_config: ToolkitClientConfig,
+        dummy_function: Function,
     ) -> None:
-        local = FunctionScheduleWrite(
+        local = FunctionScheduleRequest(
             name="test_creating_schedule_then_print_ids",
             cron_expression="0 7 * * TUE",
             function_external_id=dummy_function.external_id,
@@ -134,20 +160,21 @@ class TestFunctionScheduleLoader:
         )
         loader = FunctionScheduleIO(toolkit_client)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
-        loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
-            toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
+        loader.authentication_by_id[loader.get_id(local)] = ClientCredentialsSessionRequest(
+            client_id=toolkit_client_config.credentials.client_id,
+            client_secret=toolkit_client_config.credentials.client_secret,
         )
 
-        created: FunctionSchedulesList | None = None
+        created = loader.create([local])
         try:
-            created = loader.create(FunctionScheduleWriteList([local]))
-            loader.get_ids(created)
+            assert loader.get_ids(created) == [loader.get_id(local)]
         finally:
             if created:
-                toolkit_client.functions.schedules.delete(created[0].id)
+                loader.delete(loader.get_ids(created))
 
-    def test_iterating_over_schedules(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
-        client = toolkit_client
+    def test_iterating_over_schedules(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, dummy_function: Function
+    ) -> None:
         schedule = FunctionScheduleWrite(
             name="test_iterating_over_schedules",
             cron_expression="0 0 1 1 *",  # Yearly
@@ -155,12 +182,14 @@ class TestFunctionScheduleLoader:
             description="This schedule is persisted for the iteration test",
         )
         # Ensure the schedule exists
-        existing = client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
+        existing = cognite_client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
         if not existing:
-            _ = client.functions.schedules.create(schedule)
-        crud = FunctionScheduleIO(client)
+            _ = cognite_client.functions.schedules.create(schedule)
+        crud = FunctionScheduleIO(toolkit_client)
+        function_external_id = dummy_function.external_id
+        assert function_external_id is not None
 
-        schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
+        schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=function_external_id)]))
         assert len(schedules) >= 1
         assert any(s.name == schedule.name for s in schedules)
 
@@ -261,7 +290,7 @@ def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_datase
 
 @pytest.fixture(scope="session")
 def three_hundred_and_three_cognite_timeseries(
-    toolkit_client: ToolkitClient, toolkit_space: Space
+    cognite_client: CogniteClient, toolkit_space: Space
 ) -> NodeList[CogniteTimeSeries]:
     ts_list = NodeApplyList(
         [
@@ -274,15 +303,15 @@ def three_hundred_and_three_cognite_timeseries(
             for i in range(1, 304)
         ]
     )
-    retrieved = toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+    retrieved = cognite_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
     if len(retrieved) == len(ts_list):
         # All timeseries already exist, return the retrieved ones
         return retrieved
     existing = set(retrieved.as_ids())
     to_create = [ts for ts in ts_list if ts.as_id() not in existing]
     if to_create:
-        _ = toolkit_client.data_modeling.instances.apply(to_create)
-    return toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+        _ = cognite_client.data_modeling.instances.apply(to_create)
+    return cognite_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
 
 
 class TestDatapointSubscriptionLoader:
@@ -320,8 +349,9 @@ class TestDatapointSubscriptionLoader:
             created = loader.create([sub])
             assert len(created) == 1
 
-            updated = loader.update([update])
-            assert len(updated) == 1
+            updated_items = loader.update([update])
+            assert len(updated_items) == 1
+            updated = loader.retrieve(loader.get_ids(updated_items))
             assert updated[0].name == "Updated name"
         finally:
             loader.delete([sub.as_id()])
@@ -360,16 +390,18 @@ timeSeriesIds:
         loader = DatapointSubscriptionIO(toolkit_client)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
-            created = loader.create([sub])
-            assert len(created) == 1
+            created_items = loader.create([sub])
+            assert len(created_items) == 1
+            created = loader.retrieve(loader.get_ids(created_items))
             initial_description = created[0].description
             assert created[0].time_series_count == len(one_hundred_and_one_timeseries) + len(
                 three_hundred_and_three_cognite_timeseries
             ), "The subscription should have the correct number of time series"
 
             update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
-            updated = loader.update([update])
-            assert len(updated) == 1
+            updated_items = loader.update([update])
+            assert len(updated_items) == 1
+            updated = loader.retrieve(loader.get_ids(updated_items))
             updated_description = updated[0].description
             assert updated_description != initial_description, (
                 "The description should have changed after the update with a hash fo the timeseries IDs"
@@ -392,7 +424,7 @@ timeSeriesIds:
 - {three_timeseries[1].external_id}
 - {three_timeseries[2].external_id}
 """
-        loader = DatapointSubscriptionIO.create_io(toolkit_client)
+        loader = DatapointSubscriptionIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -412,8 +444,8 @@ timeSeriesIds:
 class TestLabelLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
         loader = LabelIO(toolkit_client)
-        delete_count = loader.delete([ExternalId(external_id="non_existing")])
-        assert delete_count == 0
+        deleted = loader.delete([ExternalId(external_id="non_existing")])
+        assert deleted == []
 
     def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
         label = LabelRequest(external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}", name="Initial name")
@@ -427,7 +459,7 @@ class TestLabelLoader:
 
 
 class TestAssetLoader:
-    def test_create_delete_asset(self, toolkit_client: ToolkitClient) -> None:
+    def test_create_delete_asset(self, toolkit_client: ToolkitClient, cognite_client: CogniteClient) -> None:
         asset = AssetRequest(
             externalId=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
             name="My Asset",
@@ -440,16 +472,16 @@ class TestAssetLoader:
             created = loader.create([asset])
             assert len(created) == 1
 
-            delete_count = loader.delete([asset.as_id()])
-            assert delete_count == 1
+            deleted = loader.delete([asset.as_id()])
+            assert deleted == [asset.as_id()]
         finally:
             # Ensure that the asset is deleted even if the test fails.
-            toolkit_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+            cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="module")
-def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
-    a_container = toolkit_client.data_modeling.containers.apply(
+def container_ephemeral(cognite_client: CogniteClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+    a_container = cognite_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
@@ -458,12 +490,12 @@ def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) 
         )
     )
     yield a_container
-    toolkit_client.data_modeling.containers.delete([a_container.as_id()])
+    cognite_client.data_modeling.containers.delete([a_container.as_id()])
 
 
 @pytest.fixture(scope="module")
 def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> ContainerResponse:
-    return toolkit_client.tool.containers.create(
+    return toolkit_client.containers.create(
         [
             ContainerRequest(
                 space=toolkit_space.space,
@@ -476,9 +508,9 @@ def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space)
 
 @pytest.fixture(scope="module")
 def two_views_ephemeral(
-    toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
+    cognite_client: CogniteClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
 ) -> Iterable[dm.ViewList]:
-    created_views = toolkit_client.data_modeling.views.apply(
+    created_views = cognite_client.data_modeling.views.apply(
         [
             dm.ViewApply(
                 space=toolkit_space.space,
@@ -503,7 +535,7 @@ def two_views_ephemeral(
         ]
     )
     yield created_views
-    toolkit_client.data_modeling.views.delete(created_views.as_ids())
+    cognite_client.data_modeling.views.delete(created_views.as_ids())
 
 
 class TestDataModelLoader:
@@ -513,20 +545,20 @@ class TestDataModelLoader:
         loader = DataModelIO(toolkit_client)
         view_list = two_views_ephemeral.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
+        views = [
+            ViewId(space=view.space, external_id=view.external_id, version=view.version) for view in two_views_ephemeral
+        ]
         my_model = DataModelRequest(
             name="My model",
             description="Original description",
-            views=[
-                ViewId(space=view.space, external_id=view.external_id, version=view.version)
-                for view in two_views_ephemeral
-            ],
+            views=views,
             space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
         update = my_model.model_copy(
             update={
-                "views": [my_model.views[0]],  # Keep only the first view in the update to test that the update works
+                "views": [views[0]],  # Keep only the first view in the update to test that the update works
             }
         )
 
@@ -539,23 +571,25 @@ class TestDataModelLoader:
             # You need to update the version to update the model
             update.version = "2"
 
-            updated = loader.update([update])
-            assert len(updated) == 1
+            updated_items = loader.update([update])
+            assert len(updated_items) == 1
+            updated = loader.retrieve(loader.get_ids(updated_items))
+            assert my_model.views is not None
             assert updated[0].views == [my_model.views[0]]
         finally:
             loader.delete([my_model.as_id(), update.as_id()])
 
 
 @pytest.fixture
-def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
-    return toolkit_client.data_modeling.containers.apply(
+def custom_file_container(cognite_client: CogniteClient, toolkit_space: dm.Space) -> dm.Container:
+    return cognite_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name="container_test_resource_loaders",
             space=toolkit_space.space,
             external_id="container_test_resource_loaders",
             properties={
-                "status": dm.ContainerProperty(type=dm.Text()),
-                "fileCategory": dm.ContainerProperty(type=dm.Text()),
+                "status": dm.ContainerPropertyApply(type=dm.Text()),
+                "fileCategory": dm.ContainerPropertyApply(type=dm.Text()),
             },
         )
     )
@@ -630,9 +664,9 @@ class TestGroupLoader:
             is_step=False,
             is_string=False,
         )
-        group_id: int | None = None
+        group_id: InternalId | None = None
         try:
-            created_ts = toolkit_client.tool.timeseries.create([to_delete])[0]
+            created_ts = toolkit_client.timeseries.create([to_delete])[0]
             group = GroupRequest(
                 name="test_dump_cdf_group_with_invalid_reference",
                 source_id="1234-dummy",
@@ -640,13 +674,13 @@ class TestGroupLoader:
                     GroupCapability(acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[created_ts.id])))
                 ],
             )
-            created_group_list = toolkit_client.tool.groups.create([group])
+            created_group_list = toolkit_client.groups.create([group])
             assert len(created_group_list) == 1
             created_group = created_group_list[0]
             group_id = created_group.as_request_resource().as_id()
-            toolkit_client.tool.timeseries.delete([to_delete.as_id()])
+            toolkit_client.timeseries.delete([to_delete.as_id()])
 
-            loader = GroupIO.create_io(toolkit_client)
+            loader = GroupIO(toolkit_client)
 
             dumped = loader.dump_resource(created_group)
             assert "capabilities" in dumped
@@ -655,10 +689,10 @@ class TestGroupLoader:
             assert len(capabilities) == 1
             assert capabilities[0] == {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": []}}}}
         finally:
-            toolkit_client.tool.timeseries.delete([to_delete.as_id()], ignore_unknown_ids=True)
+            toolkit_client.timeseries.delete([to_delete.as_id()], ignore_unknown_ids=True)
             if group_id:
                 with suppress(CogniteAPIError):
-                    toolkit_client.tool.groups.delete([group_id])
+                    toolkit_client.groups.delete([group_id])
 
 
 class TestWorkflowVersionLoader:
@@ -685,10 +719,10 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client)
+            warning_list: list[ToolkitWarning] = []
+            loader = WorkflowVersionIO(client, on_warning=warning_list.append)
 
-            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
-                loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
+            loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
             definition = loader.load_resource(loaded[0])
 
         assert len(definition.workflow_definition.tasks) == 2
@@ -716,14 +750,14 @@ workflowDefinition:
         externalId: some_transformation
     retries: null
 """
-        loader = WorkflowVersionIO.create_io(toolkit_client)
+        loader = WorkflowVersionIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestTransformationCRUD:
     def test_create_transformation_auth_without_scope(
-        self, toolkit_client: ToolkitClient, monkeypatch: MonkeyPatch
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, monkeypatch: MonkeyPatch
     ) -> None:
         transformation_text = """externalId: transformation_without_scope
 name: This is a test transformation
@@ -739,7 +773,7 @@ authentication:
   clientSecret: ${IDP_CLIENT_SECRET}
 """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -751,10 +785,10 @@ authentication:
             created = loader.create([transformation])
             assert len(created) == 1
         finally:
-            toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
+            cognite_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
 
     def test_create_transformation_reusing_source_destination_auth(
-        self, toolkit_client: ToolkitClient, monkeypatch
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, monkeypatch: MonkeyPatch
     ) -> None:
         transformation_text = """externalId: transformation_reusing_source_destination_auth
 name: This is a test transformation from the Toolkit
@@ -774,7 +808,7 @@ authentication:
     clientSecret: ${IDP_CLIENT_SECRET}
         """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -793,7 +827,7 @@ authentication:
                 " if they reuse the same credentials"
             )
         finally:
-            toolkit_client.transformations.delete(
+            cognite_client.transformations.delete(
                 external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
             )
 
@@ -825,7 +859,7 @@ authentication:
             for i in range(1, N + 1)
         ]
 
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = "\n".join(definition_yaml)
 
@@ -837,7 +871,7 @@ authentication:
             created_list = loader.create(transformations)
             assert len(created_list) == N
         finally:
-            loader.delete([transformation.external_id for transformation in transformations])
+            loader.delete([transformation.as_id() for transformation in transformations])
 
     @pytest.mark.parametrize(
         "transformation_yaml",
@@ -862,7 +896,7 @@ ignoreNullFields: true
         self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
     ) -> None:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        crud = TransformationIO.create_io(toolkit_client)
+        crud = TransformationIO(toolkit_client)
 
         assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -904,13 +938,15 @@ class TestNodeLoader:
             updated = retry_on_deadlock(lambda: loader.update([updated_node]))
             assert len(updated) == 1
 
-            retrieved = toolkit_client.tool.instances.retrieve(
+            retrieved = toolkit_client.instances.retrieve(
                 [existing_node.as_id()],
                 source=ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
             )
             assert len(retrieved) == 1
             node = retrieved[0]
-            assert node.properties[view_id] == {
+            properties = node.properties
+            assert properties is not None
+            assert properties[view_id] == {
                 "name": "updated name",  # Overwrite
                 "description": "Existing description",  # Keep existing description
                 "aliases": ["alias1", "alias2"],  # Add new aliases
@@ -935,7 +971,7 @@ properties:
       type: container
     containerPropertyIdentifier: name
         """
-        loader = ViewIO.create_io(toolkit_client)
+        loader = ViewIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -1001,7 +1037,7 @@ class TestFunctionLoader:
         assert to_deploy_status(filepath, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(
-        self, toolkit_client: ToolkitClient, toolkit_space: Space, tmp_path: Path
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, toolkit_space: Space, tmp_path: Path
     ) -> None:
         client = toolkit_client
         external_id = f"toolkit_test_function_delete_cognite_file_code_{RUN_UNIQUE_ID}"
@@ -1022,26 +1058,26 @@ class TestFunctionLoader:
 
         resource = crud.load_resource(resource_dict[0])
         assert isinstance(resource, FunctionRequest)
-        created: FunctionResponse | None = None
+        created = False
         try:
             created_list = crud.create([resource])
             assert len(created_list) == 1
-            created = created_list[0]
+            created = True
 
             crud.delete([ExternalId(external_id=external_id)])
         finally:
-            if created is not None:
+            if created:
                 with contextlib.suppress(ToolkitAPIError):
-                    client.tool.functions.delete([ExternalId(external_id=external_id)])
+                    client.functions.delete([ExternalId(external_id=external_id)])
 
-                client.data_modeling.instances.delete((toolkit_space.space, external_id))
+                cognite_client.data_modeling.instances.delete((toolkit_space.space, external_id))
 
 
 class TestExtractionPipelineIO:
     def test_unchanged_no_redeploy(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, populated_raw_table: RawTableId
     ) -> None:
-        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy_{RUN_UNIQUE_ID}
+        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy
 name: Test Extraction Pipeline IO No Redeploy
 dataSetExternalId: {toolkit_dataset.external_id}
 description: Export Data to CDF
@@ -1058,9 +1094,15 @@ source: here
 documentation: To Do
 createdBy: null
 """
-        loader = ExtractionPipelineIO.create_io(toolkit_client)
-
-        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        io = ExtractionPipelineIO(toolkit_client)
+        raw_data = load_local_yaml(definition_yaml, io)
+        cdf_resource = io.load_resource(deepcopy(raw_data))
+        retrieved = io.retrieve([cdf_resource.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_resource])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 def _skill_content(*, name: str, description: str, body_suffix: str = "") -> str:
@@ -1114,3 +1156,432 @@ class TestSkillIO:
             assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
             loader.delete([original.as_id()])
+
+
+class TestHostedExtractorSourceIO:
+    event_hub = """type: eventhub
+externalId: test_no_redeploy_unchanged_eventhub
+host: eventhubnamespace.servicebus.windows.net
+eventHubName: my-event-hub
+authentication:
+  type: basic
+  username: my-username
+  password: my-password
+"""
+
+    mqtt_basic = """type: mqtt5
+externalId: test_no_redeploy_unchanged_mqtt
+host: mqtt.example.com
+authentication:
+  type: basic
+  username: my-username
+  password: my-password
+caCertificate:
+  type: pem
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+"""
+
+    kafka_scram = """type: kafka
+externalId: test_no_redeploy_unchanged_kafka
+bootstrapBrokers:
+  - host: broker.example.com
+    port: 9092
+authentication:
+  type: scramSha256
+  username: my-username
+  password: my-password
+authCertificate:
+  type: pem
+  key: |
+    -----BEGIN ENCRYPTED PRIVATE KEY-----
+    MIIFNTBfBgkqhkiG9w0BBQ0wUjAxBgkqhkiG9w0BBQwwJAQQQe0ZJy+eaEAyfthP
+    gXo+yQICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEKHoFhMIYStZSl67
+    LrPMF/0EggTQlxhJ2QIOz0aO5v9j2g3mn4w+4PDrO/yA6l4CpOhM/2zjfsf9+MEq
+    whn06RvGOqfoPeDMZwMA9Zm7XltzMmosf3vTJF7X0r4RJaUNItnLSCxU/VEE3DOn
+    fwGQorJgTrHogXopr7E/6HQ3YGJFbR689Gpb5yBafHozbH/x/YgpLDhzibmioNc8
+    pYGJq7qFo/u18NMmvmSloz7G0TFB+P+Z1ZQJGwA/+r0AqGsvSHtiBnoFThDIS+zh
+    pSBeIANKVz9zdUCY+6Clr+DyvBfF5zDx8RTJe4v37AUTx8P4TtgPWIOU8OAXQ0cb
+    6x6QzDa9qVNYt6q1+dovns2i2GCfQpaEx9G/S0tuQxyB4OAAWXapghAQsCepIluf
+    RBndtPTFXmEIgQt/RJPXPPFLrTSNOa/CFpv0L+e1QBwIJtJNnIScOwFnmOFHS2u/
+    UM26A+locpWa7mYRUcFR0xNzZQEtemSI/DVmpAvKFLSQ/XGZdhr59Ve1/JcyFjAb
+    a7qJtNs1W/3H6oxPVM8p6q6ANg9rCXhX0L9zJ21QBYkmxHlyJ3AwcKQM1d0OwPyZ
+    rQhfFdPbGarjHbij2E1uaxQ3sVm/1MzLqHS+MfOvlpDstB+GQYu/r/seXu7wYjfV
+    qUIoFWF19hOSjt8sfsiGPII335acq9QLjPwuih0gxC/JyAHcD4NU8bkpqHtgRQge
+    T3zxdodACmRIcigR9hadZJoNy19rKC/ma8B1FypVqM19r7BspVtRW5Y9UmOOJ9Ir
+    50AVQnhiZul/qKtBUnrqv3QM9LbbfBmMp+WPjsaxwZEGSzuCnXrc5s79zUYuE10+
+    MSpIzaHVt8J6N8yXqsnebp8vSOpNVlgcwB0QmMspZJTmg8KXOTqJDTPS597Sq/A9
+    4OVvE1iW9OsMjqCmo1+2at2PIMZZE7mMPtyWNRNUPEJ6fTG4HzzXtnMoBIYT/JJB
+    7lEjeu34bQNA9Ud5IorCx5Xsen3l9B3M0Hhd/5XlmtKRsPQxx/huDPzAJG7hJlZe
+    JA8POcJOwKyI+rykFC4YNNW/DyuROOJLIYLeJJk2Fg3phmId5YctX+TDVImTitJx
+    RD3NHowl9pYqLOjYYhS+RpJQsiuW/Qj/eVJmvxPH9KWrknvWZELdkNYAHDdgRGAj
+    ra01pz2WQ66KF1S6Ls/YaESfLWmt7pnHtV9l9w7U9dntsPV/vSD86OfeIDZcyYET
+    pz7Nzl7dFDozvjDSkVjopGjC01dDzhR+CMcvCHNDdTJugPZyRY1MwX2XTqFIrajf
+    PBoe7Z8GepbzcVlxsqTciI8LHs5hfjliX7Xw45tBznj1gfJt8boWVoBf77FqfI45
+    FH4OYMCCYrxp+sOhP2KRmOCd8wjyl0YpDY9hHDLhSZfLnLtMzP4BCrqMA11IgrBL
+    SbXg3gBowZt+a9nwQm4TH5/8YKTTsKGr/ZLnTfk9X/2CezmKIu2BXde+AoebtNo7
+    xkU4JKAdK9G9gAi1nXorXkO8MM7BuCB5w78vCNOOAsGW/sAL9l15WLbn52+dL5v6
+    0EbUpJkIHBcUJ+PthiiyE+cSQilDxSI2oJ8LVvlNMhysZGPkQPWhrs2zXMsH2UVA
+    Lp1TeRHNccv0/296V0yD53YfR0vILvwmRbqcd+xEGye56TzMaiqz9R4=
+    -----END ENCRYPTED PRIVATE KEY-----
+  keyPassword: my-key-password
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+"""
+
+    rest_client_credentials = """type: rest
+externalId: test_no_redeploy_unchanged_rest_client_credentials
+host: api.example.com
+authentication:
+  type: clientCredentials
+  clientId: my-client-id
+  tokenUrl: https://token.example.com/oauth/token
+  scopes: my-scope
+  clientSecret: my-client-secret
+caCertificate:
+  type: pem
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+authCertificate:
+  type: pem
+  key: |
+    -----BEGIN ENCRYPTED PRIVATE KEY-----
+    MIIFNTBfBgkqhkiG9w0BBQ0wUjAxBgkqhkiG9w0BBQwwJAQQQe0ZJy+eaEAyfthP
+    gXo+yQICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEKHoFhMIYStZSl67
+    LrPMF/0EggTQlxhJ2QIOz0aO5v9j2g3mn4w+4PDrO/yA6l4CpOhM/2zjfsf9+MEq
+    whn06RvGOqfoPeDMZwMA9Zm7XltzMmosf3vTJF7X0r4RJaUNItnLSCxU/VEE3DOn
+    fwGQorJgTrHogXopr7E/6HQ3YGJFbR689Gpb5yBafHozbH/x/YgpLDhzibmioNc8
+    pYGJq7qFo/u18NMmvmSloz7G0TFB+P+Z1ZQJGwA/+r0AqGsvSHtiBnoFThDIS+zh
+    pSBeIANKVz9zdUCY+6Clr+DyvBfF5zDx8RTJe4v37AUTx8P4TtgPWIOU8OAXQ0cb
+    6x6QzDa9qVNYt6q1+dovns2i2GCfQpaEx9G/S0tuQxyB4OAAWXapghAQsCepIluf
+    RBndtPTFXmEIgQt/RJPXPPFLrTSNOa/CFpv0L+e1QBwIJtJNnIScOwFnmOFHS2u/
+    UM26A+locpWa7mYRUcFR0xNzZQEtemSI/DVmpAvKFLSQ/XGZdhr59Ve1/JcyFjAb
+    a7qJtNs1W/3H6oxPVM8p6q6ANg9rCXhX0L9zJ21QBYkmxHlyJ3AwcKQM1d0OwPyZ
+    rQhfFdPbGarjHbij2E1uaxQ3sVm/1MzLqHS+MfOvlpDstB+GQYu/r/seXu7wYjfV
+    qUIoFWF19hOSjt8sfsiGPII335acq9QLjPwuih0gxC/JyAHcD4NU8bkpqHtgRQge
+    T3zxdodACmRIcigR9hadZJoNy19rKC/ma8B1FypVqM19r7BspVtRW5Y9UmOOJ9Ir
+    50AVQnhiZul/qKtBUnrqv3QM9LbbfBmMp+WPjsaxwZEGSzuCnXrc5s79zUYuE10+
+    MSpIzaHVt8J6N8yXqsnebp8vSOpNVlgcwB0QmMspZJTmg8KXOTqJDTPS597Sq/A9
+    4OVvE1iW9OsMjqCmo1+2at2PIMZZE7mMPtyWNRNUPEJ6fTG4HzzXtnMoBIYT/JJB
+    7lEjeu34bQNA9Ud5IorCx5Xsen3l9B3M0Hhd/5XlmtKRsPQxx/huDPzAJG7hJlZe
+    JA8POcJOwKyI+rykFC4YNNW/DyuROOJLIYLeJJk2Fg3phmId5YctX+TDVImTitJx
+    RD3NHowl9pYqLOjYYhS+RpJQsiuW/Qj/eVJmvxPH9KWrknvWZELdkNYAHDdgRGAj
+    ra01pz2WQ66KF1S6Ls/YaESfLWmt7pnHtV9l9w7U9dntsPV/vSD86OfeIDZcyYET
+    pz7Nzl7dFDozvjDSkVjopGjC01dDzhR+CMcvCHNDdTJugPZyRY1MwX2XTqFIrajf
+    PBoe7Z8GepbzcVlxsqTciI8LHs5hfjliX7Xw45tBznj1gfJt8boWVoBf77FqfI45
+    FH4OYMCCYrxp+sOhP2KRmOCd8wjyl0YpDY9hHDLhSZfLnLtMzP4BCrqMA11IgrBL
+    SbXg3gBowZt+a9nwQm4TH5/8YKTTsKGr/ZLnTfk9X/2CezmKIu2BXde+AoebtNo7
+    xkU4JKAdK9G9gAi1nXorXkO8MM7BuCB5w78vCNOOAsGW/sAL9l15WLbn52+dL5v6
+    0EbUpJkIHBcUJ+PthiiyE+cSQilDxSI2oJ8LVvlNMhysZGPkQPWhrs2zXMsH2UVA
+    Lp1TeRHNccv0/296V0yD53YfR0vILvwmRbqcd+xEGye56TzMaiqz9R4=
+    -----END ENCRYPTED PRIVATE KEY-----
+  keyPassword: my-key-password
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+"""
+
+    rest_header = """type: rest
+externalId: test_no_redeploy_unchanged_rest_header
+host: api.example.com
+authentication:
+  type: header
+  key: Authorization
+  value: my-secret-token
+"""
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            pytest.param(event_hub, id="eventhub basic auth"),
+            pytest.param(mqtt_basic, id="mqtt basic auth"),
+            pytest.param(kafka_scram, id="kafka scramSha256 auth"),
+            pytest.param(rest_client_credentials, id="rest clientCredentials auth"),
+            pytest.param(rest_header, id="rest header auth"),
+        ],
+    )
+    def test_no_redeploy_unchanged(self, content: str, toolkit_client: ToolkitClient) -> None:
+        io = HostedExtractorSourceIO(toolkit_client)
+
+        raw_data = load_local_yaml(content, io)
+        cdf_source = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_source.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_source])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_mapping(toolkit_client: ToolkitClient) -> HostedExtractorMappingResponse:
+    mapping = HostedExtractorMappingRequest(
+        external_id="toolkit_test_hosted_extractor_mapping_persistet",
+        name="Toolkit Test Hosted Extractor Mapping",
+        description="Integration test hosted extractor mapping",
+        mapping=Mapping(
+            expression="""[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+    "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+    }].filter(datapoint => datapoint.value is not null)""",
+        ),
+        published=True,
+    )
+    if existing := toolkit_client.hosted_extractors.mappings.retrieve([mapping.as_id()], ignore_unknown_ids=True):
+        return existing[0]
+    created = toolkit_client.hosted_extractors.mappings.create([mapping])
+    assert len(created) == 1
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_source(toolkit_client: ToolkitClient) -> HostedExtractorSourceResponseUnion:
+    source = EventHubSourceRequest(
+        external_id="toolkit_test_hosted_extractor_source_persistent",
+        host="eventhubnamespace.servicebus.windows.net",
+        event_hub_name="my-event-hub",
+        authentication=BasicAuthenticationRequest(username="my-username", password="my-password"),
+    )
+    if existing := toolkit_client.hosted_extractors.sources.retrieve([source.as_id()], ignore_unknown_ids=True):
+        return existing[0]
+    created = toolkit_client.hosted_extractors.sources.create([source])
+    assert len(created) == 1
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> HostedExtractorDestinationResponse:
+    external_id = "toolkit_test_hosted_extractor_destination_persistent"
+    if existing := toolkit_client.hosted_extractors.destinations.retrieve(
+        [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+    ):
+        return existing[0]
+    session = toolkit_client.sessions.create_one_shot_token_exchange_session()
+    destination = HostedExtractorDestinationRequest(
+        external_id=external_id,
+        name="Toolkit Test Hosted Extractor Destination",
+        description="Integration test hosted extractor destination",
+        credentials=Credentials(nonce=session.nonce),
+    )
+    created = toolkit_client.hosted_extractors.destinations.create([destination])
+    assert len(created) == 1
+    return created[0]
+
+
+class TestHostedExtractorDestinationIO:
+    def test_no_redeploy_unchanged(self, toolkit_client: ToolkitClient) -> None:
+        credentials = toolkit_client.config.credentials
+        if not isinstance(credentials, OAuthClientCredentials):
+            pytest.skip("This test requires OAuthClientCredentials to run")
+
+        io = HostedExtractorDestinationIO(toolkit_client)
+
+        content = f"""externalId: test_no_redeploy_unchanged_destination
+name: Test No Redeploy Unchanged Destination
+description: Integration test destination
+credentials:
+  clientId: {credentials.client_id}
+  clientSecret: {credentials.client_secret}
+"""
+        raw_data = load_local_yaml(content, io)
+        cdf_destination = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_destination.as_id()])
+        if len(retrieved) == 0:
+            # Create the destination if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_destination])
+            assert len(retrieved) == 1
+        elif retrieved[0].metadata != cdf_destination.metadata:
+            retrieved = io.update([cdf_destination])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
+
+
+class TestHosedExtractorJobIO:
+    def test_no_redeploy_unchanged(
+        self,
+        persistent_hosted_extractor_mapping: HostedExtractorMappingResponse,
+        persistent_hosted_extractor_source: HostedExtractorSourceResponseUnion,
+        persistent_hosted_extractor_destination: HostedExtractorDestinationResponse,
+        toolkit_client: ToolkitClient,
+    ) -> None:
+        io = HostedExtractorJobIO(toolkit_client)
+
+        content = f"""externalId: test_no_redeploy_unchanged_job
+destinationId: {persistent_hosted_extractor_destination.external_id}
+sourceId: {persistent_hosted_extractor_source.external_id}
+format:
+  type: custom
+  mappingId: {persistent_hosted_extractor_mapping.external_id}
+"""
+        raw_data = load_local_yaml(content, io)
+        cdf_job = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_job.as_id()])
+        if len(retrieved) == 0:
+            # Create the job if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_job])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
+
+
+class TestInFieldCDMLocationConfigIO:
+    def test_no_redeploy_unchanged(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
+        io = InFieldCDMLocationConfigIO(toolkit_client)
+        content = f"""space: {toolkit_space.space}
+externalId: infield_config_test_no_redeploy_unchanged
+name: InField Location Configuration Test
+description: Migrated InField Location Configuration
+featureToggles:
+  threeD: true
+  trends: true
+  documents: true
+  workorders: true
+  notifications: true
+  media: true
+  templateChecklistFlow: true
+  workorderChecklistFlow: true
+  observations: true
+  copilot: true
+accessManagement:
+  templateAdmins:
+  - Admin-prod
+  checklistAdmins:
+  - Admin-prod
+dataFilters:
+  assets:
+    instanceSpaces:
+    - test-space-assets
+  files:
+    instanceSpaces:
+    - test-space-files
+  timeseries:
+    instanceSpaces:
+    - test-space-timeseries
+  maintenanceOrders:
+    instanceSpaces:
+    - test-space-maintenance-orders
+  operations:
+    instanceSpaces:
+    - test-space-operations
+  notifications:
+    instanceSpaces:
+    - test-space-notifications
+dataStorage:
+  rootLocation:
+    space: some-space
+    externalId: CogniteRootLocation
+  appInstanceSpace: some-app-instance-space
+viewMappings:
+  asset:
+    space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+  operation:
+    space: cdf_idm
+    externalId: CogniteOperation
+    version: v1
+  notification:
+    space: cdf_idm
+    externalId: CogniteNotification
+    version: v1
+  maintenanceOrder:
+    space: cdf_idm
+    externalId: CogniteMaintenanceOrder
+    version: v1
+  file:
+    space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+  observation:
+  - view:
+      space: another-space
+      externalId: ObservationView
+      version: v37
+      type: view
+    fieldsConfig:
+      startTime:
+        isRequired: true
+        isEditable: true
+        orderNumber: 1
+      status:
+        isRequired: true
+        isEditable: true
+        orderNumber: 2
+    writeBack: null
+disciplines:
+- name: Automation & Instrument
+  externalId: automation_instrument
+
+"""
+
+        raw_data = load_local_yaml(content, io)
+
+        local_request = io.load_resource(raw_data)
+        retrieved = io.retrieve([local_request.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            _ = io.create([local_request])
+            retrieved = io.retrieve([local_request.as_id()])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)

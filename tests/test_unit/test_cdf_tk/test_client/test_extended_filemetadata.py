@@ -52,7 +52,7 @@ class TestFileMetadataAPI:
                 external_id="my_file",
             ),
         ]
-        result = client.tool.filemetadata.set_pending_ids(items)
+        result = client.filemetadata.set_pending_ids(items)
 
         assert len(result) == 1
         assert isinstance(result[0], FileMetadataResponse)
@@ -96,7 +96,7 @@ class TestFileMetadataAPI:
             )
         )
 
-        result = client.tool.filemetadata.unlink_instance_ids(items)
+        result = client.filemetadata.unlink_instance_ids(items)
 
         assert len(result) == 1
         assert isinstance(result[0], FileMetadataResponse)
@@ -129,7 +129,7 @@ class TestFileMetadataAPI:
             )
         )
 
-        result = client.tool.filemetadata.get_multipart_upload_urls(
+        result = client.filemetadata.get_multipart_upload_urls(
             InstanceId(instance_id=NodeId(space="sp_publicwells", external_id="file_wb")),
             parts=2,
         )
@@ -142,3 +142,15 @@ class TestFileMetadataAPI:
         }
         assert result.upload_id == "upload-1"
         assert result.upload_urls == ["https://upload.example/part-1", "https://upload.example/part-2"]
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_icon(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(toolkit_config.create_api_url("/files/icon")).mock(
+            return_value=Response(200, content=b"image")
+        )
+
+        toolkit_client.filemetadata.icon(ExternalId(external_id="my_image"))
+
+        assert dict(route.calls[0].request.url.params) == {"externalId": "my_image"}

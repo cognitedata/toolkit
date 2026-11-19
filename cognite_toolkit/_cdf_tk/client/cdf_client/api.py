@@ -9,11 +9,12 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Generic, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
     RequestItem,
     T_BaseModelObject,
     UpdatableRequestResource,
@@ -28,6 +29,9 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .responses import PagedResponse
+
+T_RequestItem = TypeVar("T_RequestItem", bound=RequestItem)
+T_PageItem = TypeVar("T_PageItem", bound=BaseModelObject)
 
 
 @dataclass(frozen=True)
@@ -101,6 +105,39 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
         """Create the full URL for this resource endpoint."""
         return self._http_client.config.create_api_url(path)
 
+    def _post_aggregate(self, body: dict[str, Any]) -> SuccessResponse:
+        """POST the endpoint registered as ``aggregate``.
+
+        The request uses the client API version. Resource clients that set ``api_version`` for
+        alpha create and update calls still aggregate on the configured stable API.
+        """
+        aggregate_endpoint = self._method_endpoint_map["aggregate"]
+        request = RequestMessage(
+            endpoint_url=self._make_url(aggregate_endpoint.path),
+            method=aggregate_endpoint.method,
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def _search(self, body: dict[str, Any], limit: int) -> list[T_BaseModelObject]:
+        """POST the endpoint registered as ``search`` and return the matching items.
+
+        Search endpoints have no cursor, so ``limit`` is the maximum number of items returned.
+        """
+        search_endpoint = self._method_endpoint_map["search"]
+        if not 0 < limit <= search_endpoint.item_limit:
+            raise ValueError(f"Limit must be between 1 and {search_endpoint.item_limit}, got {limit}.")
+        request = RequestMessage(
+            endpoint_url=self._make_url(search_endpoint.path),
+            method=search_endpoint.method,
+            body_content={**(self._filter_out_none_values(body) or {}), "limit": limit},
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return self._validate_page_response(response).items
+
     def _update(
         self, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[T_BaseModelObject]:
@@ -138,9 +175,9 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
 
     def _chunk_requests(
         self,
-        items: Sequence[RequestItem],
+        items: Sequence[T_RequestItem],
         method: APIMethod,
-        serialization: Callable[[Sequence[RequestItem]], list[dict[str, JsonValue]]],
+        serialization: Callable[[Sequence[T_RequestItem]], list[dict[str, JsonValue]]],
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
@@ -272,10 +309,10 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
 
     @classmethod
     def _group_items_by_text_field(
-        cls, items: Sequence[RequestItem], *field_names: str
-    ) -> dict[tuple[str, ...], list[RequestItem]]:
+        cls, items: Sequence[T_RequestItem], *field_names: str
+    ) -> dict[tuple[str, ...], list[T_RequestItem]]:
         """Group items by a text field."""
-        grouped_items: dict[tuple[str, ...], list[RequestItem]] = defaultdict(list)
+        grouped_items: dict[tuple[str, ...], list[T_RequestItem]] = defaultdict(list)
         for item in items:
             key = tuple(str(getattr(item, field_name)) for field_name in field_names)
             grouped_items[key].append(item)
@@ -358,6 +395,56 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
             if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break
             next_cursor = page.next_cursor
+
+    def _collect_pages(
+        self,
+        page_cls: type[PagedResponse[T_PageItem]],
+        path: str,
+        method: Literal["GET", "POST"],
+        limit: int | None,
+        page_size: int | None,
+        body: dict[str, Any] | None = None,
+        api_version: str | None = None,
+    ) -> list[T_PageItem]:
+        """Follow the cursor of a list endpoint until ``limit`` items are collected.
+
+        Use this for endpoints whose items are not ``T_BaseModelObject``, or whose path is not the ``list`` endpoint.
+        Without ``page_size``, the endpoint does not accept a limit, and the result is truncated client side.
+
+        Args:
+            page_cls: The page class used to parse each response.
+            path: The endpoint path.
+            method: The HTTP method. GET sends paging as query parameters, POST in the body.
+            limit: Maximum number of items to return. None returns all.
+            page_size: Maximum number of items per request. None if the endpoint does not accept a limit.
+            body: Body content for POST requests.
+            api_version: API version for the requests. Defaults to the API version of this client.
+
+        Returns:
+            The collected items.
+        """
+        items: list[T_PageItem] = []
+        cursor: str | None = None
+        while True:
+            paging: dict[str, Any] = {}
+            if page_size is not None:
+                paging["limit"] = page_size if limit is None else min(page_size, limit - len(items))
+            if cursor is not None:
+                paging["cursor"] = cursor
+            request = RequestMessage(
+                endpoint_url=self._make_url(path),
+                method=method,
+                body_content={**(body or {}), **paging} if method == "POST" else None,
+                parameters=(paging or None) if method == "GET" else None,
+                disable_gzip=self._disable_gzip,
+                api_version=api_version or self._api_version,
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            page = page_cls.model_validate_json(response.body)
+            items.extend(page.items)
+            cursor = page.next_cursor
+            if cursor is None or not page.items or (limit is not None and len(items) >= limit):
+                return items if limit is None else items[:limit]
 
     def _list(
         self,

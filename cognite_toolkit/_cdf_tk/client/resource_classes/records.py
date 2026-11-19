@@ -4,7 +4,7 @@ from pydantic import Field, JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeUntypedId, ViewId
 
 
 class RecordId(Identifier):
@@ -21,11 +21,13 @@ class RecordId(Identifier):
 
 
 class RecordSource(BaseModelObject):
-    source: ContainerId
+    """Properties to write from one container, or from one view that writes to its mapped containers."""
+
+    source: ContainerId | ViewId
     properties: dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]]
 
     @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ContainerId) -> Any:
+    def serialize_source(self, value: ContainerId | ViewId) -> Any:
         return {**value.dump(), "type": value.type}
 
 
@@ -91,6 +93,16 @@ class RecordResponse(ResponseResource[RecordRequest]):
         return RecordRequest.model_validate(dumped, extra="ignore")
 
 
+class RecordAggregateResponse(BaseModelObject):
+    """Aggregate results keyed by the identifiers used in the request.
+
+    ``typing`` is only returned when the request sets includeTyping.
+    """
+
+    aggregates: dict[str, dict[str, JsonValue]]
+    typing: dict[str, JsonValue] | None = None
+
+
 class RecordSyncResponse(PagedResponse[RecordResponse]):
     """Response from the Records /sync endpoint.
 
@@ -98,6 +110,10 @@ class RecordSyncResponse(PagedResponse[RecordResponse]):
     the typical API behavior. The records service may return fewer items than requested
     per page in case of large records being queried. We must therefore rely on `has_next`
     rather than the number of returned items to decide whether to continue pagination.
+
+    `response_bytes` is not part of the API response. It is set by the client to the uncompressed
+    size of the response body, which is used to adapt the page size of subsequent requests.
     """
 
     has_next: bool = Field(alias="hasNext")
+    response_bytes: int = Field(default=0, exclude=True)

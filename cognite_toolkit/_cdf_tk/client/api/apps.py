@@ -1,5 +1,6 @@
 """AppsAPI: Custom apps deployed via the CDF App Hosting API."""
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
@@ -29,13 +30,15 @@ class AppsAPI(CDFResourceAPI[AppResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[AppResponse]:
         return PagedResponse[AppResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
+    def create(self, items: Sequence[AppRequest]) -> builtins.list[AppResponse]:
         """POST /apphosting/apps — create apps."""
         return self._request_item_response(items, "create")
 
-    def retrieve(self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[AppResponse]:
+    def retrieve(
+        self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[AppResponse]:
         """GET /apphosting/apps/{externalId} — fetch app-level metadata (name, description)."""
-        results: list[AppResponse] = []
+        results: builtins.list[AppResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for external_id in external_ids:
             request = RequestMessage(
@@ -56,10 +59,10 @@ class AppsAPI(CDFResourceAPI[AppResponse]):
         """POST /apphosting/apps/delete — delete apps (cascades to all versions)."""
         self._request_no_response(external_ids, "delete")
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[AppResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[AppResponse]]:
         """POST /apphosting/apps/list — paginated list of all apps."""
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[AppResponse]:
+    def list(self, limit: int | None = None) -> builtins.list[AppResponse]:
         """POST /apphosting/apps/list — list all apps."""
         return self._list(limit=limit)

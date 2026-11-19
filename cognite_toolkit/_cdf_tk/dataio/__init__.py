@@ -30,6 +30,7 @@ from ._file_contentv2 import CogniteFileContentIO, FileMetadataContentIO
 from ._instances import InstanceIO
 from ._raw import RawIO
 from ._records import RecordIO
+from ._sequences import SequenceRowIO
 from .selectors._base import DataSelector
 
 # MyPy fails to recognize that get_concrete_subclasses always returns a list of concrete subclasses.
@@ -69,6 +70,7 @@ __all__ = [
     "Page",
     "RawIO",
     "RecordIO",
+    "SequenceRowIO",
     "StorageIOConfig",
     "T_DataRequest",
     "T_DataResponse",

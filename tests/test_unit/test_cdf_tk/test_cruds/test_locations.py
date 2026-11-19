@@ -18,7 +18,7 @@ from tests.data import LOAD_DATA
 
 @pytest.fixture
 def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterRequest:
-    loader = LocationFilterIO.create_io(env_vars_with_client.get_client())
+    loader = LocationFilterIO(env_vars_with_client.get_client())
     raw_list = loader.load_resource_file(
         LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", env_vars_with_client.dump()
     )
@@ -31,7 +31,7 @@ class TestLocationFilterLoader:
         self,
         env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
-        loader = LocationFilterIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = LocationFilterIO(env_vars_with_client_cheap.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client_cheap.dump()
         )
@@ -44,6 +44,7 @@ class TestLocationFilterLoader:
         assert exhaustive_filter.external_id == "unique-external-id-123"
 
     def test_load_filter_write_data_models(self, exhaustive_filter: LocationFilterRequest) -> None:
+        assert exhaustive_filter.data_models is not None
         assert isinstance(exhaustive_filter.data_models[0], DataModelId)
         assert exhaustive_filter.data_models[0].external_id == "data-model-id-456"
 
@@ -61,6 +62,10 @@ class TestLocationFilterLoader:
     def test_load_filter_write_asset_centric(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.asset_centric, AssetCentricFilter)
         assert isinstance(exhaustive_filter.asset_centric.assets, AssetCentricSubFilter)
+        assert isinstance(exhaustive_filter.asset_centric.events, AssetCentricSubFilter)
+        assert exhaustive_filter.asset_centric.asset_subtree_ids is not None
+        assert exhaustive_filter.asset_centric.assets.asset_subtree_ids is not None
+        assert exhaustive_filter.asset_centric.events.asset_subtree_ids is not None
         assert exhaustive_filter.asset_centric.asset_subtree_ids[0] == ExternalId(external_id="general-subtree-id-890")
         assert exhaustive_filter.asset_centric.assets.asset_subtree_ids[0] == ExternalId(external_id="root-asset")
         assert exhaustive_filter.asset_centric.events.asset_subtree_ids[0] == ExternalId(
@@ -73,7 +78,7 @@ class TestLocationFilterLoader:
         env_vars_with_client_cheap: EnvironmentVariables,
         subtree_field: str,
     ) -> None:
-        loader = LocationFilterIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = LocationFilterIO(env_vars_with_client_cheap.get_client())
         loaded = loader.load_resource(
             {
                 "externalId": "my-location",
@@ -151,7 +156,7 @@ class TestLocationFilterLoader:
         self,
         toolkit_client_cheap: ToolkitClient,
     ) -> None:
-        crud = LocationFilterIO.create_io(toolkit_client_cheap)
+        crud = LocationFilterIO(toolkit_client_cheap)
         location_filter = LocationFilterResponse(
             external_id="springfield",
             name="Springfield Location",

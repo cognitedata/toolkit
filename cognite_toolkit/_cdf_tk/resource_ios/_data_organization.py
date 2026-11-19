@@ -15,7 +15,10 @@
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, Literal, final
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, final
+
+from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -33,16 +36,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceFileIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource, ResourceFileIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
-from ._auth import GroupAllScopedIO
 from ._base_ios import ResourceType
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 
 @final
@@ -53,7 +60,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     resource_write_cls = DataSetRequest
     yaml_cls = DataSetYAML
     kind = "DataSet"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Data-sets/operation/createDataSets"
 
     @property
@@ -70,7 +77,9 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
             yield DataSetsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: DataSetRequest | DataSetResponse | dict) -> ExternalId:
+    def get_id(cls, item: DataSetRequest | DataSetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -82,7 +91,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -125,15 +134,15 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
         return diff_list_force_hashable(local, cdf)
 
     def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
-        return self.client.tool.datasets.create(list(items))
+        return self.client.datasets.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DataSetResponse]:
-        return self.client.tool.datasets.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.datasets.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
-        return self.client.tool.datasets.update(list(items), mode="replace")
+        return self.client.datasets.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def _iterate(
@@ -142,7 +151,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataSetResponse]:
-        for items in self.client.tool.datasets.iterate(limit=None):
+        for items in self.client.datasets.iterate(limit=None):
             yield from items
 
 
@@ -153,7 +162,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     resource_write_cls = LabelRequest
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 
@@ -162,7 +171,9 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         return "labels"
 
     @classmethod
-    def get_id(cls, item: LabelRequest | LabelResponse | dict) -> ExternalId:
+    def get_id(cls, item: LabelRequest | LabelResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -183,25 +194,25 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
             yield LabelsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
-        return self.client.tool.labels.create(list(items))
+        return self.client.labels.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[LabelResponse]:
-        return self.client.tool.labels.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.labels.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:
-            return 0
+            return []
         try:
-            self.client.tool.labels.delete(list(ids))
+            self.client.labels.delete(list(ids))
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
-                    self.client.tool.labels.delete(list(existing))
-                    return len(existing)
-                else:
-                    return 0
+                    existing_list = list(existing)
+                    self.client.labels.delete(existing_list)
+                    return existing_list
+                return []
             raise
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,
@@ -212,7 +223,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.labels.iterate(filter=filter, limit=None):
+        for items in self.client.labels.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod
@@ -237,7 +248,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
     folder_name = "data_sets"
     yaml_cls = CatalogDataSetYAML
     kind = "CatalogDataSet"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
 
     @classmethod
     def get_id(cls, item: dict) -> ExternalId:
@@ -256,7 +267,9 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         return []
 
     @classmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
+    def to_crud_types(
+        cls, raw: dict[str, Any], source_file: Path, resource: CatalogDataSetYAML | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
         """Convert a catalog data set to a CRUD data set."""
         metadata: dict[str, str] = {}
         crud_resource: dict[str, Any] = {}
@@ -273,11 +286,28 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
                 metadata[key] = value if isinstance(value, str) else json.dumps(value)
         if metadata:
             crud_resource["metadata"] = metadata
-        return crud_resource
+        validated: DataSetYAML | None = None
+        if resource is not None:
+            try:
+                validated = DataSetYAML.model_validate(crud_resource)
+            except ValidationError as error:
+                from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
+
+                yield BuildError(
+                    code="INVALID-VALUE",
+                    message=f"The {cls.kind} could not be converted to a valid {DataSetsIO.kind}:\n"
+                    + "\n".join(humanize_validation_error(error, DataSetYAML)),
+                    source_file=source_file,
+                )
+        yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type(), validated=validated)
 
     @classmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
         """Convert a CRUD data set to a catalog data set."""
+        resource_list = list(resources)
+        if len(resource_list) != 1:
+            raise ToolkitValueError(f"{cls.kind} expects exactly one data set, got {len(resource_list)}.")
+        crud = resource_list[0].raw
         catalog_resource: dict[str, Any] = {key: value for key, value in crud.items() if key != "metadata"}
         catalog_fields = {info.alias or name for name, info in CatalogDataSetYAML.model_fields.items()}
         metadata: dict[str, Any] = crud.get("metadata", {})

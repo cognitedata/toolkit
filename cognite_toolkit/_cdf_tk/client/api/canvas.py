@@ -1,5 +1,8 @@
+import builtins
 from collections.abc import Sequence
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
+
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.api.instances import QUERY_ENDPOINT, MultiWrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
@@ -41,7 +44,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
     _FDM_REFS_REF = "fdmInstanceContainerReferences"
     # This is to remove the solutionTags from properties when retrieving the Canvas node. This is because in
     # the Toolkit representation of Canvas, we either want to have full solution tag objects or none.
-    _CANVAS_NODE_PROPERTIES: ClassVar[list[str]] = [
+    _CANVAS_NODE_PROPERTIES: ClassVar[builtins.list[str]] = [
         field.alias or field_id
         for field_id, field in CanvasProperties.model_fields.items()
         if field_id not in CANVAS_EXCLUDE_FROM_PROPERTIES
@@ -107,7 +110,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
             root=self._CANVAS_REF,
         )
 
-    def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[IndustrialCanvasResponse]:
+    def _validate_query_response(self, query_response: QueryResponseUntyped) -> builtins.list[IndustrialCanvasResponse]:
         canvas_items = query_response.items.get(self._CANVAS_REF, [])
         if len(canvas_items) > 1:
             if len(query_response.items) > 1:
@@ -115,7 +118,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                     "Bug in Toolkit. When retrieving multiple canvases, the query response should not "
                     "contain any other items than the canvases."
                 )
-            results: list[IndustrialCanvasResponse] = []
+            results: builtins.list[IndustrialCanvasResponse] = []
             for item in canvas_items:
                 results.append(IndustrialCanvasResponse.model_validate(item))
             return results
@@ -124,21 +127,21 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
         canvas_item = canvas_items[0]
         for key in [self._SOLUTION_TAGS_REF, self._ANNOTATIONS_REF, self._CONTAINER_REFS_REF, self._FDM_REFS_REF]:
             if subitems := query_response.items.get(key):
-                canvas_item[key] = subitems  # type: ignore[assignment]
+                canvas_item[key] = cast(JsonValue, subitems)
 
         canvas = IndustrialCanvasResponse.model_validate(canvas_item)
         return [canvas]
 
     def list(
         self, visibility: Literal["public", "private"] | None = None, limit: int | None = 100
-    ) -> list[IndustrialCanvasResponse]:
+    ) -> builtins.list[IndustrialCanvasResponse]:
         """List canvases with the given visibility.
 
         Note this do not retrieve the full Canvas objects, i.e., not solutions tags, annotations, container references, or fdm instance container references.
         To retrieve the full objects, use the `retrieve` method with the canvas external ids.
         """
         filter_ = self._create_filter(visibility)
-        result: list[IndustrialCanvasResponse] = []
+        result: builtins.list[IndustrialCanvasResponse] = []
         cursor: str | None = None
         while True:
             batch_limit = min(limit - len(result), _QUERY_LIMIT) if limit is not None else _QUERY_LIMIT
@@ -174,7 +177,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
         return result
 
     def _create_filter(self, visibility: Literal["public", "private"] | None = None) -> dict[str, Any]:
-        leaf_filters: list[dict[str, Any]] = [
+        leaf_filters: builtins.list[dict[str, Any]] = [
             {"not": {"equals": {"property": CANVAS_VIEW_ID.as_property_reference("isArchived"), "value": True}}},
             # When sourceCanvasId is not set, we get the newest version of the canvas and not
             # previous versions of the canvas

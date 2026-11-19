@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -30,7 +31,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalUnwrappedId]:
         return ResponseItems[InternalUnwrappedId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
+    def create(self, items: Sequence[SecurityCategoryRequest]) -> builtins.list[SecurityCategoryResponse]:
         """Create security categories in CDF.
 
         Args:
@@ -70,7 +71,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
         self,
         sort: Literal["ASC", "DESC"] = "ASC",
         limit: int | None = 100,
-    ) -> Iterable[list[SecurityCategoryResponse]]:
+    ) -> Iterable[builtins.list[SecurityCategoryResponse]]:
         """Iterate over all security categories in CDF.
 
         Args:
@@ -84,11 +85,16 @@ class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
 
     def list(
         self,
+        sort: Literal["ASC", "DESC"] = "ASC",
         limit: int | None = 100,
-    ) -> list[SecurityCategoryResponse]:
+    ) -> builtins.list[SecurityCategoryResponse]:
         """List all security categories in CDF.
+
+        Args:
+            sort: Sort descending or ascending.
+            limit: Maximum number of items to return.
 
         Returns:
             List of SecurityCategoryResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, params={"sort": sort})

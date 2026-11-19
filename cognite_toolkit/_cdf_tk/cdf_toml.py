@@ -1,11 +1,14 @@
 import re
 import sys
-import urllib
+import tomllib
+import urllib.parse
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from tomllib import TOMLDecodeError
+from typing import Any, ClassVar, Self
 
+from packaging.version import Version
 from rich import print
 
 from cognite_toolkit import _version
@@ -17,16 +20,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitVersionError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-
-    import tomllib
-    from tomllib import TOMLDecodeError
-else:
-    import tomli as tomllib
-    from tomli import TOMLDecodeError
-    from typing_extensions import Self
 
 
 @dataclass
@@ -62,27 +55,65 @@ class ModulesConfig:
     packages: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, raw: dict[str, Any]) -> Self:
+    def load(cls, raw: dict[str, Any], alpha_flags: dict[str, bool]) -> Self:
         version = raw["version"]
         packages = raw.get("packages", {})
         if (
-            version != _version.__version__
-            and (len(sys.argv) > 2 and sys.argv[1:3] != ["modules", "upgrade"])
-            and "--help" not in sys.argv
-            and version != "0.0.0"  # debugging mode
-        ):
-            raise ToolkitVersionError(
-                f"Version mismatch between cdf.toml and CLI:\n"
-                f"  - cdf.toml version:       {version}\n"
-                f"  - Installed CLI version: {_version.__version__}\n"
-                f"\n"
-                f"To resolve this, do one of the following:\n"
-                f"  - Upgrade the modules to match the CLI:\n"
-                f"      cdf modules upgrade\n"
-                f"  - Downgrade the CLI to match the modules:\n"
-                f"      pip install cognite-toolkit=={version}"
+            version == _version.__version__
+            or cls._is_help_command()
+            or cls._is_upgrade_command()
+            or cls._is_dev_version()
+            or (
+                cls._is_minor_version_compatible(version, _version.__version__)
+                and cls._no_active_unknown_alpha_flags(alpha_flags)
             )
-        return cls(version=version, packages=packages)
+        ):
+            return cls(version=version, packages=packages)
+
+        raise ToolkitVersionError(
+            f"Version mismatch between cdf.toml and CLI:\n"
+            f"  - cdf.toml version:       {version}\n"
+            f"  - Installed CLI version: {_version.__version__}\n"
+            f"\n"
+            f"To resolve this, do one of the following:\n"
+            f"  - Upgrade the modules to match the CLI:\n"
+            f"      cdf modules upgrade\n"
+            f"  - Downgrade the CLI to match the modules:\n"
+            f"      pip install cognite-toolkit=={version}"
+        )
+
+    @classmethod
+    def _is_help_command(cls) -> bool:
+        return "--help" in sys.argv
+
+    @classmethod
+    def _is_upgrade_command(cls) -> bool:
+        return len(sys.argv) > 2 and sys.argv[1:3] == ["modules", "upgrade"]
+
+    @classmethod
+    def _is_dev_version(cls) -> bool:
+        return _version.__version__ == "0.0.0"
+
+    @classmethod
+    def _is_minor_version_compatible(cls, version1: str, version2: str) -> bool:
+        """Checks if two versions are compatible in terms of major and minor version numbers."""
+        try:
+            v1 = Version(version1)
+            v2 = Version(version2)
+            return (v1.major, v1.minor) == (v2.major, v2.minor)
+        except Exception:
+            return False
+
+    @classmethod
+    def _no_active_unknown_alpha_flags(cls, alpha_flags: dict[str, bool]) -> bool:
+        """Checks if there are no active unknown alpha flags."""
+        from cognite_toolkit._cdf_tk.feature_flags import Flags
+
+        known_flags = {clean_name(flag.name) for flag in Flags}
+        for flag_name, is_enabled in alpha_flags.items():
+            if is_enabled and flag_name not in known_flags:
+                return False
+        return True
 
 
 @dataclass
@@ -177,10 +208,7 @@ class CDFToml:
 
             # No required fields in the cdf section
             cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
-            try:
-                modules = ModulesConfig.load(raw["modules"])
-            except KeyError as e:
-                raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
+
             rules = RuleSection()
             if "rules" in raw:
                 rules = RuleSection.load(raw["rules"])
@@ -193,6 +221,11 @@ class CDFToml:
                     "The 'feature_flags' section has been renamed to 'alpha_flags'. Please update your cdf.toml file."
                 ).print_warning()
                 alpha_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+
+            try:
+                modules = ModulesConfig.load(raw["modules"], alpha_flags)
+            except KeyError as e:
+                raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
 
             plugins = {}
             if "plugins" in raw:
@@ -220,7 +253,7 @@ class CDFToml:
         else:
             return cls(
                 cdf=CLIConfig(cwd),
-                modules=ModulesConfig.load({"version": _version.__version__}),
+                modules=ModulesConfig.load({"version": _version.__version__}, {}),
                 is_loaded_from_file=False,
             )
 
@@ -247,6 +280,73 @@ default_organization_dir = "{organization_dir.name}"''',
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
         cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
         destination.write_text(cdf_toml_content, encoding="utf-8")
+
+    @classmethod
+    def set_plugin(cls, plugin_name: str, enabled: bool = True, cwd: Path | None = None) -> Path:
+        """Sets the given plugin to enabled/disabled in the [plugins] section of the cdf.toml file.
+
+        The file is updated as text such that comments and formatting are preserved.
+
+        Returns:
+            The path to the updated cdf.toml file.
+        """
+        file_path = (cwd or Path.cwd()) / cls.file_name
+        content = file_path.read_text(encoding="utf-8") if file_path.exists() else ""
+        file_path.write_text(_set_toml_bool(content, "plugins", plugin_name, enabled), encoding="utf-8")
+        return file_path
+
+
+_TABLE_HEADER_PATTERN = re.compile(r"^\s*\[\[?\s*(?P<name>[^]]+?)\s*\]\]?\s*(#.*)?$")
+_KEY_VALUE_PATTERN = re.compile(
+    r"^(?P<prefix>\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s#]+)(?P=quote)\s*=\s*)(?P<value>true|false)(?P<suffix>.*)$",
+    re.DOTALL,
+)
+_COMMENTED_KEY_VALUE_PATTERN = re.compile(
+    r"^\s*#\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s#]+)(?P=quote)\s*=\s*(?:true|false)\s*(?P<comment>#.*)?$",
+    re.DOTALL,
+)
+
+
+def _set_toml_bool(content: str, table: str, key: str, value: bool) -> str:
+    """Sets a boolean key in a TOML table by editing the text directly. This preserves comments and formatting."""
+    value_str = "true" if value else "false"
+    lines = content.splitlines(keepends=True)
+    table_start: int | None = None
+    table_end = len(lines)
+    for no, line in enumerate(lines):
+        if match := _TABLE_HEADER_PATTERN.match(line):
+            if table_start is not None:
+                table_end = no
+                break
+            if match.group("name") == table:
+                table_start = no
+
+    new_line = f"{key} = {value_str}\n"
+    if table_start is None:
+        if content and not content.endswith("\n"):
+            content += "\n"
+        return f"{content}\n[{table}]\n{new_line}"
+
+    for no in range(table_start + 1, table_end):
+        if (match := _KEY_VALUE_PATTERN.match(lines[no])) and clean_name(match.group("key")) == clean_name(key):
+            lines[no] = f"{match.group('prefix')}{value_str}{match.group('suffix')}"
+            return "".join(lines)
+
+    # If the key is commented out (e.g. '#data = true # The data plugin'), reuse its trailing comment.
+    for no in range(table_start + 1, table_end):
+        if (
+            (match := _COMMENTED_KEY_VALUE_PATTERN.match(lines[no]))
+            and clean_name(match.group("key")) == clean_name(key)
+            and (comment := match.group("comment"))
+        ):
+            new_line = f"{key} = {value_str} {comment.rstrip()}\n"
+            break
+
+    header = lines[table_start]
+    if not header.endswith("\n"):
+        lines[table_start] = header + "\n"
+    lines.insert(table_start + 1, new_line)
+    return "".join(lines)
 
 
 def _read_toml(file_path: Path) -> dict[str, Any]:

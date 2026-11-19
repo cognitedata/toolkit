@@ -1,4 +1,4 @@
-import sys
+from typing import Self
 
 from pydantic import Field, JsonValue, model_validator
 
@@ -6,11 +6,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 _SUBSCRIPTION_MAX_TOTAL_TIMESERIES = 10_000
 

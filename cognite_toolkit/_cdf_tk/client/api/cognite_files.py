@@ -1,3 +1,5 @@
+import builtins
+
 from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -24,7 +26,9 @@ class CogniteFilesAPI(WrappedInstancesAPI[NodeId, CogniteFileResponse]):
     ) -> PagedResponse[CogniteFileResponse]:
         return PagedResponse[CogniteFileResponse].model_validate_json(response.body)
 
-    def list(self, spaces: list[str] | None = None, limit: int | None = 100) -> list[CogniteFileResponse]:
+    def list(
+        self, spaces: builtins.list[str] | None = None, limit: int | None = 100
+    ) -> builtins.list[CogniteFileResponse]:
         """List all CogniteFile instances.
 
         Args:

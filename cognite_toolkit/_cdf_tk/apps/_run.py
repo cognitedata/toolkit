@@ -8,9 +8,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     RunFunctionAppCommand,
     RunFunctionCommand,
-    RunTransformationCommand,
     RunTransformationV2Command,
-    RunWorkflowCommand,
     RunWorkflowV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -19,6 +17,13 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._helpers import print_help_if_no_subcommand
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
+
+DATA_HELP = (
+    "Input data for the function as a JSON object, for example "
+    '--data \'{"key": "value"}\'. To read it from a file, use --data "$(cat payload.json)". '
+    "Use this for functions that are called on demand without a schedule. "
+    "Cannot be combined with --schedule."
+)
 
 
 class RunApp(typer.Typer):
@@ -51,8 +56,7 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--external-id",
                 "-e",
-                prompt=not Flags.V09.is_enabled(),
-                help="External id of the transformation to run.",
+                help="External id of the transformation to run. If not provided, interactive mode will started and you will be prompted to select one.",
             ),
         ] = None,
         dry_run: Annotated[
@@ -60,7 +64,6 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--dry-run",
                 "-d",
-                hidden=not Flags.V09.is_enabled(),
                 help="Whether to run the transformation in dry-run mode.",
             ),
         ] = False,
@@ -69,7 +72,6 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--wait",
                 "-w",
-                hidden=not Flags.V09.is_enabled(),
                 help="Whether to wait for the transformation to complete.",
             ),
         ] = False,
@@ -84,15 +86,8 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        if Flags.V09.is_enabled():
-            cmd2 = RunTransformationV2Command(client=client)
-            cmd2.run(lambda: cmd2.run_transformation(client, external_id, dry_run, wait))
-        elif external_id is None:
-            print("The --external-id option is required to run a transformation.")
-            raise typer.Exit(code=1)
-        else:
-            cmd = RunTransformationCommand(client=client)
-            cmd.run(lambda: cmd.run_transformation(client, external_id))
+        cmd2 = RunTransformationV2Command(client=client)
+        cmd2.run(lambda: cmd2.run_transformation(client, external_id, dry_run, wait))
 
     @staticmethod
     def run_workflow(
@@ -118,7 +113,7 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--organization-dir",
                 "-o",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
@@ -127,7 +122,7 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
@@ -150,13 +145,9 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified workflow."""
         env_vars = EnvironmentVariables.create_from_environment()
-        if Flags.V09.is_enabled():
-            client = env_vars.get_client()
-            cmd2 = RunWorkflowV2Command(client=client)
-            cmd2.run(lambda: cmd2.run_workflow(client, external_id, version, wait))
-        else:
-            cmd = RunWorkflowCommand(client=env_vars.get_client())
-            cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
+        client = env_vars.get_client()
+        cmd2 = RunWorkflowV2Command(client=client)
+        cmd2.run(lambda: cmd2.run_workflow(client, external_id, version, wait))
 
     @staticmethod
     def function_app(
@@ -206,7 +197,7 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
@@ -216,7 +207,6 @@ class RunFunctionApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
@@ -230,6 +220,15 @@ class RunFunctionApp(typer.Typer):
                 help="Schedule to run the function with (if any). The data and credentials "
                 "will be taken from the schedule. If the schedule has no credentials, the "
                 "default from the environment will be used.",
+            ),
+        ] = None,
+        data: Annotated[
+            str | None,
+            typer.Option(
+                "--data",
+                "-d",
+                hidden=not Flags.v010.is_enabled(),
+                help=DATA_HELP,
             ),
         ] = None,
         rebuild_env: Annotated[
@@ -249,6 +248,7 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function locally."""
+        RunFunctionApp._verify_data_option(data)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
@@ -260,6 +260,7 @@ class RunFunctionApp(typer.Typer):
                 schedule,
                 rebuild_env,
                 config_yaml=config_yaml,
+                data=data,
             )
         )
 
@@ -286,7 +287,7 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
@@ -296,7 +297,6 @@ class RunFunctionApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
@@ -308,6 +308,15 @@ class RunFunctionApp(typer.Typer):
                 "--schedule",
                 "-s",
                 help="The name of the schedule to pick the data from",
+            ),
+        ] = None,
+        data: Annotated[
+            str | None,
+            typer.Option(
+                "--data",
+                "-d",
+                hidden=not Flags.v010.is_enabled(),
+                help=DATA_HELP,
             ),
         ] = None,
         wait: Annotated[
@@ -328,10 +337,20 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
+        RunFunctionApp._verify_data_option(data)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
             lambda: cmd.run_cdf(
-                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml
+                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml, data=data
             )
         )
+
+    @staticmethod
+    def _verify_data_option(data: str | None) -> None:
+        if data is not None and not Flags.v010.is_enabled():
+            raise typer.BadParameter(
+                "The --data option is currently behind an alpha feature flag and is not enabled. "
+                "Enable the flag `v010` under [alpha_flags] in cdf.toml.",
+                param_hint="--data",
+            )

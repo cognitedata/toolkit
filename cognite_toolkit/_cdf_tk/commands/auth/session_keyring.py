@@ -13,8 +13,12 @@ _default_keyring = keyring.get_keyring()
 _active_keyring: KeyringBackend | None = None
 
 
+def _uses_chunking() -> bool:
+    return sys.platform == "win32"
+
+
 def _effective_chunk_size() -> int:
-    return _WINDOWS_CHUNK_SIZE if sys.platform == "win32" else 2**31 - 1
+    return _WINDOWS_CHUNK_SIZE if _uses_chunking() else 2**31 - 1
 
 
 def _chunk_account(account: str, index: int) -> str:
@@ -74,17 +78,26 @@ def _delete_entry(account: str) -> None:
         pass
 
 
+def _delete_chunks(account: str) -> None:
+    # Each keychain read can trigger an OS access prompt on macOS, so only look for
+    # chunk headers on platforms where tokens are chunked.
+    if not _uses_chunking():
+        return
+    header = _read_entry_password(account)
+    if header is None:
+        return
+    chunk_count = _parse_chunk_count(header)
+    if chunk_count is not None:
+        for index in range(chunk_count):
+            _delete_entry(_chunk_account(account, index))
+
+
 def store_session_token(account: str, value: str) -> None:
     # On Windows, _effective_chunk_size() is 1280 bytes — a practical limit for Windows Credential Manager and older credential APIs.
     # If a token fits in one piece, it is stored directly on the account key.
 
     chunk_size = _effective_chunk_size()
-    previous = _read_entry_password(account)
-    if previous is not None:
-        old_chunk_count = _parse_chunk_count(previous)
-        if old_chunk_count is not None:
-            for index in range(old_chunk_count):
-                _delete_entry(_chunk_account(account, index))
+    _delete_chunks(account)
 
     try:
         if len(value) <= chunk_size:
@@ -121,10 +134,5 @@ def read_session_token(account: str) -> str | None:
 
 
 def delete_session_token(account: str) -> None:
-    header = _read_entry_password(account)
-    if header is not None:
-        chunk_count = _parse_chunk_count(header)
-        if chunk_count is not None:
-            for index in range(chunk_count):
-                _delete_entry(_chunk_account(account, index))
+    _delete_chunks(account)
     _delete_entry(account)

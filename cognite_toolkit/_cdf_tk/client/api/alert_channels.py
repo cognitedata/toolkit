@@ -1,3 +1,5 @@
+import builtins
+
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -16,7 +18,7 @@ class AlertChannelsAPI(CDFResourceAPI[AlertChannelResponse]):
     ) -> PagedResponse[AlertChannelResponse]:
         return PagedResponse[AlertChannelResponse].model_validate_json(response.body)
 
-    def list(self) -> list[AlertChannelResponse]:
+    def list(self) -> builtins.list[AlertChannelResponse]:
         """Lists all alert channels in the project."""
         endpoint = self._method_endpoint_map["list"]
         request = RequestMessage(method=endpoint.method, endpoint_url=self._make_url(endpoint.path), body_content={})

@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any
@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_schedules import Transfor
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -69,6 +70,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    DatapointsRequest,
+    NumericDatapointsResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -101,6 +106,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     KafkaSourceRequest,
     KafkaSourceResponse,
+    MQTTBrokerSourceRequest,
+    MQTTBrokerSourceResponse,
     MQTTSourceRequest,
     MQTTSourceResponse,
     RESTSourceRequest,
@@ -111,6 +118,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    RawRowsTableRequest,
+    RawRowsTableResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
+    PostgresGatewayUserRequest,
+    PostgresGatewayUserResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     LoginSession,
     ServiceAccountPrincipal,
@@ -119,6 +134,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
+    RAWRowResponse,
     RAWTableRequest,
     RAWTableResponse,
 )
@@ -200,7 +217,7 @@ class CDFResource:
     response_cls: type[ResponseResource]
     request_cls: type[RequestResource]
     example_data: dict[str, Any]
-    api_class: type[CDFResourceAPI] | None = None
+    api_class: Callable[[HTTPClient], CDFResourceAPI] | None = None
     is_dump_equal_to_example: bool = True
     is_as_request_possible: bool = True
 
@@ -280,6 +297,13 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "dbName": "example_db",
             "name": "example_table",
             "createdTime": 1622547800000,
+        },
+        RAWRowResponse: {
+            "dbName": "example_db",
+            "tableName": "example_table",
+            "key": "row_001",
+            "columns": {"col": "value"},
+            "lastUpdatedTime": 1622547800000,
         },
         SimulatorModelResponse: {
             "id": 111,
@@ -464,6 +488,15 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        MQTTBrokerSourceResponse: {
+            "type": "mqtt_broker",
+            "externalId": "mqtt_broker_001",
+            "host": "broker.cognitedata.com",
+            "port": 8883,
+            "authentication": {"type": "basic", "username": "generated-user"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         RESTSourceResponse: {
             "type": "rest",
             "externalId": "rest_source_001",
@@ -597,6 +630,14 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                 {"rowNumber": 0, "values": ["value1", 123]},
                 {"rowNumber": 1, "values": ["value2", 456]},
             ],
+        },
+        NumericDatapointsResponse: {
+            "id": 456,
+            "externalId": "ts_001",
+            "isString": False,
+            "type": "numeric",
+            "isStep": False,
+            "datapoints": [{"timestamp": 1622547800000, "value": 1.5}],
         },
         SearchConfigResponse: {
             "id": 789,
@@ -837,6 +878,17 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        PostgresGatewayUserResponse: {
+            "username": "pg_user_001",
+            "createdTime": 1622547800000,
+        },
+        RawRowsTableResponse: {
+            "username": "pg_user_001",
+            "tablename": "my_table",
+            "type": "raw_rows",
+            "columns": {"key": {"type": "TEXT"}},
+            "options": {"database": "my_db", "table": "my_table"},
+        },
     }
     try:
         return responses[resource_cls]
@@ -928,6 +980,16 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # a path parameter and thus custom endpoint mocking.
         ),
         id="RAWTable",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RAWRowResponse,
+            request_cls=RAWRowRequest,
+            example_data=get_example_minimum_responses(RAWRowResponse),
+            is_dump_equal_to_example=False,
+            # Database and table name are path parameters and are excluded from the response dump.
+        ),
+        id="RAWRow",
     )
     yield pytest.param(
         CDFResource(
@@ -1082,6 +1144,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
+            response_cls=MQTTBrokerSourceResponse,
+            request_cls=MQTTBrokerSourceRequest,
+            example_data=get_example_minimum_responses(MQTTBrokerSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
+        ),
+        id="HostedExtractorMQTTBrokerSource",
+    )
+    yield pytest.param(
+        CDFResource(
             response_cls=RESTSourceResponse,
             request_cls=RESTSourceRequest,
             example_data=get_example_minimum_responses(RESTSourceResponse),
@@ -1192,6 +1263,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(SequenceRowsResponse),
         ),
         id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=NumericDatapointsResponse,
+            request_cls=DatapointsRequest,
+            example_data=get_example_minimum_responses(NumericDatapointsResponse),
+        ),
+        id="Datapoints",
     )
     yield pytest.param(
         CDFResource(
@@ -1356,4 +1435,23 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # The request ID is assigned by the API, and the create payload is not returned.
         ),
         id="WritebackRequest",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=PostgresGatewayUserResponse,
+            request_cls=PostgresGatewayUserRequest,
+            example_data=get_example_minimum_responses(PostgresGatewayUserResponse),
+            # No api_class: create returns the password and host, which list and retrieve do not.
+        ),
+        id="PostgresGatewayUser",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RawRowsTableResponse,
+            request_cls=RawRowsTableRequest,
+            example_data=get_example_minimum_responses(RawRowsTableResponse),
+            is_dump_equal_to_example=False,
+            # No api_class: the username is a path parameter and thus requires custom endpoint mocking.
+        ),
+        id="PostgresGatewayTable",
     )
