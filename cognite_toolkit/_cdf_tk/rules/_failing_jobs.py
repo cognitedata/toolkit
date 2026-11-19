@@ -19,7 +19,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRes
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    AssetCentricDataSource,
+    DataModelSource,
+    Destination,
+    RawDataSource,
+    SequenceRowDataSource,
+    TransformationResponse,
+    UnknownDestinationDefinition,
+    ViewDataSource,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
@@ -81,6 +90,7 @@ class FailingJob:
     url: str
     reason: str | None = None
     failed_executions: int | None = None
+    impact: set[str] = field(default_factory=set)
     dependencies: Dependencies = field(default_factory=set)
     # Transformations have separate source and destination sessions, and a function can be
     # called by multiple schedules.
@@ -271,6 +281,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 failed_executions = None
             else:
                 continue
+            impact = self._get_transformation_impact(transformation.destination)
             failures.append(
                 FailingJob(
                     job_type="Transformation",
@@ -278,6 +289,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     reason=reason,
                     url=f"/transformations/{transformation.id}/",
                     failed_executions=failed_executions,
+                    impact=impact,
                     dependencies=self._dependencies(io, transformation, TransformationYAML),
                     session_ids={
                         session.session_id
@@ -287,6 +299,40 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 )
             )
         return failures
+
+    @staticmethod
+    def _get_transformation_impact(destination: Destination) -> set[str]:
+        """Returns a description of the resources that are not updated while the transformation is failing."""
+        impact: set[str] = set()
+        match destination:
+            case AssetCentricDataSource():
+                impact.add(f"{destination.type.replace('_', ' ')} (asset-centric)")
+            case DataModelSource():
+                data_model = destination.data_model
+                impact.add(f"data model {data_model.space}:{data_model.external_id}(version={data_model.version})")
+                if data_model.destination_relationship_from_type:
+                    impact.add(
+                        f"edges of property {data_model.destination_relationship_from_type}."
+                        f"{data_model.destination_type} in space {data_model.space}"
+                    )
+                else:
+                    impact.add(f"instances of type {data_model.destination_type} in space {data_model.space}")
+                if destination.instance_space:
+                    impact.add(f"instance space {destination.instance_space}")
+            case ViewDataSource():
+                view = destination.view
+                impact.add(f"{destination.type} of view {view.space}:{view.external_id}(version={view.version})")
+                if edge_type := destination.edge_type:
+                    impact.add(f"edges of type {edge_type.space}:{edge_type.external_id}")
+                if destination.instance_space:
+                    impact.add(f"instance space {destination.instance_space}")
+            case RawDataSource():
+                impact.add(f"RAW table {destination.database}.{destination.table}")
+            case SequenceRowDataSource():
+                impact.add(f"rows of sequence {destination.external_id}")
+            case UnknownDestinationDefinition():
+                impact.add(f"destination of type {destination.type}")
+        return impact
 
     def _count_failed_jobs(self, client: ToolkitClient, transformation_id: int) -> int:
         """Counts the failed jobs within the lookback period. Jobs are returned newest first, so we stop
@@ -448,6 +494,8 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     f"\nNumber of failed executions in the last {self.lookback_period.days} days: "
                     f"{failure.failed_executions}."
                 )
+            if failure.impact:
+                message += f"\nNot updated while failing: {humanize_collection(failure.impact)}."
             yield BuildError(
                 code="FAILING-JOB",
                 message=message,

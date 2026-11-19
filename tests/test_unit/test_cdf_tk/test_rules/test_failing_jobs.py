@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
+
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
@@ -392,3 +394,44 @@ class TestFailingJobRuleSet:
             ),
             "sessions_retrieved": False,
         }
+
+    @pytest.mark.parametrize(
+        "destination, expected",
+        [
+            pytest.param({"type": "asset_hierarchy"}, {"asset hierarchy (asset-centric)"}, id="asset-centric"),
+            pytest.param(
+                {
+                    "type": "instances",
+                    "dataModel": {
+                        "space": "my_space",
+                        "externalId": "MyModel",
+                        "version": "v1",
+                        "destinationType": "MyView",
+                    },
+                    "instanceSpace": "my_instances",
+                },
+                {
+                    "data model my_space:MyModel(version=v1)",
+                    "instances of type MyView in space my_space",
+                    "instance space my_instances",
+                },
+                id="data-model",
+            ),
+            pytest.param(
+                {
+                    "type": "edges",
+                    "view": {"space": "my_space", "externalId": "MyView", "version": "v1"},
+                    "edgeType": {"space": "my_space", "externalId": "relates"},
+                },
+                {"edges of view my_space:MyView(version=v1)", "edges of type my_space:relates"},
+                id="view",
+            ),
+            pytest.param({"type": "raw", "database": "db", "table": "tbl"}, {"RAW table db.tbl"}, id="raw"),
+            pytest.param({"type": "sequence_rows", "externalId": "seq"}, {"rows of sequence seq"}, id="sequence"),
+            pytest.param({"type": "new_type"}, {"destination of type new_type"}, id="unknown"),
+        ],
+    )
+    def test_get_transformation_impact(self, destination: dict[str, Any], expected: set[str]) -> None:
+        transformation = _transformation(1, "tr", destination=destination)
+
+        assert FailingJobRuleSet._get_transformation_impact(transformation.destination) == expected
