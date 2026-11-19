@@ -1,6 +1,5 @@
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
-from itertools import groupby
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any, ClassVar, Literal, cast
 
 from cognite.client._proto.data_point_insertion_request_pb2 import DataPointInsertionItem, DataPointInsertionRequest
@@ -94,23 +93,31 @@ class DatapointsIO(
         self._state_converter = _Int32Converter(nullable=True)
 
     def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn] | None:
-        if isinstance(selector, DataPointsInstanceSpaceSelector):
+        value_columns = [
+            SchemaColumn(
+                name="value",
+                type="string"
+                if isinstance(selector, DataPointsDataSetSelector | DataPointsInstanceSpaceSelector)
+                and selector.data_type == "string"
+                else "float",
+            )
+        ]
+        if not isinstance(selector, DataPointsInstanceSpaceSelector):
             return [
-                SchemaColumn(name="space", type="string"),
                 SchemaColumn(name="externalId", type="string"),
                 SchemaColumn(name="timestamp", type="epoch"),
+                *value_columns,
+            ]
+        if selector.data_type == "state":
+            value_columns = [
                 SchemaColumn(name="numericValue", type="integer"),
                 SchemaColumn(name="stringValue", type="string"),
             ]
         return [
+            SchemaColumn(name="space", type="string"),
             SchemaColumn(name="externalId", type="string"),
             SchemaColumn(name="timestamp", type="epoch"),
-            SchemaColumn(
-                name="value",
-                type="string"
-                if isinstance(selector, DataPointsDataSetSelector) and selector.data_type == "string"
-                else "float",
-            ),
+            *value_columns,
         ]
 
     def stream_data(
@@ -307,37 +314,28 @@ class DatapointsIO(
         for data_item in data_chunk.items:
             response = data_item.item
             for item in response.items:
-                if item.numericDatapoints.datapoints:
-                    for dp in item.numericDatapoints.datapoints:
-                        result.append(
-                            DataItem(
-                                tracking_id=data_item.tracking_id,
-                                item={
-                                    "externalId": item.externalId,
-                                    "timestamp": dp.timestamp,
-                                    "value": dp.value,
-                                },
-                            )
+                instance_id: dict[str, JsonVal] = {
+                    "space": item.instanceId.space,
+                    "externalId": item.instanceId.externalId,
+                }
+                timeseries_id = (
+                    instance_id
+                    if isinstance(selector, DataPointsInstanceSpaceSelector)
+                    else {"externalId": item.externalId}
+                )
+                for dp in [*item.numericDatapoints.datapoints, *item.stringDatapoints.datapoints]:
+                    result.append(
+                        DataItem(
+                            tracking_id=data_item.tracking_id,
+                            item={**timeseries_id, "timestamp": dp.timestamp, "value": dp.value},
                         )
-                if item.stringDatapoints.datapoints:
-                    for dp in item.stringDatapoints.datapoints:
-                        result.append(
-                            DataItem(
-                                tracking_id=data_item.tracking_id,
-                                item={
-                                    "externalId": item.externalId,
-                                    "timestamp": dp.timestamp,
-                                    "value": dp.value,
-                                },
-                            )
-                        )
+                    )
                 for state_dp in item.stateDatapoints.datapoints:
                     result.append(
                         DataItem(
                             tracking_id=data_item.tracking_id,
                             item={
-                                "space": item.instanceId.space,
-                                "externalId": item.instanceId.externalId,
+                                **instance_id,
                                 "timestamp": state_dp.timestamp,
                                 "numericValue": state_dp.numericValue if state_dp.HasField("numericValue") else None,
                                 "stringValue": state_dp.stringValue if state_dp.HasField("stringValue") else None,
@@ -382,7 +380,7 @@ class DatapointsIO(
         elif isinstance(selector, DataPointsDataSetSelector):
             datapoints_items = self._rows_to_datapoint_items_data_set_selector(rows, selector, source_id)
         elif isinstance(selector, DataPointsInstanceSpaceSelector):
-            datapoints_items = self._rows_to_state_datapoint_items(rows, selector, source_id)
+            datapoints_items = self._rows_to_datapoint_items_instance_space_selector(rows, selector, source_id)
         else:
             raise RuntimeError(
                 f"Unsupported selector type {type(selector).__name__} for {type(self).__name__}. Trying to transform {source_id!r} from rows to DataPointInsertionRequest."
@@ -445,14 +443,39 @@ class DatapointsIO(
     def _rows_to_datapoint_items_data_set_selector(
         self, rows: dict[str, list[Any]], selector: DataPointsDataSetSelector, source_id: str
     ) -> list[DataPointInsertionItem]:
-        if "externalId" not in rows:
-            raise RuntimeError("Column 'externalId' not found.")
-        if "value" not in rows:
-            raise RuntimeError("Column 'value' not found.")
-        if "timestamp" not in rows:
-            raise RuntimeError("Column 'timestamp' not found.")
+        if missing := selector.required_columns - set(rows):
+            raise RuntimeError(f"Columns {humanize_collection(missing)} not found.")
+        return self._rows_to_value_datapoint_items(
+            [(external_id,) for external_id in rows["externalId"]],
+            rows,
+            selector.data_type,
+            source_id,
+            to_id=lambda key: {"externalId": key[0]},
+        )
 
-        external_ids = rows["externalId"]
+    def _rows_to_datapoint_items_instance_space_selector(
+        self, rows: dict[str, list[Any]], selector: DataPointsInstanceSpaceSelector, source_id: str
+    ) -> list[DataPointInsertionItem]:
+        if selector.data_type == "state":
+            return self._rows_to_state_datapoint_items(rows, selector, source_id)
+        if missing := selector.required_columns - set(rows):
+            raise RuntimeError(f"Columns {humanize_collection(missing)} not found.")
+        return self._rows_to_value_datapoint_items(
+            list(zip(rows["space"], rows["externalId"])),
+            rows,
+            selector.data_type,
+            source_id,
+            to_id=lambda key: {"instanceId": InstanceId(space=key[0], externalId=key[1])},
+        )
+
+    def _rows_to_value_datapoint_items(
+        self,
+        keys: list[tuple[str, ...]],
+        rows: dict[str, list[Any]],
+        data_type: Literal["numeric", "string"],
+        source_id: str,
+        to_id: Callable[[tuple[str, ...]], dict[str, Any]],
+    ) -> list[DataPointInsertionItem]:
         timestamps = list(
             self._convert_values(
                 rows["timestamp"],
@@ -464,41 +487,34 @@ class DatapointsIO(
         values = list(
             self._convert_values(
                 rows["value"],
-                self._numeric_converter if selector.data_type == "numeric" else self._string_converter,
+                self._numeric_converter if data_type == "numeric" else self._string_converter,
                 "values (column 'value')",
                 source_id,
             )
         )
-        sorted_datapoints = sorted(zip(external_ids, timestamps, values), key=lambda x: x[0])
-        datapoints_items: list[DataPointInsertionItem] = []
-        if selector.data_type == "numeric":
-            for external_id, datapoints in groupby(sorted_datapoints, key=lambda x: x[0]):
-                datapoints_items.append(
-                    DataPointInsertionItem(
-                        externalId=external_id,
-                        numericDatapoints=NumericDatapoints(
-                            datapoints=[
-                                NumericDatapoint(timestamp=timestamp, value=value) for _, timestamp, value in datapoints
-                            ]
-                        ),
-                    )
-                )
-        elif selector.data_type == "string":
-            for external_id, datapoints in groupby(sorted_datapoints, key=lambda x: x[0]):
-                datapoints_items.append(
-                    DataPointInsertionItem(
-                        externalId=external_id,
-                        stringDatapoints=StringDatapoints(
-                            datapoints=[
-                                StringDatapoint(timestamp=timestamp, value=value) for _, timestamp, value in datapoints
-                            ]
-                        ),
-                    )
-                )
-        else:
-            raise RuntimeError(f"Unsupported data_type {selector.data_type} for DataPointsDataSetSelector.")
+        datapoints_by_key: dict[tuple[str, ...], list[tuple[Any, Any]]] = defaultdict(list)
+        for key, timestamp, value in zip(keys, timestamps, values):
+            datapoints_by_key[key].append((timestamp, value))
 
-        return datapoints_items
+        if data_type == "numeric":
+            return [
+                DataPointInsertionItem(
+                    **to_id(key),
+                    numericDatapoints=NumericDatapoints(
+                        datapoints=[NumericDatapoint(timestamp=timestamp, value=value) for timestamp, value in dps]
+                    ),
+                )
+                for key, dps in datapoints_by_key.items()
+            ]
+        return [
+            DataPointInsertionItem(
+                **to_id(key),
+                stringDatapoints=StringDatapoints(
+                    datapoints=[StringDatapoint(timestamp=timestamp, value=value) for timestamp, value in dps]
+                ),
+            )
+            for key, dps in datapoints_by_key.items()
+        ]
 
     def _rows_to_state_datapoint_items(
         self, rows: dict[str, list[Any]], selector: DataPointsInstanceSpaceSelector, source_id: str

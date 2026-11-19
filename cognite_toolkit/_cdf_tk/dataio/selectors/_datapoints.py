@@ -96,18 +96,21 @@ class DataPointsInstanceSpaceSelector(DataPointsSelector):
     State time series only exist in data modeling, so they cannot be selected by data set.
     """
 
-    required_columns: ClassVar[frozenset[str]] = frozenset(
-        {"space", "externalId", "timestamp", "numericValue", "stringValue"}
-    )
     type: Literal["datapointsInstanceSpace"] = "datapointsInstanceSpace"
 
     instance_space: str
     start: int | str | None = None
     end: int | str | None = None
-    data_type: Literal["state"] = "state"
+    data_type: Literal["numeric", "string", "state"] = "numeric"
 
     def __str__(self) -> str:
         return f"datapoints_instance_space_{self.instance_space}"
+
+    @property
+    def required_columns(self) -> frozenset[str]:
+        if self.data_type == "state":
+            return frozenset({"space", "externalId", "timestamp", "numericValue", "stringValue"})
+        return frozenset({"space", "externalId", "timestamp", "value"})
 
     @property
     def display_name(self) -> str:
