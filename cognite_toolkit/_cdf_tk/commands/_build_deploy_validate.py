@@ -45,13 +45,14 @@ class BuildDeployValidateCommand(ToolkitCommand):
         with Progress(console=console) as progress:
             build_folder = build_cmd.build(
                 parameters,
-                context="stand-alone" if is_build_only else "integrated",
+                context="integrated",
                 client=client,
                 display=CommandDisplay(
                     header=True,
                     progress=progress,
                     results=is_build_only,
                 ),
+                post_parameters=post_build,
             )
             if is_build_only:
                 return build_folder, ValidationResultList()
