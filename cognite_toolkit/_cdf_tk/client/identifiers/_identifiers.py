@@ -333,6 +333,18 @@ class MeterId(Identifier):
         return self.meter_id
 
 
+class OrgId(Identifier):
+    id: str
+
+    def __str__(self) -> str:
+        return f"id='{self.id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"orgId-{self.id}"
+        return self.id
+
+
 class PrincipalLoginId(Identifier):
     principal: str
     id: str
