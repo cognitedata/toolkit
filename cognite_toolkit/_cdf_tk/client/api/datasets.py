@@ -2,6 +2,8 @@ import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import filter_aggregate_count
+from cognite_toolkit._cdf_tk.client.api._classic_list import TimeRange, time_range
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -19,6 +21,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
                 "retrieve": Endpoint(method="POST", path="/datasets/byids", item_limit=1000, concurrency_max_workers=1),
                 "update": Endpoint(method="POST", path="/datasets/update", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/datasets/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/datasets/aggregate", item_limit=1),
             },
         )
         self._cache_by_id: dict[InternalOrExternalId, DataSetResponse] = {}
@@ -72,6 +75,30 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
                 self._add_to_cache(data_set)
 
         return [self._cache_by_id[item] for item in items if item in self._cache_by_id]
+
+    def count(
+        self,
+        *,
+        metadata: dict[str, str] | None = None,
+        external_id_prefix: str | None = None,
+        write_protected: bool | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+    ) -> int:
+        """Count data sets matching the filters.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Data-sets/operation/aggregateDataSets>`_.
+        """
+        filter_body = {
+            "metadata": metadata,
+            "externalIdPrefix": external_id_prefix,
+            "writeProtected": write_protected,
+            "createdTime": time_range(created_time),
+            "lastUpdatedTime": time_range(last_updated_time),
+        }
+        return filter_aggregate_count(
+            self, filter={key: value for key, value in filter_body.items() if value is not None}
+        )
 
     def update(
         self, items: Sequence[DataSetRequest], mode: Literal["patch", "replace"] = "replace"
