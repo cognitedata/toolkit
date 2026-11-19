@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
@@ -363,11 +364,17 @@ class FailingJobRuleSet(ToolkitRuleSet):
             missing_dependencies.update((io_cls, identifier) for identifier in identifiers - existing)
 
         invalid_status_by_session_id: dict[int, str] = {}
+        can_verify_sessions = True
         if session_ids := set().union(*(failure.session_ids for failure in failures)):
-            try:
-                invalid_status_by_session_id = self._invalid_sessions(client, session_ids)
-            except ToolkitAPIError as e:
-                yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
+            # Without sessionsAcl:LIST, retrieving sessions silently returns nothing, which would
+            # wrongly mark every session as not found.
+            if client.token.verify_acls([SessionsAcl(actions=["LIST"], scope=AllScope())]):
+                can_verify_sessions = False
+            else:
+                try:
+                    invalid_status_by_session_id = self._invalid_sessions(client, session_ids)
+                except ToolkitAPIError as e:
+                    yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
 
         for failure in failures:
             self._set_suggested_fix(
@@ -378,6 +385,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     for session_id, status in invalid_status_by_session_id.items()
                     if session_id in failure.session_ids
                 },
+                can_verify_sessions=can_verify_sessions,
             )
 
     @staticmethod
@@ -397,7 +405,12 @@ class FailingJobRuleSet(ToolkitRuleSet):
         return invalid
 
     @staticmethod
-    def _set_suggested_fix(failure: FailingJob, missing: Dependencies, invalid_sessions: dict[int, str]) -> None:
+    def _set_suggested_fix(
+        failure: FailingJob,
+        missing: Dependencies,
+        invalid_sessions: dict[int, str],
+        can_verify_sessions: bool = True,
+    ) -> None:
         explanations: list[str] = []
         fixes: list[str] = []
         if missing:
@@ -412,10 +425,15 @@ class FailingJobRuleSet(ToolkitRuleSet):
             )
             explanations.append("Its credentials are no longer valid.")
             fixes.append(f"Update the credentials used by the {failure.job_type.lower()}, as {sessions_str}.")
+        if failure.session_ids and not can_verify_sessions:
+            fixes.append(
+                f"Couldn't verify the credentials used by the {failure.job_type.lower()}. "
+                "Add sessionsAcl:LIST to your credentials to check them."
+            )
         if not fixes:
             return
         failure.suggested_fix = " ".join(fixes)
-        if failure.reason is None:
+        if failure.reason is None and explanations:
             failure.reason = " ".join(explanations)
 
     def _report_failures(self, failures: Sequence[FailingJob]) -> Iterable[Insight | InternalValidatorException]:

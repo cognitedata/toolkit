@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
 )
@@ -324,6 +325,7 @@ class TestFailingJobRuleSet:
             WorkflowResponse(external_id="my_workflow", created_time=0, last_updated_time=0)
         ]
         client.transformations.retrieve.return_value = []
+        client.token.verify_acls.return_value = []
         client.sessions.retrieve.return_value = [
             SessionResponse(id=1, status="ACTIVE"),
             SessionResponse(id=2, status="EXPIRED"),
@@ -362,4 +364,31 @@ class TestFailingJobRuleSet:
                 "Update the credentials used by the workflow, as session 2 is expired.",
             ),
             "healthy": ("Column not found", None),
+        }
+
+    def test_diagnose_failures_without_sessions_acl_does_not_report_invalid_credentials(self) -> None:
+        client = MagicMock()
+        client.token.verify_acls.return_value = [SessionsAcl(actions=["LIST"], scope=AllScope())]
+        failure = FailingJob(
+            job_type="Transformation",
+            job=_transformation(1, "tr_failed"),
+            url="/transformations/1/",
+            session_ids={1},
+        )
+        rule = FailingJobRuleSet(client=client)
+
+        exceptions = list(rule._diagnose_failures(client, [failure]))
+
+        assert {
+            "exceptions": exceptions,
+            "failure": (failure.reason, failure.suggested_fix),
+            "sessions_retrieved": client.sessions.retrieve.called,
+        } == {
+            "exceptions": [],
+            "failure": (
+                None,
+                "Couldn't verify the credentials used by the transformation. "
+                "Add sessionsAcl:LIST to your credentials to check them.",
+            ),
+            "sessions_retrieved": False,
         }
