@@ -92,44 +92,68 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
 
     def paginate(
         self,
+        source: str | None = None,
+        destination: str | None = None,
+        mapping: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[HostedExtractorJobResponse]:
         """Iterate over hosted extractor jobs in CDF.
 
         Args:
+            source: Only return jobs that read from the source with this external ID.
+            destination: Only return jobs that write to the destination with this external ID.
+            mapping: Only return jobs that use the mapping with this external ID.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of job response objects.
         """
-        return self._paginate(cursor=cursor, limit=limit)
+        params = {"source": source, "destination": destination, "mapping": mapping}
+        return self._paginate(cursor=cursor, limit=limit, params=params)
 
     def iterate(
         self,
+        source: str | None = None,
+        destination: str | None = None,
+        mapping: str | None = None,
         limit: int | None = 100,
     ) -> Iterable[builtins.list[HostedExtractorJobResponse]]:
         """Iterate over hosted extractor jobs in CDF.
 
         Args:
+            source: Only return jobs that read from the source with this external ID.
+            destination: Only return jobs that write to the destination with this external ID.
+            mapping: Only return jobs that use the mapping with this external ID.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of job response objects.
         """
-        return self._iterate(limit=limit)
+        params = {"source": source, "destination": destination, "mapping": mapping}
+        return self._iterate(limit=limit, params=params)
 
-    def list(self, limit: int | None = 100) -> builtins.list[HostedExtractorJobResponse]:
+    def list(
+        self,
+        source: str | None = None,
+        destination: str | None = None,
+        mapping: str | None = None,
+        limit: int | None = 100,
+    ) -> builtins.list[HostedExtractorJobResponse]:
         """List all hosted extractor jobs in CDF.
 
         Args:
+            source: Only return jobs that read from the source with this external ID.
+            destination: Only return jobs that write to the destination with this external ID.
+            mapping: Only return jobs that use the mapping with this external ID.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of job response objects.
         """
-        return self._list(limit=limit)
+        params = {"source": source, "destination": destination, "mapping": mapping}
+        return self._list(limit=limit, params=params)
 
     def list_logs(
         self,

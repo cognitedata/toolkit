@@ -17,6 +17,8 @@ from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -31,6 +33,8 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_IO_BY_FOLDER_NAME,
     RESOURCE_IO_LIST,
+    AppIO,
+    AppVersionIO,
     FunctionIO,
     FunctionScheduleIO,
     GroupResourceScopedIO,
@@ -40,6 +44,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     PostgresGatewayUserIO,
     ResourceIO,
     ResourceTypes,
+    StreamlitIO,
     TransformationIO,
     WorkflowTriggerIO,
 )
@@ -430,6 +435,25 @@ class TestResourceCRUDs:
             TopologicalSorter(dependencies).prepare()
         except CycleError as e:
             pytest.fail(f"Cyclic dependencies between resource IOs: {[cls.__name__ for cls in e.args[1]]}")
+
+    @pytest.mark.parametrize(
+        "loader_cls, identifier, expected",
+        [
+            pytest.param(StreamlitIO, ExternalId(external_id="../../evil"), ".._.._evil", id="StreamlitIO"),
+            pytest.param(LocationFilterIO, ExternalId(external_id="../../evil"), ".._.._evil", id="LocationFilterIO"),
+            pytest.param(AppIO, ExternalId(external_id="..\\..\\evil"), ".._.._evil", id="AppIO"),
+            pytest.param(
+                AppVersionIO,
+                AppVersionId(app_external_id="../../evil", version="1.0.0"),
+                ".._.._evil_1.0.0",
+                id="AppVersionIO",
+            ),
+        ],
+    )
+    def test_as_filename_sanitizes_identifier(
+        self, loader_cls: type[ResourceIO], identifier: Identifier, expected: str
+    ) -> None:
+        assert loader_cls.as_filename(identifier) == expected
 
 
 class TestLoaders:

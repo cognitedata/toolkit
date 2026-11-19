@@ -8,7 +8,12 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import NonceCredentials
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials,
+    TransformationJobResponse,
+    TransformationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
 
 _EXAMPLE_JOB = {
     "id": 1,
@@ -24,6 +29,45 @@ _EXAMPLE_JOB = {
     "ignoreNullFields": True,
     "status": "Created",
 }
+
+
+def test_transformation_response_with_job_details() -> None:
+    schedule = {
+        "id": 205,
+        "externalId": "transformation_001",
+        "createdTime": 1622547800000,
+        "lastUpdatedTime": 1622547800000,
+        "interval": "0 0 * * *",
+        "isPaused": False,
+    }
+    data = {
+        "id": 205,
+        "externalId": "transformation_001",
+        "name": "Example Transformation",
+        "ignoreNullFields": True,
+        "query": "SELECT * FROM source",
+        "destination": {"type": "assets"},
+        "conflictMode": "abort",
+        "isPublic": True,
+        "createdTime": 1622547800000,
+        "lastUpdatedTime": 1622547800000,
+        "owner": "me",
+        "ownerIsCurrentUser": True,
+        "hasSourceOidcCredentials": False,
+        "hasDestinationOidcCredentials": False,
+        "lastFinishedJob": _EXAMPLE_JOB,
+        "runningJob": _EXAMPLE_JOB,
+        "schedule": schedule,
+    }
+
+    response = TransformationResponse.model_validate(data)
+
+    assert (type(response.last_finished_job), type(response.running_job), type(response.schedule), response.dump()) == (
+        TransformationJobResponse,
+        TransformationJobResponse,
+        TransformationScheduleResponse,
+        data,
+    )
 
 
 def _request_json(request: httpx2.Request) -> dict[str, object]:
@@ -73,3 +117,12 @@ class TestTransformationsAPI:
             "inferSchemaLimit": 10_000,
             "timeout": TransformationsAPI.DEFAULT_TIMEOUT_RUN_QUERY,
         }
+
+    def test_cancel(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        api = TransformationsAPI(HTTPClient(toolkit_config))
+        cancel_url = toolkit_config.create_api_url("/transformations/cancel")
+        respx_mock.post(cancel_url).mock(return_value=httpx2.Response(status_code=200, json={}))
+
+        api.cancel(ExternalId(external_id="transformation_001"))
+
+        assert _request_json(respx_mock.calls[-1].request) == {"externalId": "transformation_001"}

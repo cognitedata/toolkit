@@ -72,6 +72,29 @@ class StringDatapointResponse(BaseModelObject):
     status: DatapointStatus | None = None
 
 
+class SyntheticQueryRequest(BaseModelObject):
+    """A synthetic time series expression to evaluate, for example ``ts{externalId='a'} * 2``."""
+
+    expression: str
+    start: Timestamp | str | None = None
+    end: Timestamp | str | None = None
+    limit: int | None = None
+    time_zone: str | None = None
+
+
+class SyntheticDatapoint(BaseModelObject):
+    """A computed data point. ``error`` is set instead of ``value`` when the expression cannot be evaluated."""
+
+    timestamp: Timestamp
+    value: int | float | None = None
+    error: str | None = None
+
+
+class SyntheticQueryResponse(BaseModelObject):
+    is_string: bool | None = None
+    datapoints: list[SyntheticDatapoint]
+
+
 class AggregateExtremeDatapoint(BaseModelObject):
     """Timestamp and value of the first minimum or maximum point in an aggregate window."""
 

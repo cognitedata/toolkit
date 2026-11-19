@@ -405,6 +405,16 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
                 if has_local and cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
+            cdf_unit = cdf_type.get("unit", {})
+            local_unit = local_type.get("unit", {})
+            if (
+                has_local
+                and isinstance(cdf_unit, dict)
+                and isinstance(local_unit, dict)
+                and "space" not in local_unit
+                and cdf_unit.get("space") == "cdf_units"
+            ):
+                cdf_unit.pop("space", None)
             if has_local and "usedFor" not in local and dumped.get("usedFor") == "node":
                 # Only drop if set to default by server.
                 dumped.pop("usedFor", None)
@@ -1612,11 +1622,13 @@ class GraphQLIO(
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
         for item in raw_list:
