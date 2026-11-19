@@ -140,7 +140,7 @@ class DownloadCommand(ToolkitCommand):
         """
         console = io.client.console
         plan = self._create_plan(io, selectors, output_dir, file_format, limit)
-        self._display_plan(plan, console)
+        self._display_plan(plan, console, io.COUNT_NAME)
 
         for step in plan:
             if skip_message := step.skip_message:
@@ -199,10 +199,12 @@ class DownloadCommand(ToolkitCommand):
         return plan
 
     @classmethod
-    def _display_plan(cls, plan: list[DownloadStep[T_Selector]], console: Console) -> None:
+    def _display_plan(
+        cls, plan: list[DownloadStep[T_Selector]], console: Console, count_name: str = DataIO.COUNT_NAME
+    ) -> None:
         table = Table(title="Planned Downloads")
         table.add_column("Data Type", style="cyan")
-        table.add_column("Item Count", justify="right", style="green")
+        table.add_column(count_name, justify="right", style="green")
         for step in plan:
             download_count = step.download_count
             if (
@@ -285,7 +287,7 @@ class DownloadCommand(ToolkitCommand):
             download_iterable=io.stream_data(step.selector, step.limit),
             process=self.create_data_process(io=io, selector=step.selector, is_table=step.is_table),
             write=self.create_writer(writer, step.writer_stem(writer)),
-            total_item_count=step.count,
+            total_item_count=step.count if io.COUNT_IS_PROGRESS_TOTAL else None,
             # Limit queue size to avoid filling up memory before the workers can write to disk.
             max_queue_size=8 * 10,  # 8 workers, 10 items per worker
             download_description=f"Downloading {step.selector!s}",

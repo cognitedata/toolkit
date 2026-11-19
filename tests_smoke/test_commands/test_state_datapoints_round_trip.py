@@ -1,4 +1,3 @@
-import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -183,11 +182,6 @@ class TestStateDatapointsRoundTrip:
             instance_space=STATE_SPACE, data_type="state", download_dir_name="state"
         )
         io = DatapointsIO(toolkit_client)
-        # The count comes from an eventually consistent aggregate, and the download is skipped when it is zero.
-        for _ in range(120):
-            if io.count(selector) == len(state_timeseries):
-                break
-            time.sleep(1)
 
         DownloadCommand(silent=True, skip_tracking=True).download(
             selectors=[selector],

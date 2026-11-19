@@ -9,6 +9,8 @@ from pydantic import Field
 
 from ._base import DataSelector, SelectorObject
 
+STATUS_CODE_COLUMN = "statusCode"
+
 
 class Column(SelectorObject, ABC):
     column_type: str
@@ -70,6 +72,7 @@ class DataPointsFileSelector(DataPointsSelector):
 
 class DataPointsDataSetSelector(DataPointsSelector):
     required_columns: ClassVar[frozenset[str]] = frozenset({"externalId", "timestamp", "value"})
+    optional_columns: ClassVar[frozenset[str]] = frozenset({STATUS_CODE_COLUMN})
     type: Literal["datapointsDataSet"] = "datapointsDataSet"
 
     data_set_external_id: str
@@ -78,11 +81,11 @@ class DataPointsDataSetSelector(DataPointsSelector):
     data_type: Literal["numeric", "string"] = "numeric"
 
     def __str__(self) -> str:
-        return f"datapoints_dataset_{self.data_set_external_id}"
+        return f"datapoints_dataset_{self.data_set_external_id}_{self.data_type}"
 
     @property
     def display_name(self) -> str:
-        message = f"{self.kind} in dataset {self.data_set_external_id}"
+        message = f"{self.data_type} {self.kind} in dataset {self.data_set_external_id}"
         if self.start:
             message += f" start={self.start}"
         if self.end:
@@ -96,6 +99,7 @@ class DataPointsInstanceSpaceSelector(DataPointsSelector):
     State time series only exist in data modeling, so they cannot be selected by data set.
     """
 
+    optional_columns: ClassVar[frozenset[str]] = frozenset({STATUS_CODE_COLUMN})
     type: Literal["datapointsInstanceSpace"] = "datapointsInstanceSpace"
 
     instance_space: str
@@ -104,7 +108,7 @@ class DataPointsInstanceSpaceSelector(DataPointsSelector):
     data_type: Literal["numeric", "string", "state"] = "numeric"
 
     def __str__(self) -> str:
-        return f"datapoints_instance_space_{self.instance_space}"
+        return f"datapoints_instance_space_{self.instance_space}_{self.data_type}"
 
     @property
     def required_columns(self) -> frozenset[str]:

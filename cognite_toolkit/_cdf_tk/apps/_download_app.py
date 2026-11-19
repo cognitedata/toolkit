@@ -1210,7 +1210,9 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--start-time",
                 "-s",
-                help="The start time for the datapoints to download. Can be in RFC3339 format or as a relative time (e.g., '1d-ago'). If not provided, all datapoints from the beginning will be downloaded.",
+                help="The start time (inclusive) for the datapoints to download. Can be an ISO 8601 timestamp "
+                "(e.g., '2024-01-31T00:00:00Z', UTC if no time zone is given), milliseconds since epoch, or a relative "
+                "time (e.g., '1d-ago'). If not provided, all datapoints from the beginning (1900) will be downloaded.",
             ),
         ] = None,
         end_time: Annotated[
@@ -1218,7 +1220,10 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--end-time",
                 "-e",
-                help="The end time for the datapoints to download. Can be in RFC3339 format or as a relative time (e.g., '1d-ago'). If not provided, all datapoints up to the latest will be downloaded.",
+                help="The end time (exclusive) for the datapoints to download. Can be an ISO 8601 timestamp "
+                "(e.g., '2024-01-31T00:00:00Z', UTC if no time zone is given), milliseconds since epoch, or a relative "
+                "time (e.g., '1d-ago'). If not provided, all datapoints, including future ones (up to 2099), will be "
+                "downloaded.",
             ),
         ] = None,
         datapoint_type: Annotated[
@@ -1250,7 +1255,8 @@ class DownloadApp(typer.Typer):
             ApiFormat,
             typer.Option(
                 "--api-format",
-                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                help="Not used for datapoints. Kept for backwards compatibility.",
+                hidden=True,
             ),
         ] = ApiFormat.request,
         output_dir: Annotated[
@@ -1324,20 +1330,21 @@ class DownloadApp(typer.Typer):
 
             start_time = (
                 questionary.text(
-                    "Enter the start time for the datapoints to download (RFC3339 format or relative time, e.g., '1d-ago'). Leave empty to download from the beginning.",
+                    "Enter the start time for the datapoints to download (ISO 8601, milliseconds since epoch, or "
+                    "relative time, e.g., '1d-ago'). Leave empty to download from the beginning.",
                     default=start_time or "",
                 ).unsafe_ask()
                 or None
             )
             end_time = (
                 questionary.text(
-                    "Enter the end time for the datapoints to download (RFC3339 format or relative time, e.g., '1d-ago'). Leave empty to download up to the latest.",
+                    "Enter the end time for the datapoints to download (ISO 8601, milliseconds since epoch, or "
+                    "relative time, e.g., '1d-ago'). Leave empty to download all datapoints, including future ones.",
                     default=end_time or "",
                 ).unsafe_ask()
                 or None
             )
             file_format = _prompt_file_format("datapoints", DatapointFormats, file_format)
-            api_format = _prompt_api_format("datapoints", api_format)
             output_dir = _prompt_output_dir("datapoints", output_dir)
             limit = _prompt_limit(
                 "The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries. "
@@ -1377,7 +1384,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=DatapointsIO(client, api_format=api_format.value),
+                io=DatapointsIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression="none",

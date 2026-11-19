@@ -1,17 +1,34 @@
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pyarrow.parquet as pq
+import pytest
+from cognite.client._proto.data_point_list_response_pb2 import DataPointListItem, DataPointListResponse
+from cognite.client._proto.data_points_pb2 import (
+    AggregateDatapoint,
+    AggregateDatapoints,
+    NumericDatapoint,
+    NumericDatapoints,
+    Status,
+)
 from cognite.client.data_classes.raw import Row
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
+from cognite_toolkit._cdf_tk.client.http_client import SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX
-from cognite_toolkit._cdf_tk.dataio import AssetDataIO, RawIO
-from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector, RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.dataio import AssetDataIO, DatapointsIO, RawIO
+from cognite_toolkit._cdf_tk.dataio.selectors import (
+    DataPointsDataSetSelector,
+    DataSetSelector,
+    RawTableSelector,
+    SelectedTable,
+)
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SQLiteReader
+from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 
 class TestDownloadCommand:
@@ -297,4 +314,68 @@ class TestDownloadCommand:
                 "resources/raw/db2.Database.yaml",
                 "resources/raw/db2.pumps.Table.yaml",
             ],
+        }
+
+    def test_download_datapoints_as_csv(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        cmd = DownloadCommand(silent=True, skip_tracking=True)
+        count = DataPointListResponse(
+            items=[
+                DataPointListItem(
+                    id=1, aggregateDatapoints=AggregateDatapoints(datapoints=[AggregateDatapoint(count=2)])
+                )
+            ]
+        )
+        data = DataPointListResponse(
+            items=[
+                DataPointListItem(
+                    id=1,
+                    externalId="ts_1",
+                    numericDatapoints=NumericDatapoints(
+                        datapoints=[
+                            NumericDatapoint(timestamp=1, value=1.5),
+                            NumericDatapoint(timestamp=2, status=Status(code=2147483648), nullValue=True),
+                        ]
+                    ),
+                )
+            ]
+        )
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch.object(
+                ProducerWorkerExecutor, "__init__", autospec=True, side_effect=ProducerWorkerExecutor.__init__
+            ) as executor,
+        ):
+            client.config = MagicMock(create_api_url=MagicMock(return_value="https://example.com/timeseries/data/list"))
+            client.timeseries.count.return_value = 1
+            client.timeseries.iterate.return_value = [[MagicMock(id=1)]]
+            client.http_client = MagicMock()
+            client.http_client.request_single_retries.side_effect = [
+                SuccessResponse(status_code=200, body="", content=response.SerializeToString())
+                for response in [count, data]
+            ]
+            cmd.download(
+                selectors=[DataPointsDataSetSelector(data_set_external_id="my_data_set", download_dir_name="dp")],
+                io=DatapointsIO(client),
+                output_dir=tmp_path,
+                verbose=False,
+                file_format=".csv",
+                compression="none",
+                limit=None,
+            )
+
+        csv_files = list(tmp_path.rglob("*.csv"))
+        assert {
+            "files": [csv_file.name for csv_file in csv_files],
+            "rows": [row for csv_file in csv_files for row in CSVReader(csv_file).read_chunks_unprocessed()],
+            "progress_total": executor.call_args.kwargs["total_item_count"],
+            "plan_has_count_name": "Time Series Count" in capsys.readouterr().out,
+        } == {
+            "files": ["datapoints_dataset_my_data_set_numeric-part-0000.Datapoints.csv"],
+            "rows": [
+                {"externalId": "ts_1", "timestamp": "1", "value": "1.5", "statusCode": ""},
+                {"externalId": "ts_1", "timestamp": "2", "value": "", "statusCode": "2147483648"},
+            ],
+            # The count is the number of time series, not the number of datapoints in the download.
+            "progress_total": None,
+            "plan_has_count_name": True,
         }
