@@ -24,6 +24,7 @@ from ._data_modeling import (
     ViewUntypedId,
 )
 from ._identifiers import (
+    ApplicationId,
     AppVersionId,
     DataProductRoleId,
     DataProductVersionId,
@@ -60,6 +61,7 @@ from ._migration import AssetCentricExternalId
 
 __all__ = [
     "AppVersionId",
+    "ApplicationId",
     "AssetCentricExternalId",
     "ContainerConstraintId",
     "ContainerDirectId",

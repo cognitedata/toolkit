@@ -44,6 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertC
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.application import ApplicationRequest, ApplicationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_folder import (
     ChartFolderResponse,
@@ -847,6 +848,14 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "externalId": "my-app",
             "name": "My App",
         },
+        ApplicationResponse: {
+            "id": "f4a3e291-7682-4148-89c0-be3a8f17eb23",
+            "name": "My Data Portal",
+            "allowedOrigins": ["https://*.example.com"],
+            "projectNames": ["my-project"],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         SAPInstanceResponse: {
             "externalId": "sap_instance_001",
             "gatewayUrl": "https://sap.example.com",
@@ -950,6 +959,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=AppsAPI,
         ),
         id="App",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ApplicationResponse,
+            request_cls=ApplicationRequest,
+            example_data=get_example_minimum_responses(ApplicationResponse),
+            # ApplicationsAPI needs a ProjectAPI to look up the organization, so it has its own tests.
+        ),
+        id="Application",
     )
     yield pytest.param(
         CDFResource(

@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from .api.agents import AgentsAPI
 from .api.alerts import AlertsAPI
 from .api.annotations import AnnotationsAPI
+from .api.applications import ApplicationsAPI
 from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.canvas import IndustrialCanvasAPI
@@ -120,6 +121,7 @@ class ToolkitClient:
         self.migration = MigrationAPI(self.instances, http_client)
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
+        self.applications = ApplicationsAPI(http_client=http_client, project_api=self.project)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
         self.sessions = SessionAPI(http_client)
         self.user_profiles = UserProfilesAPI(http_client)
