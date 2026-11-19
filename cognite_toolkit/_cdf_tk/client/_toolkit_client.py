@@ -19,6 +19,7 @@ from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
+from .api.extractors import ExtractorsAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.functions import FunctionsAPI
 from .api.graphql_data_models import GraphQLDataModelsAPI
@@ -85,6 +86,7 @@ class ToolkitClient:
         self.datapoint_subscriptions = DatapointSubscriptionsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
+        self.extractors = ExtractorsAPI(http_client)
         self.functions = FunctionsAPI(http_client)
         self.groups = GroupsAPI(http_client)
         self.hosted_extractors = HostedExtractorsAPI(http_client)
