@@ -147,7 +147,7 @@ class DatapointsIO(
 
     def _iterate_data_set_timeseries(
         self, selector: DataPointsDataSetSelector, limit: int | None
-    ) -> Iterable[list[dict[str, Any]]]:
+    ) -> Iterable[list[dict[str, JsonVal]]]:
         pages = self.client.timeseries.iterate(
             data_set_external_ids=[selector.data_set_external_id],
             is_string=selector.data_type.lower() == "string",
@@ -161,7 +161,7 @@ class DatapointsIO(
 
     def _iterate_instance_space_timeseries(
         self, selector: DataPointsInstanceSpaceSelector, limit: int | None
-    ) -> Iterable[list[dict[str, Any]]]:
+    ) -> Iterable[list[dict[str, JsonVal]]]:
         pages = self.client.instances.iterate(
             filter=InstanceFilter(instance_type="node", filter=self._instance_space_filter(selector)),
             limit=limit,
@@ -171,7 +171,7 @@ class DatapointsIO(
                 if nodes := page[start : start + self.DOWNLOAD_CHUNK_SIZE]:
                     yield [{"instanceId": node.as_id().dump(include_instance_type=False)} for node in nodes]
 
-    def _instance_space_filter(self, selector: DataPointsInstanceSpaceSelector) -> dict[str, Any]:
+    def _instance_space_filter(self, selector: DataPointsInstanceSpaceSelector) -> dict[str, JsonVal]:
         view = self.TIMESERIES_VIEW
         return {
             "and": [
@@ -187,11 +187,10 @@ class DatapointsIO(
 
     def _stream_timeseries_datapoints(
         self,
-        identifiers: list[dict[str, Any]],
+        identifiers: list[dict[str, JsonVal]],
         selector: DataPointsDataSetSelector | DataPointsInstanceSpaceSelector,
         limit_per_timeseries: int,
     ) -> Iterable[Page[DataPointListResponse]]:
-        config = self.client.config
         # Aggregation of datapoints per timeseries
         items = [
             {
@@ -206,7 +205,7 @@ class DatapointsIO(
         ]
         response = self.client.http_client.request_single_retries(
             RequestMessage(
-                endpoint_url=config.create_api_url("/timeseries/data/list"),
+                endpoint_url=self.client.config.create_api_url("/timeseries/data/list"),
                 method="POST",
                 accept="application/protobuf",
                 content_type="application/json",
@@ -228,7 +227,7 @@ class DatapointsIO(
             batch = self._create_datapoints_batch(remaining_by_id, cursor_by_id, selector)
             for item in batch:
                 remaining_by_id[item["id"]] -= item["limit"]
-            data_response = self._fetch_datapoints_batch(batch, config)
+            data_response = self._fetch_datapoints_batch(batch)
             if data_response is None:
                 for item in batch:
                     remaining_by_id.pop(item["id"], None)
@@ -260,10 +259,10 @@ class DatapointsIO(
             batch_count += ts_limit
         return batch
 
-    def _fetch_datapoints_batch(self, batch: list[dict[str, Any]], config: Any) -> DataPointListResponse | None:
+    def _fetch_datapoints_batch(self, batch: list[dict[str, Any]]) -> DataPointListResponse | None:
         response = self.client.http_client.request_single_retries(
             RequestMessage(
-                endpoint_url=config.create_api_url("/timeseries/data/list"),
+                endpoint_url=self.client.config.create_api_url("/timeseries/data/list"),
                 method="POST",
                 accept="application/protobuf",
                 content_type="application/json",
