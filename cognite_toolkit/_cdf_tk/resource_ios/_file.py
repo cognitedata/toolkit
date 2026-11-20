@@ -478,10 +478,10 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[NodeId]:
         cdf_files_by_id: dict[NodeId, CogniteFileResponse] = {}
-        if self.support_upload:
+        if self.support_upload and items:
             # Read hashes before updating — the update payload overwrites them, making
             # a post-update comparison always equal and preventing re-upload.
-            for cdf_file in self.retrieve([item.as_id() for item in items]):
+            for cdf_file in self.retrieve(list({item.as_id() for item in items})):
                 cdf_files_by_id[cdf_file.as_id()] = cdf_file
         created = self.client.cognite_files.create(items)
         ids = [
