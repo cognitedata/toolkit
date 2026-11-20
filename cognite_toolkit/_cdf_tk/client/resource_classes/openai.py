@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101-beta/tag/Models/operation/list_models_ai_o
 Note: These are alpha and beta APIs and may change in future releases.
 """
 
-from typing import Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import ConfigDict, Field, JsonValue
 
@@ -76,13 +76,34 @@ class OpenAIJSONSchema(OpenAIObject):
     strict: bool | None = None
 
 
-class OpenAIResponseFormat(OpenAIObject):
-    type: Literal["text", "json_object", "json_schema"] | str
-    json_schema: OpenAIJSONSchema | None = None
+class OpenAIResponseFormatDefinition(OpenAIObject):
+    type: str
+
+
+class OpenAITextResponseFormat(OpenAIResponseFormatDefinition):
+    type: Literal["text"] = "text"
+
+
+class OpenAIJSONObjectResponseFormat(OpenAIResponseFormatDefinition):
+    type: Literal["json_object"] = "json_object"
+
+
+class OpenAIJSONSchemaResponseFormat(OpenAIResponseFormatDefinition):
+    type: Literal["json_schema"] = "json_schema"
+    json_schema: OpenAIJSONSchema
+
+
+OpenAIResponseFormat: TypeAlias = Annotated[
+    OpenAITextResponseFormat | OpenAIJSONObjectResponseFormat | OpenAIJSONSchemaResponseFormat,
+    Field(discriminator="type"),
+]
 
 
 class ChatCompletionRequest(OpenAIObject):
-    """Request for the chat completions endpoint. Only non-streaming responses are supported."""
+    """Request for the chat completions endpoint.
+
+    Use ``chat_completions`` for a single response and ``chat_completion_stream`` for a streamed response.
+    """
 
     messages: list[OpenAIMessage] = Field(min_length=1)
     model: str | None = Field(
@@ -93,6 +114,9 @@ class ChatCompletionRequest(OpenAIObject):
     response_format: OpenAIResponseFormat | None = None
     tool_choice: Literal["none", "auto", "required"] | OpenAIToolChoice | None = None
     tools: list[OpenAITool] | None = Field(default=None, min_length=1, max_length=128)
+    stream: bool | None = Field(
+        default=None, description="Set by chat_completion_stream. Leave unset when calling chat_completions."
+    )
 
 
 class OpenAIResponseMessage(OpenAIObject):
@@ -120,6 +144,38 @@ class ChatCompletionResponse(OpenAIObject):
     model: str
     choices: list[OpenAIChoice]
     usage: OpenAIUsage
+
+
+class OpenAIToolCallDelta(OpenAIObject):
+    """A fragment of a tool call. Fragments with the same index belong to the same tool call."""
+
+    index: int
+    id: str | None = None
+    type: Literal["function"] | str | None = None
+    function: OpenAIFunctionCall | None = None
+
+
+class OpenAIDelta(OpenAIObject):
+    role: Literal["assistant"] | str | None = None
+    content: str | None = None
+    tool_calls: list[OpenAIToolCallDelta] | None = None
+
+
+class OpenAIChunkChoice(OpenAIObject):
+    index: int
+    delta: OpenAIDelta
+    finish_reason: Literal["stop", "length", "tool_calls", "content_filter"] | str | None = None
+
+
+class ChatCompletionChunk(OpenAIObject):
+    """A fragment of a streamed chat completion."""
+
+    id: str
+    object: Literal["chat.completion.chunk"] | str = "chat.completion.chunk"
+    created: int = Field(description="Unix timestamp in seconds of when the completion was created.")
+    model: str
+    choices: list[OpenAIChunkChoice]
+    usage: OpenAIUsage | None = None
 
 
 class OpenAIModel(OpenAIObject):

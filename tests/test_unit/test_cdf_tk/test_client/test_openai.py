@@ -6,7 +6,7 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.openai import OpenAIAPI
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.openai import (
     ChatCompletionRequest,
     OpenAIFunction,
@@ -99,12 +99,59 @@ class TestOpenAIAPI:
 
     def test_chat_completions_rejects_stream(self, toolkit_config: ToolkitClientConfig) -> None:
         api = OpenAIAPI(HTTPClient(toolkit_config))
-        request = ChatCompletionRequest.model_validate(
-            {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+        request = ChatCompletionRequest(messages=[OpenAIMessage(role="user", content="Hi")], stream=True)
+
+        with pytest.raises(ValueError, match="chat_completion_stream"):
+            api.chat_completions(request)
+
+    def test_chat_completion_stream(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        api = OpenAIAPI(HTTPClient(toolkit_config))
+        base = {"id": "chatcmpl-1", "object": "chat.completion.chunk", "created": 1715000000, "model": "azure/gpt-4.1"}
+        chunks = [
+            {**base, "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hel"}}]},
+            {**base, "choices": [{"index": 0, "delta": {"content": "lo"}, "finish_reason": "stop"}]},
+        ]
+        route = respx_mock.post(api._make_url("/ai/openai/chat/completions")).mock(
+            return_value=httpx2.Response(
+                200,
+                text=": keep-alive\n\n"
+                + "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks)
+                + "data: [DONE]\n\n",
+                headers={"content-type": "text/event-stream"},
+            )
         )
 
-        with pytest.raises(ValueError, match="Streaming"):
-            api.chat_completions(request)
+        responses = list(
+            api.chat_completion_stream(ChatCompletionRequest(messages=[OpenAIMessage(role="user", content="Hi")]))
+        )
+
+        assert {
+            "accept": route.calls[0].request.headers["accept"],
+            "body": json.loads(route.calls[0].request.content),
+            "chunks": [response.dump() for response in responses],
+        } == {
+            "accept": "text/event-stream",
+            "body": {"messages": [{"role": "user", "content": "Hi"}], "stream": True},
+            "chunks": chunks,
+        }
+
+    def test_chat_completion_stream_raises_on_error(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        api = OpenAIAPI(HTTPClient(toolkit_config))
+        respx_mock.post(api._make_url("/ai/openai/chat/completions")).mock(
+            return_value=httpx2.Response(400, json={"error": {"code": 400, "message": "Unknown model"}})
+        )
+        request = ChatCompletionRequest(messages=[OpenAIMessage(role="user", content="Hi")], model="unknown")
+
+        with pytest.raises(ToolkitAPIError, match="Unknown model"):
+            list(api.chat_completion_stream(request))
+
+    def test_json_schema_response_format_requires_schema(self) -> None:
+        with pytest.raises(ValueError, match="json_schema"):
+            ChatCompletionRequest.model_validate(
+                {"messages": [{"role": "user", "content": "Hi"}], "response_format": {"type": "json_schema"}}
+            )
 
     def test_list_models(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         api = OpenAIAPI(HTTPClient(toolkit_config))
