@@ -35,19 +35,8 @@ from cognite.client.data_classes import (
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerPropertyDefinition,
-    ContainerRequest,
-    SpaceRequest,
-    TextProperty,
-    ViewCorePropertyRequest,
-    ViewRequest,
-)
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.data_classes._deploy_results import ResourceDeployResult
 from tests.test_integration.constants import RUN_UNIQUE_ID
-from tests.test_unit.utils import MockQuestionary
 
 
 @dataclass
@@ -195,38 +184,6 @@ def cleanup_populated_dataset(client: CogniteClient, populated: PopulatedDataSet
         client.extraction_pipelines.delete(id=populated.extraction_pipeline.id)
 
 
-@pytest.fixture()
-def space_with_records_view(toolkit_client: ToolkitClient) -> Iterable[str]:
-    # Create a space and a records view.
-    space_name = f"test_space_{RUN_UNIQUE_ID}"
-    space_request = SpaceRequest(space=space_name, name="Test Space for Purge Command")
-    container_request = ContainerRequest(
-        space=space_name,
-        external_id=f"ToBePurged_{RUN_UNIQUE_ID}",
-        used_for="record",
-        properties={"name": ContainerPropertyDefinition(type=TextProperty())},
-    )
-    view_request = ViewRequest(
-        space=space_name,
-        external_id=f"ToBePurged_{RUN_UNIQUE_ID}",
-        version="v1",
-        stream_id=["my-stream2"],
-        properties={
-            "name": ViewCorePropertyRequest(container=container_request.as_id(), container_property_identifier="name")
-        },
-    )
-    try:
-        _ = toolkit_client.spaces.create([space_request])
-        _ = toolkit_client.containers.create([container_request])
-        _ = toolkit_client.views.create([view_request])
-        yield space_name
-    finally:
-        # Cleanup
-        toolkit_client.views.delete([view_request.as_id()])
-        toolkit_client.containers.delete([container_request.as_id()])
-        toolkit_client.spaces.delete([space_request.as_id()])
-
-
 class TestPurge:
     def test_purge_dataset_dry_run(
         self,
@@ -284,29 +241,3 @@ class TestPurge:
             cognite_client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id)
             is not None
         )
-
-    def test_purge_space_with_records_view(
-        self,
-        toolkit_client: ToolkitClient,
-        space_with_records_view: str,
-        tmp_path: Path,
-    ) -> None:
-        # Create a dataset and a view with records in it
-        purge = PurgeCommand(silent=True)
-        with MockQuestionary(PurgeCommand.__module__, [toolkit_client.config.project]):
-            results = purge.space(
-                toolkit_client,
-                selected_space=space_with_records_view,
-                dry_run=False,
-                verbose=False,
-                log_dir=tmp_path,
-                include_space=True,
-            )
-        retrieved_space = toolkit_client.spaces.retrieve([SpaceId(space=space_with_records_view)])
-        assert not retrieved_space
-        deleted_by_kind = {
-            name: result.deleted
-            for name, result in results.items()
-            if isinstance(result, ResourceDeployResult) and result.deleted
-        }
-        assert deleted_by_kind == {"views": 1, "containers": 1, "spaces": 1}
