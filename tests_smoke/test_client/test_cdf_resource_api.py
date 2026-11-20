@@ -311,6 +311,7 @@ from tests_smoke.constants import (
     SEQUENCE_EXTERNAL_ID,
     SMOKE_SPACE,
     SMOKE_TEST_CONTAINER_EXTERNAL_ID,
+    SMOKE_TEST_STREAM,
     SMOKE_TEST_VIEW_EXTERNAL_ID,
     TIMESERIES_EXTERNAL_ID,
 )
@@ -700,9 +701,7 @@ Used by toolkit smoke tests.
         StreamlitResponse: [
             {"externalId": "smoke-test-streamlit", "name": "Smoke Test Streamlit App", "creator": "doctrino"}
         ],
-        StreamResponse: [
-            {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
-        ],
+        StreamResponse: [{"externalId": SMOKE_TEST_STREAM, "settings": {"template": {"name": "ImmutableTestStream"}}}],
         ThreeDModelClassicResponse: [{"name": "smoke-test-3d-model-classic"}],
         # ThreeDModelDMSResponse: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
         ThreeDRevisionClassicResponse: [{"fileId": -1, "modelId": -1}],
