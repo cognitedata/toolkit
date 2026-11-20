@@ -249,8 +249,15 @@ class CoreApp(typer.Typer):
             ValidateMode,
             typer.Option(
                 "--validate",
-                help="Whether to validate the built configuration files. Options: syntax-only, local, remote, capacity, auto.",
-                hidden=True,  # Not yet exposed in the CLI.
+                help=(
+                    "Which validation to run on the built configuration files. Options: "
+                    "'syntax-only' only builds the files and skips validation rules; "
+                    "'local' runs the validation rules locally without contacting CDF; "
+                    "'remote' runs the same rules as 'local' but with a CDF client available and requires CDF access; "
+                    "'capacity' runs 'remote' and additionally performs a dry-run deploy against CDF to check capacity; "
+                    "'auto' (default) runs the same rules as 'local', but if a CDF client is available it will run 'remote' instead."
+                ),
+                hidden=not Flags.BUILD_VALIDATE.is_enabled(),
             ),
         ] = ValidateMode.auto,
         insight_format: Annotated[

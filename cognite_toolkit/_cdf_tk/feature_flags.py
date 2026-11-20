@@ -128,6 +128,10 @@ class Flags(Enum):
         visible=False,
         description="Enables the check command plugin for checking CDF resources and configurations",
     )
+    BUILD_VALIDATE = FlagMetadata(
+        visible=True,
+        description="Enables setting validation level for build command",
+    )
 
     def is_enabled(self) -> bool:
         if self == Flags.CDF_GROUP_EMAILS:
