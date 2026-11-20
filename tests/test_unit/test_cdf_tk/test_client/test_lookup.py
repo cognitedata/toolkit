@@ -218,7 +218,7 @@ class TestUserLookup:
             },
         )
         client = self._create_client(toolkit_config)
-        users = client.lookup.users
+        users = client.lookup.principals
 
         assert users.email("user-1") == "user1@example.com"
         assert users.email(["user-1", "user-2"]) == ["user1@example.com", "user2@example.com"]
@@ -227,13 +227,42 @@ class TestUserLookup:
 
         assert len(rsps.calls) == 1  # Users are only listed once.
 
+    def test_lookup_service_account_external_id(
+        self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter
+    ) -> None:
+        service_account = {
+            "id": "sa-1",
+            "type": "SERVICE_ACCOUNT",
+            "name": "My service account",
+            "pictureUrl": "https://example.com/picture.png",
+            "externalId": "my_service_account",
+            "createdBy": {"orgId": self.ORG_ID, "userId": "user-1"},
+            "createdTime": 1000000000000,
+            "lastUpdatedTime": 1000000000000,
+        }
+        rsps.get(self._principals_url(toolkit_config)).respond(
+            status_code=200,
+            json={"items": [self._user_principal("user-1", "user1@example.com"), service_account]},
+        )
+        principals = self._create_client(toolkit_config).lookup.principals
+
+        results = (
+            principals.external_id("sa-1"),
+            principals.external_id(["sa-1", "non-existing"]),
+            principals.service_account_id("my_service_account"),
+            principals.email("user-1"),
+            len(rsps.calls),
+        )
+
+        assert results == ("my_service_account", ["my_service_account"], "sa-1", "user1@example.com", 1)
+
     def test_lookup_missing_users(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
         rsps.get(self._principals_url(toolkit_config)).respond(
             status_code=200,
             json={"items": [self._user_principal("user-1", "user1@example.com"), self._user_principal("user-2", None)]},
         )
         client = self._create_client(toolkit_config)
-        users = client.lookup.users
+        users = client.lookup.principals
 
         assert users.email("user-2") is None
         assert users.email("non-existing") is None
@@ -241,8 +270,11 @@ class TestUserLookup:
         assert users.user_id("missing@example.com") is None
         assert users.user_id(("user1@example.com", "missing@example.com")) == ["user-1"]
 
-    def test_fallback_to_user_profiles(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
-        rsps.get(self._principals_url(toolkit_config)).respond(status_code=401)
+    @pytest.mark.parametrize("status_code", [401, 403])
+    def test_fallback_to_user_profiles(
+        self, status_code: int, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter
+    ) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(status_code=status_code)
         rsps.get(toolkit_config.create_api_url("/profiles")).respond(
             status_code=200,
             json={
@@ -253,7 +285,7 @@ class TestUserLookup:
             },
         )
         client = self._create_client(toolkit_config)
-        users = client.lookup.users
+        users = client.lookup.principals
 
         assert users.email("user-1") == "user1@example.com"
         assert users.user_id(["user2@example.com"]) == ["user-2"]
@@ -263,7 +295,7 @@ class TestUserLookup:
         client = self._create_client(toolkit_config)
 
         with pytest.raises(ToolkitAPIError):
-            client.lookup.users.email("user-1")
+            client.lookup.principals.email("user-1")
 
     def test_missing_access(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
         rsps.get(self._principals_url(toolkit_config)).respond(status_code=401)
@@ -278,6 +310,6 @@ class TestUserLookup:
         client = self._create_client(toolkit_config)
 
         with pytest.raises(AuthorizationError) as exc_info:
-            client.lookup.users.email("user-1")
+            client.lookup.principals.email("user-1")
 
         assert UserProfilesAcl.__name__ in str(exc_info.value)

@@ -53,8 +53,8 @@ def wide_console(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def client() -> Iterator[ToolkitClientMock]:
     with monkeypatch_toolkit_client() as client:
-        client.lookup.users = MagicMock()
-        client.lookup.users.email.return_value = "bob@example.com"
+        client.lookup.principals = MagicMock()
+        client.lookup.principals.email.return_value = "bob@example.com"
         client.instances.list.return_value = []
         client.instances.create.return_value = []
         yield client
@@ -102,7 +102,7 @@ class TestModuleLockCommand:
         self, client: ToolkitClientMock, capsys: pytest.CaptureFixture[str]
     ) -> None:
         client.instances.list.return_value = [_lock_node("active")]
-        client.lookup.users.email.side_effect = ToolkitAPIError("Forbidden", code=403)
+        client.lookup.principals.email.side_effect = ToolkitAPIError("Forbidden", code=403)
 
         ModuleLockCommand(skip_tracking=True).locks(client, unlock=False)
 
