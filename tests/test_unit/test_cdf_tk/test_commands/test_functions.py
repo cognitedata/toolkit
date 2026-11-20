@@ -155,3 +155,23 @@ class TestOverwriteGuard:
             assert 'FunctionApp(title="Updated Name"' in handler_path.read_text()
         else:
             assert handler_path.read_text() == original_content
+
+
+class TestFunctionAppScaffolds:
+    @pytest.mark.parametrize(
+        "enabled, expected_kind",
+        [(False, "function"), (True, "functionapp")],
+    )
+    def test_function_app_scaffold_uses_flagged_resource_kind(
+        self, monkeypatch: MonkeyPatch, enabled: bool, expected_kind: str
+    ) -> None:
+        from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds
+        from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
+
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: enabled)
+        scaffolds = get_scaffolds()
+
+        assert "function" in scaffolds
+        assert scaffolds["function"][0].label == "Function"
+        assert [variant.label for variant in scaffolds[expected_kind]].count("Function App") == 1
+        assert sum(variant.label == "Function App" for variants in scaffolds.values() for variant in variants) == 1

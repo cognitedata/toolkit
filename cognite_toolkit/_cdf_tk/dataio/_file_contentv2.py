@@ -681,7 +681,7 @@ class CogniteFileContentIO(
         return self.json_to_resource(json_item)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> CogniteFileRequest:
-        # CogniteFileCRUD.load_resource only restores filepath from YAML-side cache; table/template
+        # CogniteFileIO.load_resource only restores filepath from YAML-side cache; table/template
         # uploads must take $FILEPATH from the row payload explicitly.
         payload = dict(item_json)
         raw_path = payload.pop(FILEPATH, None)
