@@ -59,7 +59,6 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
     load_yaml_inject_variables,
-    sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
@@ -128,10 +127,6 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -473,17 +468,6 @@ class WorkflowVersionIO(
                 yield from versions
 
     @classmethod
-    def as_filename(cls, id: WorkflowVersionId) -> str:
-        if id.version is None:
-            version = ""
-        elif id.version.startswith("v"):
-            version = f"_{id.version}"
-        else:
-            version = f"_v{id.version}"
-
-        return sanitize_filename(f"{id.workflow_external_id}{version}")
-
-    @classmethod
     def topological_sort(cls, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionRequest]:
         workflow_by_id: dict[WorkflowVersionId, WorkflowVersionRequest] = {item.as_id(): item for item in items}
         dependencies: dict[WorkflowVersionId, set[WorkflowVersionId]] = {}
@@ -542,10 +526,6 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[WorkflowTriggerRequest]) -> ScopeDefinition | None:
