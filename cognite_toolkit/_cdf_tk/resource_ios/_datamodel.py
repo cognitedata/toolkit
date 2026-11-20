@@ -978,7 +978,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        # By default, only node and edge views are returned,\n        # but we want all views. Note that 'all' means 'node' and 'edge' in the API.
+        # By default, only node and edge views are returned,
+        # but we want all views. Note that 'all' means 'node' and 'edge' in the API.
         filter_ = ViewFilter(space=space, all_versions=True, used_for=["node", "edge", "all", "record"])
         for batch in self.client.views.iterate(filter=filter_, limit=None):
             yield from batch
