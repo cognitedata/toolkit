@@ -1,7 +1,7 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 from unittest import mock
 
 import pytest
@@ -15,7 +15,13 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError, ToolkitMissingValueError
 from tests.test_unit.utils import MockQuestionary
 
-PROJECT_AND_CLUSTER = {
+
+class ProjectAndCluster(TypedDict):
+    CDF_CLUSTER: str
+    CDF_PROJECT: str
+
+
+PROJECT_AND_CLUSTER: ProjectAndCluster = {
     "CDF_CLUSTER": "toolkit-cluster",
     "CDF_PROJECT": "the-toolkit-project",
 }
@@ -108,15 +114,13 @@ class TestEnvironmentVariables:
         assert not missing_env_vars, f"Missing environment variables: {missing_env_vars}"
 
     def test_get_missing_vars(self) -> None:
-        args = {
-            **PROJECT_AND_CLUSTER,
-            "LOGIN_FLOW": "client_credentials",
-            "PROVIDER": "entra_id",
-            "IDP_CLIENT_ID": "my-identifier",
-        }
-
         with pytest.raises(ToolkitMissingValueError) as error:
-            _ = EnvironmentVariables(**args).get_config(is_strict_validation=True)
+            _ = EnvironmentVariables(
+                **PROJECT_AND_CLUSTER,
+                LOGIN_FLOW="client_credentials",
+                PROVIDER="entra_id",
+                IDP_CLIENT_ID="my-identifier",
+            ).get_config(is_strict_validation=True)
 
         assert (
             str(error.value) == "The login flow 'client_credentials' requires the following environment variables: "
@@ -149,12 +153,49 @@ class TestEnvironmentVariables:
         assert env_vars.CDF_CLIENT_TIMEOUT == 10
         assert env_vars.CDF_CLIENT_MAX_WORKERS == 5000
 
+    @pytest.mark.parametrize(
+        "token_url, expected",
+        [
+            pytest.param(None, "https://auth.cognite.com/oauth2/token", id="cdf default"),
+            pytest.param("https://my-idp.example.com/token", "https://my-idp.example.com/token", id="explicit url"),
+        ],
+    )
+    def test_idp_token_url_cdf_provider(self, token_url: str | None, expected: str) -> None:
+        env_vars = EnvironmentVariables(
+            **PROJECT_AND_CLUSTER,
+            PROVIDER="cdf",
+            LOGIN_FLOW="client_credentials",
+            IDP_TOKEN_URL=token_url,
+        )
+
+        assert env_vars.idp_token_url == expected
+
+    @pytest.mark.parametrize(
+        "cdf_url, expected_cluster",
+        [
+            pytest.param("https://westeurope-1.cognitedata.com", "westeurope-1", id="standard url"),
+            pytest.param("https://acme.plink.westeurope-1.cognitedata.com", "westeurope-1", id="private link"),
+            pytest.param("https://cdf.example.com", None, id="custom url"),
+        ],
+    )
+    def test_cluster_derived_from_cdf_url(self, cdf_url: str, expected_cluster: str | None) -> None:
+        with mock.patch.dict(os.environ, {"CDF_PROJECT": "my-project", "CDF_URL": cdf_url}, clear=True):
+            env_vars = EnvironmentVariables.create_from_environment()
+
+        assert env_vars.attempt_to_get_cdf_cluster() == expected_cluster
+
+    def test_cdf_cluster_missing_raises(self) -> None:
+        env_vars = EnvironmentVariables(CDF_PROJECT="my-project", CDF_URL="https://cdf.example.com")
+
+        with pytest.raises(ToolkitMissingValueError, match="CDF_CLUSTER is missing"):
+            _ = env_vars.idp_scopes
+
     def test_create_dot_env_file(self) -> None:
         env_vars = EnvironmentVariables(
-            "bluefield",
-            "cognite-toolkit",
-            "entra_id",
-            "client_credentials",
+            CDF_CLUSTER="bluefield",
+            CDF_PROJECT="cognite-toolkit",
+            PROVIDER="entra_id",
+            LOGIN_FLOW="client_credentials",
             IDP_CLIENT_ID="my-identifier",
             IDP_CLIENT_SECRET="my-secret",
             IDP_TENANT_ID="my_tenant.onmicrosoft.com",
@@ -184,7 +225,7 @@ CDF_CLIENT_MAX_WORKERS=5
         )
 
     def test_get_credentials_session_uses_persisted_access_token(self, sample_keyring: Path, cli_home: Path) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         StoredSession(
             version=COGNITE_CLI_SESSION_VERSION,
             org="my-org",
@@ -208,7 +249,7 @@ CDF_CLIENT_MAX_WORKERS=5
         self, sample_keyring: Path, cli_home: Path, cogidp_http
     ) -> None:
         cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         StoredSession(
             version=COGNITE_CLI_SESSION_VERSION,
             org="my-org",
@@ -241,7 +282,7 @@ CDF_CLIENT_MAX_WORKERS=5
             env_vars.get_credentials()
 
     def test_get_credentials_session_expired_raises(self, sample_keyring: Path, cli_home: Path) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         StoredSession(
             version=COGNITE_CLI_SESSION_VERSION,
             org="my-org",
@@ -271,7 +312,6 @@ class TestPromptUserEnvironmentVariables:
         # IDP_TENANT_ID=my-tenant, optional vars unchanged
         with MockQuestionary(
             AUTH_MODULE,
-            monkeypatch,
             answers=[
                 "entra_id",  # provider select
                 "device_code",  # login flow select — this is the new default
@@ -289,6 +329,29 @@ class TestPromptUserEnvironmentVariables:
         assert env.CDF_PROJECT == "my-project"
         assert env.IDP_TENANT_ID == "my-tenant.onmicrosoft.com"
         assert not env.get_missing_vars()
+
+    def test_keeps_cdf_url_when_cluster_derived_from_url_is_unchanged(self) -> None:
+        cdf_url = "https://acme.plink.westeurope-1.cognitedata.com"
+        current = EnvironmentVariables(
+            CDF_PROJECT="my-project",
+            CDF_URL=cdf_url,
+            PROVIDER="entra_id",
+            LOGIN_FLOW="device_code",
+            IDP_TENANT_ID="my-tenant.onmicrosoft.com",
+        )
+        with MockQuestionary(
+            AUTH_MODULE,
+            answers=[
+                "entra_id",  # provider select
+                "westeurope-1",  # CDF cluster, the default derived from CDF_URL
+                "my-project",  # CDF project
+                "my-tenant.onmicrosoft.com",  # IDP_TENANT_ID
+                False,  # "change optional vars?"
+            ],
+        ):
+            env = prompt_user_environment_variables(current=current, login_flow="device_code")
+
+        assert env.cdf_url == cdf_url
 
 
 class TestParseLoginFlow:

@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
+from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
@@ -40,6 +41,9 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
     AppVersionId,
+    ContainerConstraintId,
+    ContainerIndexId,
+    ContainerPropertyId,
     ExternalId,
     InternalId,
     PrincipalId,
@@ -238,8 +242,8 @@ class TestCDFResourceAPI:
         assert created[0].dump() == resource
 
         # Test retrieve
-        respx_mock.get(config.create_api_url(f"/dataproducts/{instance.external_id}")).mock(
-            return_value=httpx2.Response(status_code=200, json=resource)
+        respx_mock.post(config.create_api_url("/dataproducts/byids")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([request.as_id()])
         assert len(retrieved) == 1
@@ -481,15 +485,15 @@ class TestCDFResourceAPI:
         items = [item for batch in iterated for item in batch]
         assert items[0].dump() == instance.dump()
 
-        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["title"], "value": "x"}})
+        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["author"], "value": "x"}})
         assert len(search_page.items) == 1
         assert search_page.items[0].item.dump() == instance.dump()
 
         assert api.count() == 11
-        assert api.cardinality(("title",)) == 11
+        assert api.cardinality(("author",)) == 11
         assert api.cardinality(("sourceFile", "metadata")) == 11
 
-        unique_title = api.unique(("title",), limit=50)
+        unique_title = api.unique(("author",), limit=50)
         assert len(unique_title) == 1
         assert unique_title[0].count == 2
         assert unique_title[0].values == ["a"]
@@ -507,9 +511,9 @@ class TestCDFResourceAPI:
         with pytest.raises(ValueError, match="limit must be at most 20"):
             api.search(limit=21, highlight=True)
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
-            api.unique(("title",), limit=0)
+            api.unique(("author",), limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
-            api.unique(("title",), limit=10001)
+            api.unique(("author",), limit=10001)
 
     def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
@@ -1785,6 +1789,58 @@ description: Smoke test skill
         assert listed[0].dump() == listed_session
         assert isinstance(listed[0], SessionResponse)
         assert dict(respx_mock.calls[-1].request.url.params) == {"status": "ACTIVE", "limit": "25"}
+
+    @pytest.mark.parametrize(
+        "method_name, path, id_cls",
+        [
+            pytest.param(
+                "delete_constraints",
+                "/models/containers/constraints/delete",
+                ContainerConstraintId,
+                id="delete_constraints",
+            ),
+            pytest.param("delete_indexes", "/models/containers/indexes/delete", ContainerIndexId, id="delete_indexes"),
+            pytest.param(
+                "retry_constraints",
+                "/models/containers/constraints/retry",
+                ContainerConstraintId,
+                id="retry_constraints",
+            ),
+            pytest.param("retry_indexes", "/models/containers/indexes/retry", ContainerIndexId, id="retry_indexes"),
+            pytest.param(
+                "retry_property_constraints",
+                "/models/containers/properties/retry",
+                ContainerPropertyId,
+                id="retry_property_constraints",
+            ),
+        ],
+    )
+    def test_containers_api_constraint_and_index_endpoints(
+        self,
+        method_name: str,
+        path: str,
+        id_cls: type[ContainerConstraintId | ContainerIndexId | ContainerPropertyId],
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+        api = ContainersAPI(HTTPClient(config))
+        ids = [id_cls(space="my_space", external_id="my_container", identifier=f"id_{i}") for i in range(12)]
+
+        def echo(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(status_code=200, json=_request_json(request))
+
+        route = respx_mock.post(config.create_api_url(path)).mock(side_effect=echo)
+
+        result = getattr(api, method_name)(ids)
+
+        assert route.call_count == 2  # Chunked by 10
+        assert _request_json(route.calls[0].request) == {
+            "items": [
+                {"space": "my_space", "containerExternalId": "my_container", "identifier": f"id_{i}"} for i in range(10)
+            ]
+        }
+        assert result == ids
 
 
 def _request_json(request: httpx2.Request) -> JsonValue:

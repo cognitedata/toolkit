@@ -28,7 +28,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TextProperty,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductInstanceScope
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -89,6 +90,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorDestinationIO,
     HostedExtractorJobIO,
     HostedExtractorSourceIO,
     InFieldCDMLocationConfigIO,
@@ -100,7 +102,8 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowVersionIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
+from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
 from tests.utils import to_deploy_status
@@ -108,7 +111,7 @@ from tests.utils import to_deploy_status
 
 class TestFunctionScheduleLoader:
     # The function schedule service is fairly unstable, so we need to rerun the tests if they fail.
-    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_update_function_schedule(
         self,
         toolkit_client: ToolkitClient,
@@ -423,7 +426,7 @@ timeSeriesIds:
 - {three_timeseries[1].external_id}
 - {three_timeseries[2].external_id}
 """
-        loader = DatapointSubscriptionIO.create_io(toolkit_client)
+        loader = DatapointSubscriptionIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -679,7 +682,7 @@ class TestGroupLoader:
             group_id = created_group.as_request_resource().as_id()
             toolkit_client.timeseries.delete([to_delete.as_id()])
 
-            loader = GroupIO.create_io(toolkit_client)
+            loader = GroupIO(toolkit_client)
 
             dumped = loader.dump_resource(created_group)
             assert "capabilities" in dumped
@@ -718,10 +721,10 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client)
+            warning_list: list[ToolkitWarning] = []
+            loader = WorkflowVersionIO(client, on_warning=warning_list.append)
 
-            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
-                loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
+            loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
             definition = loader.load_resource(loaded[0])
 
         assert len(definition.workflow_definition.tasks) == 2
@@ -749,7 +752,7 @@ workflowDefinition:
         externalId: some_transformation
     retries: null
 """
-        loader = WorkflowVersionIO.create_io(toolkit_client)
+        loader = WorkflowVersionIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -772,7 +775,7 @@ authentication:
   clientSecret: ${IDP_CLIENT_SECRET}
 """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -807,7 +810,7 @@ authentication:
     clientSecret: ${IDP_CLIENT_SECRET}
         """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -858,7 +861,7 @@ authentication:
             for i in range(1, N + 1)
         ]
 
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = "\n".join(definition_yaml)
 
@@ -895,7 +898,7 @@ ignoreNullFields: true
         self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
     ) -> None:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        crud = TransformationIO.create_io(toolkit_client)
+        crud = TransformationIO(toolkit_client)
 
         assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -970,7 +973,7 @@ properties:
       type: container
     containerPropertyIdentifier: name
         """
-        loader = ViewIO.create_io(toolkit_client)
+        loader = ViewIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -1093,7 +1096,7 @@ source: here
 documentation: To Do
 createdBy: null
 """
-        io = ExtractionPipelineIO.create_io(toolkit_client)
+        io = ExtractionPipelineIO(toolkit_client)
         raw_data = load_local_yaml(definition_yaml, io)
         cdf_resource = io.load_resource(deepcopy(raw_data))
         retrieved = io.retrieve([cdf_resource.as_id()])
@@ -1155,6 +1158,47 @@ class TestSkillIO:
             assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
             loader.delete([original.as_id()])
+
+
+class TestDataProductIO:
+    def test_unchanged_data_product_without_instance_scope_not_redeployed(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient
+    ) -> None:
+        external_id = "test_unchanged_data_product_not_redeployed"
+        # The schema space defaults to the externalId, and the test credentials cannot let the API create it.
+        cognite_client.data_modeling.spaces.apply(dm.SpaceApply(space=external_id))
+        local_yaml_content = f"""
+        externalId: {external_id}
+        name: Unchanged data product
+        description: Data product with an instanceScope that is not set locally
+        """
+        io = DataProductIO(toolkit_client)
+        raw_data = load_local_yaml(local_yaml_content, io)
+        data_product = io.load_resource(raw_data)
+        # The instanceScope is set outside the local YAML, for example, in the CDF UI.
+        cdf_data_product = data_product.model_copy(
+            update={
+                "instance_scope": [
+                    DataProductInstanceScope(
+                        source=ViewNoVersionId(space="cdf_cdm", external_id="CogniteAsset"), read=[external_id]
+                    )
+                ]
+            }
+        )
+        retrieved = io.retrieve([data_product.as_id()])
+        if len(retrieved) == 0 or not retrieved[0].instance_scope:
+            try:
+                if len(retrieved) == 0:
+                    io.create([cdf_data_product])
+                else:
+                    io.update([cdf_data_product])
+            except ToolkitAPIError as e:
+                if e.code == 403 and "Permissions API is not enabled" in str(e):
+                    pytest.skip("The Data Product Permissions API is not enabled on the test project.")
+                raise
+            retrieved = io.retrieve([data_product.as_id()])
+        assert retrieved[0].instance_scope, "The data product in CDF should have an instanceScope"
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class TestHostedExtractorSourceIO:
@@ -1427,6 +1471,34 @@ def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> Ho
     created = toolkit_client.hosted_extractors.destinations.create([destination])
     assert len(created) == 1
     return created[0]
+
+
+class TestHostedExtractorDestinationIO:
+    def test_no_redeploy_unchanged(self, toolkit_client: ToolkitClient) -> None:
+        credentials = toolkit_client.config.credentials
+        if not isinstance(credentials, OAuthClientCredentials):
+            pytest.skip("This test requires OAuthClientCredentials to run")
+
+        io = HostedExtractorDestinationIO(toolkit_client)
+
+        content = f"""externalId: test_no_redeploy_unchanged_destination
+name: Test No Redeploy Unchanged Destination
+description: Integration test destination
+credentials:
+  clientId: {credentials.client_id}
+  clientSecret: {credentials.client_secret}
+"""
+        raw_data = load_local_yaml(content, io)
+        cdf_destination = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_destination.as_id()])
+        if len(retrieved) == 0:
+            # Create the destination if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_destination])
+            assert len(retrieved) == 1
+        elif retrieved[0].metadata != cdf_destination.metadata:
+            retrieved = io.update([cdf_destination])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class TestHosedExtractorJobIO:

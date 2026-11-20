@@ -1,6 +1,6 @@
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
-from pydantic import BeforeValidator, ConfigDict, JsonValue, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
+
+HostedExtractorJobTargetStatus: TypeAlias = Literal["running", "paused"]
 
 
 class JobFormatDefinition(BaseModelObject):
@@ -30,7 +32,7 @@ class CogniteFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class CustomFormat(JobFormatDefinition):
@@ -45,7 +47,7 @@ class RockwellFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class ValueFormat(JobFormatDefinition):
@@ -53,7 +55,7 @@ class ValueFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class SparkplugFormat(JobFormatDefinition):
@@ -61,7 +63,7 @@ class SparkplugFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class UnknownJobFormat(JobFormatDefinition):
@@ -193,6 +195,9 @@ class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
     # does not support setting config to null.
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"config"})
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+    # The create endpoint does not accept these, they can only be set with an update.
+    target_status: HostedExtractorJobTargetStatus | None = Field(default=None, exclude=True)
+    dlq_enabled: bool | None = Field(default=None, exclude=True)
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update_item = super().as_update(mode=mode)
@@ -200,14 +205,70 @@ class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
         update_item["update"]["format"] = {
             "set": self.format.model_dump(mode="json", exclude_none=True, by_alias=True, exclude_unset=exclude_unset)
         }
+        if self.target_status is not None:
+            update_item["update"]["targetStatus"] = {"set": self.target_status}
+        if self.dlq_enabled is not None:
+            update_item["update"]["dlqEnabled"] = {"set": self.dlq_enabled}
         return update_item
 
 
 class HostedExtractorJobResponse(HostedExtractorJob, ResponseResource[HostedExtractorJobRequest]):
     status: str | None = None
+    target_status: HostedExtractorJobTargetStatus | str | None = None
+    dlq_enabled: bool | None = None
     created_time: int
     last_updated_time: int
 
     @classmethod
     def request_cls(cls) -> type[HostedExtractorJobRequest]:
         return HostedExtractorJobRequest
+
+
+HostedExtractorJobLogType: TypeAlias = Literal[
+    "paused", "startup_error", "connection_error", "connected", "transform_error", "cdf_write_error", "ok"
+]
+
+
+class HostedExtractorJobLogResponse(BaseModelObject):
+    """A log entry of a hosted extractor job."""
+
+    job_external_id: str
+    type: HostedExtractorJobLogType | str
+    created_time: int
+    message: str | None = None
+
+
+class HostedExtractorJobMetricsResponse(BaseModelObject):
+    """The metrics of a hosted extractor job, from the start of the UTC hour of the timestamp to the timestamp."""
+
+    job_external_id: str
+    timestamp: int
+    source_messages: int
+    source_bytes: int
+    cdf_input_values: int
+    cdf_requests: int
+    transform_failures: int
+    cdf_write_failures: int
+    cdf_skipped_values: int
+    cdf_failed_values: int
+    cdf_uploaded_values: int
+
+
+class HostedExtractorDLQColumns(BaseModelObject):
+    """The columns of a dead letter queue message, stored as a row in CDF RAW."""
+
+    timestamp: str
+    job_id: int
+    error: str
+    error_category: str
+    mapping_external_id: str | None = None
+    raw_payload: str | None = None
+    decoded_payload: str | None = None
+    metadata: str | None = None
+
+
+class HostedExtractorDLQMessageResponse(BaseModelObject):
+    """A message a hosted extractor job failed to transform."""
+
+    key: str
+    columns: HostedExtractorDLQColumns

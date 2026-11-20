@@ -3,10 +3,9 @@ import io
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
-    ConsistencyError,
     InsightList,
     Recommendation,
 )
@@ -17,7 +16,7 @@ from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 def some_insights(valid_yaml_absolute_path) -> InsightList:
     return InsightList(
         [
-            ConsistencyError(
+            BuildError(
                 message="summary line\nnext line",
                 code="INVALID-FIELD",
                 fix="do this\r\nthen that",
@@ -68,7 +67,22 @@ class TestInsightList:
     def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
         insight = BuildError(message="m", code="INVALID-VALUE", source_file=valid_yaml_absolute_path, line=3, column=6)
 
-        assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
+        assert insight.display_location == f"{insight.display_source}:3:6"
+
+    def test_source_url_round_trips(self, valid_yaml_absolute_path) -> None:
+        insights = InsightList([BuildError(message="m", code="INVALID-VALUE", source_url="/models/views", line=3)])
+        organization_dir = valid_yaml_absolute_path.parent.parent
+
+        loaded = InsightList.from_csv(insights.to_csv(), organization_dir)
+
+        assert [(insight.source_url, insight.display_location) for insight in loaded] == [
+            ("/models/views", "/models/views:3")
+        ]
+
+    @pytest.mark.parametrize("sources", [{}, {"source_url": "/models/views", "source_file": "a.yaml"}])
+    def test_exactly_one_source_required(self, sources: dict[str, str]) -> None:
+        with pytest.raises(ValueError, match="Exactly one of source_file and source_url"):
+            BuildError.model_validate({"message": "m", "code": "INVALID-VALUE", **sources})
 
     def test_position_round_trips_through_csv(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
@@ -92,9 +106,10 @@ class TestInsightList:
         rows = list(csv.DictReader(io.StringIO(csv_text), dialect=csv.unix_dialect))
         assert rows == [
             {
-                "insight_type": "ConsistencyError",
+                "insight_type": "Error",
                 "code": "INVALID-FIELD",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),
+                "source_url": "",
                 "line": "",
                 "column": "",
                 "message": "summary line\nnext line",
@@ -105,6 +120,7 @@ class TestInsightList:
                 "insight_type": "Recommendation",
                 "code": "INVALID-VALUE",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),
+                "source_url": "",
                 "line": "",
                 "column": "",
                 "message": 'text with "quotes" and, commas',

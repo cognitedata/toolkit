@@ -57,6 +57,7 @@ from .aggregators import (
     AssetCentricAggregator,
     EventAggregator,
     FileAggregator,
+    SequenceAggregator,
     TimeSeriesAggregator,
 )
 from .time import ms_to_datetime
@@ -263,6 +264,29 @@ class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
 class EventInteractiveSelect(AssetCentricInteractiveSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return EventAggregator(self.client)
+
+
+class SequenceInteractiveSelect(AssetCentricInteractiveSelect):
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        return SequenceAggregator(self.client)
+
+    def select_sequences(self) -> list[str]:
+        """Select a data set, and then the sequences in it, returning their external IDs."""
+        data_set = self.select_data_set()
+        choices = [
+            Choice(title=f"{sequence.name} ({sequence.external_id})", value=sequence.external_id)
+            if sequence.name and sequence.name != sequence.external_id
+            else Choice(title=f"({sequence.external_id})", value=sequence.external_id)
+            for sequence in self.client.sequences.list(data_set_external_ids=[data_set], limit=None)
+            if sequence.external_id
+        ]
+        if not choices:
+            raise ToolkitValueError(f"No sequences with an external ID found in data set {data_set!r}.")
+        return questionary.checkbox(
+            f"Select sequences to {self.operation} listed as 'name (external_id)'",
+            choices=choices,
+            validate=lambda selected: "You must select at least one." if not selected else True,
+        ).unsafe_ask()
 
 
 class RawTableInteractiveSelect:
@@ -513,6 +537,8 @@ class ViewSelectFilter:
     Args:
         strategy: The strategy used to create the view options.
             - "SchemaSpace": Ask the user to select a schema space first.
+            - "dataModel": Ask the user to select a data model first.
+            - "all": List all views directly.
         include_global: Whether to include global views in the options.
         schema_space : The schema space to look for view in.
         instance_type: If set, only include views that can be used for the given instance type ("node", "edge", or "all").
@@ -520,7 +546,7 @@ class ViewSelectFilter:
 
     """
 
-    strategy: Literal["schemaSpace", "dataModel"] = "schemaSpace"
+    strategy: Literal["schemaSpace", "dataModel", "all"] = "schemaSpace"
     include_global: bool | None = None
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
@@ -606,7 +632,9 @@ class DataModelingSelect:
                 raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
             return selected_views
         else:
-            selected_views = questionary.select(question, choices=choices).unsafe_ask()
+            selected_views = questionary.select(
+                question, choices=choices, use_search_filter=True, use_jk_keys=False
+            ).unsafe_ask()
             if not isinstance(selected_views, ViewResponse):
                 raise ToolkitValueError(f"Selected view is not a valid View object: {selected_views!r}")
             return selected_views
@@ -648,6 +676,15 @@ class DataModelingSelect:
             # Skip downloading parent views that belong to system (global) spaces
             parents = {parent for view in views for parent in view.implements or [] if parent in global_view_ids}
             views = [view for view in views if view.as_id() not in parents]
+        elif filter.strategy == "all":
+            views = self.client.views.list(
+                filter=ViewFilter(
+                    space=filter.schema_space,
+                    include_inherited_properties=True,
+                    include_global=filter.include_global,
+                ),
+                limit=None,
+            )
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
         views = [
@@ -718,7 +755,7 @@ class DataModelingSelect:
         schema_spaces = {
             space
             for space, stats in self.stats_by_space.items()
-            if (stats.containers + stats.views + stats.data_models) > 0
+            if (stats.total_containers + stats.views + stats.data_models) > 0
         }
         spaces = [space for space in spaces if space.space in schema_spaces or space.is_global]
         if not spaces:
@@ -820,7 +857,7 @@ class DataModelingSelect:
                 if (stats.nodes + stats.edges) > 0
                 or (
                     include_empty
-                    and (stats.nodes + stats.edges + stats.containers + stats.views + stats.data_models) == 0
+                    and (stats.nodes + stats.edges + stats.total_containers + stats.views + stats.data_models) == 0
                 )
             }
 
@@ -859,7 +896,7 @@ class DataModelingSelect:
         empty_spaces = [
             space
             for space, stats in self.stats_by_space.items()
-            if (stats.nodes + stats.edges + stats.containers + stats.views + stats.data_models) == 0
+            if (stats.nodes + stats.edges + stats.total_containers + stats.views + stats.data_models) == 0
         ]
         if not empty_spaces:
             raise ToolkitMissingResourceError("No empty spaces found.")
@@ -1130,7 +1167,7 @@ class RecordInteractiveSelect:
         return selected_stream
 
     def select_containers(self) -> list[ContainerResponse]:
-        record_containers = self.client.containers.list(filter=ContainerFilter(used_for="record"))
+        record_containers = self.client.containers.list(filter=ContainerFilter(used_for=["record"]))
         if not record_containers:
             raise ToolkitValueError("No record containers found in the project.")
         selected_containers = questionary.checkbox(

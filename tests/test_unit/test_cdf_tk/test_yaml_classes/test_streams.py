@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.resource_ios import StreamIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.streams import StreamYAML
@@ -23,13 +24,6 @@ def invalid_stream_test_cases() -> Iterable:
         id="Missing required field: settings",
     )
     yield pytest.param(
-        {"externalId": "test-stream", "settings": {"template": {"name": "InvalidTemplate"}}},
-        {
-            "Unrecognized value for settings.template.name: Expected one of 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
-        },
-        id="Invalid template name",
-    )
-    yield pytest.param(
         {
             "externalId": "test-stream",
             "settings": {"template": {"name": "ImmutableTestStream"}},
@@ -40,7 +34,7 @@ def invalid_stream_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"names": "ImmutableTestStream"}}},
-        {"Unrecognized value for settings.template.names[key]: Expected 'name'. Got 'names'."},
+        {"Missing required field in settings.template: 'name'", "Unrecognized field in settings.template: 'names'. "},
         id="wrong template dictionary format",
     )
     yield pytest.param(
@@ -105,3 +99,25 @@ class TestStreamYAML:
     def test_load_valid_stream(self, data: dict[str, object]) -> None:
         loaded = StreamYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        assert loaded.extra_insights(Path("test.yaml"), StreamIO.as_resource_type()) == []
+
+    def test_custom_template_syntax_warning(self) -> None:
+        stream = StreamYAML.model_validate(
+            {
+                "externalId": "test-stream",
+                "settings": {"template": {"name": "CustomTemplate"}},
+            }
+        )
+        warnings = stream.extra_insights(Path("test.yaml"), StreamIO.as_resource_type())
+        assert len(warnings) == 1
+
+    def test_custom_template_warning_has_position(self, tmp_path: Path) -> None:
+        source = tmp_path / "stream.Streams.yaml"
+        source.write_text("externalId: test-stream\nsettings:\n  template:\n    name: CustomTemplate\n")
+        stream = StreamYAML.model_validate(
+            {"externalId": "test-stream", "settings": {"template": {"name": "CustomTemplate"}}}
+        )
+
+        warnings = stream.extra_insights(source, StreamIO.as_resource_type())
+
+        assert [(warning.line, warning.column) for warning in warnings] == [(4, 11)]

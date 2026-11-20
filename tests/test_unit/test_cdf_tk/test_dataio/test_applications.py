@@ -1,13 +1,15 @@
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     ContainerReferenceItem,
@@ -39,6 +41,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ChartOwnerSelector,
     ChartSelector,
 )
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 _CHART_TS_EXTERNAL_ID = "shared_ts_ext"
@@ -583,3 +586,49 @@ class TestCanvasIO:
             container_refs = dumped.get("containerReferences", [])
             assert isinstance(container_refs, list)
             assert len(container_refs) == 0, "Container reference with missing resource should be skipped."
+
+    def test_check_view_references(self, tmp_path: Path) -> None:
+        def fdm_reference(space: str, external_id: str, version: str) -> dict[str, JsonVal]:
+            return {
+                "externalId": f"ref_{external_id}_{version}",
+                "sources": [
+                    {
+                        "source": {"space": "cdf_industrial_canvas", "externalId": "FdmInstanceContainerReference"},
+                        "properties": {
+                            "containerReferenceType": "fdmInstance",
+                            "viewSpace": space,
+                            "viewExternalId": external_id,
+                            "viewVersion": version,
+                        },
+                    }
+                ],
+            }
+
+        canvases = [
+            {"name": "Canvas A", "fdmInstanceContainerReferences": [fdm_reference("cdf_cdm", "CogniteAsset", "v1")]},
+            {"name": "Canvas B", "fdmInstanceContainerReferences": [fdm_reference("cdf_cdm", "CogniteAsset", "v2")]},
+            {"name": "Canvas C", "fdmInstanceContainerReferences": [fdm_reference("my_space", "MyPump", "v1")]},
+        ]
+        canvas_file = tmp_path / "canvas.IndustrialCanvas.ndjson"
+        canvas_file.write_text("\n".join(json.dumps(canvas) for canvas in canvases), encoding="utf-8")
+        existing_view = MagicMock()
+        existing_view.as_id.return_value = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
+
+        with monkeypatch_toolkit_client() as client:
+            client.views.retrieve.return_value = [existing_view]
+            warnings = CanvasIO(client).check_view_references(MultiFileReader([canvas_file]))
+
+        assert [(type(warning).__name__, warning.get_message()) for warning in warnings] == [
+            (
+                "MediumSeverityWarning",
+                "The canvases reference multiple versions of the same view. Make sure each canvas "
+                "targets the intended view version:\n  cdf_cdm:CogniteAsset: v1 in 'Canvas A'; v2 in 'Canvas B'",
+            ),
+            (
+                "HighSeverityWarning",
+                "The canvases reference views that do not exist in the CDF project 'pytest-project'. "
+                "Deploy the data models with these views, otherwise the canvases cannot display the "
+                "referenced instances:\n  cdf_cdm:CogniteAsset(version=v2) in 'Canvas B'\n"
+                "  my_space:MyPump(version=v1) in 'Canvas C'",
+            ),
+        ]

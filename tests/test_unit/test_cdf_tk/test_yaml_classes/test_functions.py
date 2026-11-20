@@ -19,7 +19,7 @@ def invalid_function_test_cases() -> Iterable:
         {
             "externalId": "my_function",
             "name": "my_function",
-            "secrets": {f"secret_name{i}": f"super_secret{i}" for i in range(31)},
+            "secrets": {f"secret-name{i}": f"super_secret{i}" for i in range(31)},
         },
         {
             "Invalid value for secrets: Dictionary should have at most 30 items after validation, not 31",
@@ -30,6 +30,34 @@ def invalid_function_test_cases() -> Iterable:
         {"externalId": "my_function", "name": "my_function"},
         {"Either dataSetExternalId or space must be set, to store the function code."},
         id="Missing dataSetExternalId and space",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_function",
+            "name": "my_function",
+            "space": "some_space",
+            "secrets": {"invalid secret name": "value", "ANOTHER-INVALID": "value", "token": "value"},
+        },
+        {
+            "Invalid value at secrets.ANOTHER-INVALID[key]: String should match pattern '^[a-z0-9-]+$'",
+            "Invalid value at secrets.invalid secret name[key]: String should have at most 15 characters",
+            "Invalid value at secrets.token[key]: 'token' is a reserved secret name. "
+            "Reserved names are: extraIndexUrls, indexUrl and token.",
+        },
+        id="Invalid secret name",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_function",
+            "name": "my_function",
+            "space": "some_space",
+            "envVars": {"invalid env var name": "value", "ANOTHER-INVALID": "value"},
+        },
+        {
+            "Invalid value at envVars.ANOTHER-INVALID[key]: String should match pattern '^[a-zA-Z0-9_]+$'",
+            "Invalid value at envVars.invalid env var name[key]: String should match pattern '^[a-zA-Z0-9_]+$'",
+        },
+        id="Invalid env var name",
     )
 
 

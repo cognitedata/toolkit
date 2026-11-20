@@ -145,6 +145,7 @@ class SimulatorRoutineRevisionResponse(ResponseResource[SimulatorRoutineRevision
     version_number: int
     data_set_id: int
     created_time: int
+    kind: Literal["long"] | None = None
 
     @classmethod
     def request_cls(cls) -> type[SimulatorRoutineRevisionRequest]:

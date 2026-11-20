@@ -22,7 +22,6 @@ TOOLKIT_DEMO_GROUP_NAME = "cognite_toolkit_demo"
 TOOLKIT_CLIENT_ENTRA_ID = "fb9d503b-ac25-44c7-a75d-8fbcd3a206bd"
 
 # Cognite IdP / @cognite/cli persisted session (PKCE public client)
-COGNITE_IDP_BASE_URL = os.environ.get("COGNITE_IDP_BASE_URL", "https://auth.cognite.com").rstrip("/")
 COGNITE_CLI_SESSION_VERSION = 1
 COGNITE_CLI_KEYRING_SERVICE = "cognite-cli-session"
 COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS = 5 * 60

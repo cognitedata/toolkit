@@ -62,10 +62,6 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
-    ENTITY_MATCHING = FlagMetadata(
-        visible=True,
-        description="Enables the entity-matching command family under the dev plugin",
-    )
     CUSTOM_APPS = FlagMetadata(
         visible=True,
         description="Enables support for custom app resources (App Hosting API deployment)",
@@ -90,8 +86,53 @@ class Flags(Enum):
         visible=True,
         description="Enables support for passing multiple config.<>.yaml files into the build command",
     )
+    GIT_DIFF_SELECT = FlagMetadata(
+        visible=True,
+        description="Enables support for selecting modules in a config.<>.yaml based on git diff.",
+    )
+    v010 = FlagMetadata(
+        visible=True,
+        description="Enables all features that are part of the v0.10 release.",
+    )
+    DEPLOY_PROTECTION = FlagMetadata(
+        visible=True,
+        description="Enables support for locking modules in cdf deploy/clean commands, preventing "
+        "users from accidentally overwriting each other's work.",
+    )
+    CDF_GROUP_EMAILS = FlagMetadata(
+        visible=True,
+        description="Enables support for CDF group resources with members set to 'emails' and memberEmails set to a list of email addresses.",
+    )
+    NEAT = FlagMetadata(
+        visible=True,
+        description="Enables support for NEAT format for data models",
+    )
+    EXTEND_DOWNLOAD = FlagMetadata(
+        visible=True,
+        description="Enables additional data types in the download command, such as sequences",
+    )
+    EXTEND_UPLOAD = FlagMetadata(
+        visible=True,
+        description="Enables the guided upload of CSV and Parquet files to a view with 'cdf data upload instances'",
+    )
+    POSTGRES_GATEWAY = FlagMetadata(
+        visible=False,
+        description="Enables support for PostgreSQL Gateway resources",
+    )
+    CONFIG_INCLUDE = FlagMetadata(
+        visible=True,
+        description="Enables support for config.<>.yaml files including on other config YAML files through "
+        "the 'include' field.",
+    )
+    CHECK = FlagMetadata(
+        visible=False,
+        description="Enables the check command plugin for checking CDF resources and configurations",
+    )
 
     def is_enabled(self) -> bool:
+        if self == Flags.CDF_GROUP_EMAILS:
+            # The CDF_GROUP_EMAILS flag will be released in v0.10.
+            return FeatureFlag.is_enabled(Flags.v010) or FeatureFlag.is_enabled(self)
         return FeatureFlag.is_enabled(self)
 
 

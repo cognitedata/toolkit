@@ -7,8 +7,17 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, SpaceId, ViewDirectId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerConstraintId,
+    ContainerId,
+    ContainerIndexId,
+    NodeId,
+    SpaceId,
+    ViewDirectId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerRequest,
+    ContainerResponse,
     DataModelRequest,
     DataModelResponse,
     ViewId,
@@ -28,7 +37,16 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeIO, GraphQLIO, NodeIO, SpaceIO, ViewIO
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resource_ios import (
+    ContainerIO,
+    DataModelIO,
+    EdgeIO,
+    GraphQLIO,
+    NodeIO,
+    SpaceIO,
+    ViewIO,
+)
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
 
@@ -66,7 +84,7 @@ class TestDataModelLoader:
             name=None,
         ).dump_yaml()
 
-        loader = DataModelIO.create_io(env_vars_with_client.get_client())
+        loader = DataModelIO(env_vars_with_client.get_client())
         assert to_deploy_status(local_data_model, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
@@ -90,7 +108,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = DataModelIO(env_vars_with_client_cheap.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -105,7 +123,7 @@ class TestGraphQLLoader:
     def test_deployment_order(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLIO.create_io(env_vars_with_client.get_client())
+        loader = GraphQLIO(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -137,7 +155,7 @@ type GeneratingUnit {
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = GraphQLIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = GraphQLIO(env_vars_with_client_cheap.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -174,7 +192,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = GraphQLIO(env_vars_with_client_cheap.get_client())
 
         items = loader.load_resource_file(file, {})
 
@@ -211,7 +229,7 @@ name: String}""",
         yaml_file.parent = MagicMock(spec=Path)
         yaml_file.parent.__truediv__ = MagicMock(return_value=custom_graphql_file)
 
-        loader = GraphQLIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = GraphQLIO(env_vars_with_client_cheap.get_client())
         items = loader.load_resource_file(yaml_file, {})
 
         assert len(items) == 1
@@ -235,6 +253,166 @@ version: {version}
         yaml_file.parent = MagicMock(spec=Path)
         yaml_file.parent.__truediv__ = MagicMock(return_value=graphql_file)
         return yaml_file
+
+
+class TestContainerIO:
+    SPACE = "my_space"
+    EXTERNAL_ID = "MyContainer"
+
+    @classmethod
+    def _cdf_container(cls) -> ContainerResponse:
+        return ContainerResponse.model_validate(
+            {
+                "space": cls.SPACE,
+                "externalId": cls.EXTERNAL_ID,
+                "usedFor": "node",
+                "properties": {
+                    "name": {"type": {"type": "text", "list": False, "collation": "ucs_basic"}, "nullable": True},
+                    "code": {"type": {"type": "text", "list": False, "collation": "ucs_basic"}, "nullable": True},
+                },
+                "constraints": {
+                    # Unchanged, server has populated default values and state.
+                    "uniqueName": {
+                        "constraintType": "uniqueness",
+                        "properties": ["name"],
+                        "bySpace": False,
+                        "state": "current",
+                    },
+                    # Modified locally.
+                    "uniqueCode": {"constraintType": "uniqueness", "properties": ["code"], "state": "current"},
+                    # Deleted locally.
+                    "requiresOther": {
+                        "constraintType": "requires",
+                        "require": {"space": cls.SPACE, "externalId": "Other", "type": "container"},
+                        "state": "current",
+                    },
+                },
+                "indexes": {
+                    # Unchanged, server has populated default values and state.
+                    "nameIndex": {
+                        "indexType": "btree",
+                        "properties": ["name"],
+                        "bySpace": False,
+                        "cursorable": False,
+                        "state": "current",
+                    },
+                    # Modified locally.
+                    "codeIndex": {"indexType": "btree", "properties": ["code"], "state": "current"},
+                    # Deleted locally.
+                    "invertedIndex": {"indexType": "inverted", "properties": ["name"], "state": "current"},
+                },
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                "isGlobal": False,
+            }
+        )
+
+    @classmethod
+    def _local_container(cls, external_id: str | None = None) -> ContainerRequest:
+        return ContainerRequest.model_validate(
+            {
+                "space": cls.SPACE,
+                "externalId": external_id or cls.EXTERNAL_ID,
+                "properties": {
+                    "name": {"type": {"type": "text"}},
+                    "code": {"type": {"type": "text"}},
+                },
+                "constraints": {
+                    "uniqueName": {"constraintType": "uniqueness", "properties": ["name"]},
+                    "uniqueCode": {"constraintType": "uniqueness", "properties": ["code", "name"]},
+                },
+                "indexes": {
+                    "nameIndex": {"indexType": "btree", "properties": ["name"]},
+                    "codeIndex": {"indexType": "btree", "properties": ["code"], "cursorable": True},
+                },
+            }
+        )
+
+    def test_find_modified_or_deleted_constraints_and_indexes(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.containers.retrieve.return_value = [self._cdf_container()]
+            io = ContainerIO(client)
+
+            constraints, indexes = io._find_modified_or_deleted_constraints_and_indexes([self._local_container()])
+
+        assert constraints == {
+            ContainerConstraintId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="uniqueCode"),
+            ContainerConstraintId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="requiresOther"),
+        }
+        assert indexes == {
+            ContainerIndexId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="codeIndex"),
+            ContainerIndexId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="invertedIndex"),
+        }
+
+    def test_find_modified_or_deleted_skips_new_containers(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.containers.retrieve.return_value = []
+            io = ContainerIO(client)
+
+            constraints, indexes = io._find_modified_or_deleted_constraints_and_indexes(
+                [self._local_container("NewContainer")]
+            )
+
+        assert constraints == set()
+        assert indexes == set()
+
+    @pytest.mark.skipif(not Flags.v010.is_enabled(), reason="v010 feature flag is not enabled")
+    def test_update_deletes_modified_or_deleted_constraints_and_indexes(self) -> None:
+        cdf_container = self._cdf_container()
+        with monkeypatch_toolkit_client() as client:
+            client.containers.retrieve.return_value = [cdf_container]
+            client.containers.create.return_value = [cdf_container]
+            io = ContainerIO(client)
+
+            io.update([self._local_container()])
+
+        client.containers.delete_constraints.assert_called_once_with(
+            sorted(
+                [
+                    ContainerConstraintId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="uniqueCode"),
+                    ContainerConstraintId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="requiresOther"),
+                ],
+                key=lambda x: (x.space, x.external_id, x.identifier),
+            )
+        )
+        client.containers.delete_indexes.assert_called_once_with(
+            sorted(
+                [
+                    ContainerIndexId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="codeIndex"),
+                    ContainerIndexId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="invertedIndex"),
+                ],
+                key=lambda x: (x.space, x.external_id, x.identifier),
+            )
+        )
+        client.containers.create.assert_called_once()
+
+    @pytest.mark.skipif(not Flags.v010.is_enabled(), reason="v010 feature flag is not enabled")
+    def test_create_does_not_delete_constraints_and_indexes(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.containers.create.return_value = [self._cdf_container()]
+            io = ContainerIO(client)
+
+            io.create([self._local_container()])
+
+        client.containers.delete_constraints.assert_not_called()
+        client.containers.delete_indexes.assert_not_called()
+        client.containers.create.assert_called_once()
+
+    @pytest.mark.skipif(Flags.v010.is_enabled(), reason="v010 feature flag is enabled")
+    def test_update_without_v010_does_not_delete_constraints_and_indexes(self) -> None:
+        local = self._local_container()
+        with monkeypatch_toolkit_client() as client:
+            client.containers.create.return_value = [
+                ContainerResponse.model_validate(
+                    {**local.dump(), "createdTime": 1, "lastUpdatedTime": 1, "isGlobal": False}
+                )
+            ]
+            io = ContainerIO(client)
+
+            io.update([local])
+
+        client.containers.delete_constraints.assert_not_called()
+        client.containers.delete_indexes.assert_not_called()
 
 
 def get_default_view_response_values(
@@ -327,7 +505,7 @@ class TestViewLoader:
             "version": "v1",
             "implements": [{"space": "space", "externalId": "OtherView", "version": "v1"}],
         }
-        io = ViewIO.create_io(toolkit_client_cheap)
+        io = ViewIO(toolkit_client_cheap)
 
         dumped = io.dump_resource(response, local)
         assert dumped == local

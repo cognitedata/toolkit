@@ -89,7 +89,8 @@ _app = CoreApp(**default_typer_kws)
 landing_app = LandingApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-_app.add_typer(RepoApp(**default_typer_kws), name="repo")
+if not Flags.v010.is_enabled():
+    _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
 
 if Plugins.run.value.is_enabled():
@@ -220,9 +221,21 @@ def app() -> NoReturn:
         _app()
     except ToolkitError as err:
         if show_traceback:
-            print(Panel(traceback.format_exc(), title="Traceback", expand=False))
+            print(Panel(escape(traceback.format_exc()), title="Traceback", expand=False))
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+        raise SystemExit(1)
+    except Exception as err:
+        # Anything that is not a ToolkitError is a bug in Toolkit. The traceback is always shown,
+        # as it is required for a useful bug report. We report to Sentry explicitly, since catching
+        # the exception here bypasses Sentry's uncaught-exception hook.
+        if USE_SENTRY:
+            sentry_sdk.capture_exception(err)
+        print(Panel(escape(traceback.format_exc()), title="Traceback", expand=False, border_style="red"))
+        print(
+            f"  [bold red]UNEXPECTED ERROR ([/][red]{escape(type(err).__name__)}[/][bold red]):[/] {escape(str(err))}"
+        )
+        print(f"{HINT_LEAD_TEXT}This is likely a bug in Toolkit. Please report it, including the traceback above.")
         raise SystemExit(1)
     except SystemExit as exit_err:
         if cmd := _get_unknown_command(exit_err):

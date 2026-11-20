@@ -15,7 +15,10 @@
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, Literal, final
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, final
+
+from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -33,16 +36,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceFileIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource, ResourceFileIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
-from ._auth import GroupAllScopedIO
 from ._base_ios import ResourceType
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 
 @final
@@ -53,7 +60,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     resource_write_cls = DataSetRequest
     yaml_cls = DataSetYAML
     kind = "DataSet"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Data-sets/operation/createDataSets"
 
     @property
@@ -155,7 +162,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     resource_write_cls = LabelRequest
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 
@@ -241,7 +248,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
     folder_name = "data_sets"
     yaml_cls = CatalogDataSetYAML
     kind = "CatalogDataSet"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
 
     @classmethod
     def get_id(cls, item: dict) -> ExternalId:
@@ -260,7 +267,9 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         return []
 
     @classmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
+    def to_crud_types(
+        cls, raw: dict[str, Any], source_file: Path, resource: CatalogDataSetYAML | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
         """Convert a catalog data set to a CRUD data set."""
         metadata: dict[str, str] = {}
         crud_resource: dict[str, Any] = {}
@@ -277,11 +286,28 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
                 metadata[key] = value if isinstance(value, str) else json.dumps(value)
         if metadata:
             crud_resource["metadata"] = metadata
-        return crud_resource
+        validated: DataSetYAML | None = None
+        if resource is not None:
+            try:
+                validated = DataSetYAML.model_validate(crud_resource)
+            except ValidationError as error:
+                from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
+
+                yield BuildError(
+                    code="INVALID-VALUE",
+                    message=f"The {cls.kind} could not be converted to a valid {DataSetsIO.kind}:\n"
+                    + "\n".join(humanize_validation_error(error, DataSetYAML)),
+                    source_file=source_file,
+                )
+        yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type(), validated=validated)
 
     @classmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
         """Convert a CRUD data set to a catalog data set."""
+        resource_list = list(resources)
+        if len(resource_list) != 1:
+            raise ToolkitValueError(f"{cls.kind} expects exactly one data set, got {len(resource_list)}.")
+        crud = resource_list[0].raw
         catalog_resource: dict[str, Any] = {key: value for key, value in crud.items() if key != "metadata"}
         catalog_fields = {info.alias or name for name, info in CatalogDataSetYAML.model_fields.items()}
         metadata: dict[str, Any] = crud.get("metadata", {})

@@ -1,23 +1,30 @@
+import builtins
 import re
 from abc import ABC, abstractmethod
+from collections import UserList
 from collections.abc import Iterable, Sequence
-from typing import ClassVar, Literal
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, ClassVar, Literal, Protocol, cast
 
 from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import UNRESOLVED_VARIABLE_PATTERN
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
+    UNRESOLVED_VARIABLE_PATTERN,
+    ValidatableResource,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
-    InsightCode,
     InternalValidatorException,
     T_Insight,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, Module, SuccessfulReadYAMLFile
-from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
-from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
+from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils.file import yaml_find_position
 
 
 def quote_identifier(identifier: Identifier) -> str:
@@ -39,12 +46,13 @@ def with_position(
     values: Sequence[str] = (),
     keys: Sequence[str] = (),
     variables: Sequence[BuildVariable] = (),
+    key_occurrence: int | None = None,
 ) -> T_Insight:
     """Sets the line and column of an insight to where it is found in its source file.
 
     The first of the keys (mapping keys), then the first of the values (mapping values or list items), that
-    occurs exactly once in the file is used. The insight is left without a position if nothing is found exactly
-    once.
+    is found in the file is used. A key is found if it occurs exactly once, or at key_occurrence if given. A
+    value is found if it occurs exactly once. The insight is left without a position if nothing is found.
 
     Args:
         insight: The insight to set the position of.
@@ -53,7 +61,12 @@ def with_position(
         variables: The variables used when building the source file. They are substituted before searching, such
             that values built from variables, e.g., 'sp_{{ location }}_assets', are found. Substituted values
             can shift the column of text after them on the same line, but not where a key or value starts.
+        key_occurrence: The 0-based occurrence of the keys to use when they occur multiple times, for example,
+            the second 'assetsAcl' in a group. Not used for values. No position is set from the keys if the
+            file is a list of more than one resource, as the occurrence is then ambiguous.
     """
+    if insight.source_file is None:
+        return insight
     try:
         content = insight.source_file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -62,9 +75,9 @@ def with_position(
     # Variables such as {{ space }} can make the source file invalid YAML. They are replaced by text of the same
     # length, such that the positions in the file are kept.
     content = UNRESOLVED_VARIABLE_PATTERN.sub(_same_length_placeholder, content)
-    candidates = [(key, True) for key in keys] + [(value, False) for value in values]
-    for text, as_key in candidates:
-        if position := yaml_find_unique_position(content, text, as_key=as_key):
+    candidates = [(key, True, key_occurrence) for key in keys] + [(value, False, None) for value in values]
+    for text, as_key, occurrence in candidates:
+        if position := yaml_find_position(content, text, as_key=as_key, occurrence=occurrence):
             insight.line, insight.column = position.line, position.column
             break
     return insight
@@ -85,54 +98,87 @@ EXECUTE_RULE_STATUS: tuple[Literal["ready", "reduced", "skip", "unavailable"], .
 )
 
 
-class ToolkitLocalRule(ABC):
-    """Rule validating a module
-
-    Args:
-        module: The module to validate.
-    """
-
-    CODE: ClassVar[InsightCode]
-    IS_ALPHA: ClassVar[bool] = False
-    IS_FIXABLE: ClassVar[bool] = False
-
-    def __init__(self, module: Module) -> None:
-        self.module = module
-
-    @abstractmethod
-    def validate(self) -> Iterable[Insight]:
-        raise NotImplementedError()
-
-    def _get_validated_resources_with_file(self) -> Iterable[tuple[ToolkitResource, SuccessfulReadYAMLFile]]:
-        for file in self.module.files:
-            if not isinstance(file, SuccessfulReadYAMLFile):
-                continue
-            for resource in file.resources:
-                if resource.validated is not None:
-                    yield resource.validated, file
-
-
 class RuleSetStatus(BaseModel):
     code: Literal["ready", "reduced", "skip", "unavailable"]
     message: str | None = None
 
 
-class ToolkitGlobalRuleSet(ABC):
-    """Validation of all modules as a whole.
+class ResourceRef(Protocol):
+    @property
+    def identifier(self) -> Identifier: ...
 
-    This can output different
+    @property
+    def type(self) -> ResourceType: ...
+
+    @property
+    def source(self) -> Path | Literal["cdf"]: ...
+
+    @property
+    def has_valid_syntax(self) -> bool: ...
+
+    @property
+    def dependencies(self) -> set[tuple[builtins.type[ResourceIO], Identifier]]: ...
+
+    @property
+    def variables(self) -> list[BuildVariable]: ...
+
+    def as_request(
+        self,
+        crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any],
+        is_dry_run: bool = False,
+        environment_variables: dict[str, str | None] | None = None,
+    ) -> ValidatableResource[T_RequestResource]:
+        raise NotImplementedError()
+
+
+class ResourceRefList(UserList[ResourceRef]):
+    def get_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> Iterable[ValidatableResource[T_RequestResource]]:
+        """Get the resources of the type handled by the given CRUD."""
+        for _, validatable in self.get_refs_and_resource_of_type(crud):
+            yield validatable
+
+    def get_refs_and_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> Iterable[tuple[ResourceRef, ValidatableResource[T_RequestResource]]]:
+        """Get the resources of the type handled by the given CRUD, together with their reference."""
+        resource_type = crud.as_resource_type()
+        for resource in self.data:
+            if resource.type != resource_type or not resource.has_valid_syntax:
+                continue
+            yield resource, resource.as_request(crud, is_dry_run=True)
+
+
+class ToolkitRuleSet(ABC):
+    """Validation rules for a specific type of resources, e.g., streams or functions.
 
     Args:
-        module: The module to validate.
+        resources: The local resources to validate. Rules in the 'cdf' context, which validate the resources
+            in CDF, do not need them.
+        results: The deployment results, used by rules that validate the changes a deployment would make.
         client: The ToolkitClient to use. This is required by some rules.
     """
 
-    CODE_PREFIX: ClassVar[str]
+    RESOURCE_TYPES: ClassVar[frozenset[ResourceType | Literal["ALL"]]] = frozenset()
+    CONTEXT: ClassVar[frozenset[Literal["local", "cdf"]]] = frozenset()
     DISPLAY_NAME: ClassVar[str]
 
-    def __init__(self, modules: list[BuiltModule], client: ToolkitClient | None = None) -> None:
-        self.modules = modules
+    def __init__(
+        self,
+        resources: Sequence[ResourceRef] | None = None,
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        self.resources = ResourceRefList(resources or [])
+        self.results = results
         self.client = client
+
+    def _load_client(self) -> ToolkitClient:
+        """Client used to instantiate CRUDs for loading local resources. Loading in dry-run does not call CDF."""
+        if self.client is not None:
+            return self.client
+        return cast(ToolkitClient, SimpleNamespace(console=None))
 
     @abstractmethod
     def get_status(self) -> RuleSetStatus:
@@ -141,3 +187,14 @@ class ToolkitGlobalRuleSet(ABC):
     @abstractmethod
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         raise NotImplementedError()
+
+
+_GLOBAL_RULES_REGISTRY: list[type[ToolkitRuleSet]] | None = None
+
+
+def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitRuleSet]]:
+    """Get the registry of rules, optionally forcing a reload."""
+    global _GLOBAL_RULES_REGISTRY
+    if _GLOBAL_RULES_REGISTRY is None or force_reload:
+        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitRuleSet))  # type: ignore[type-abstract]
+    return _GLOBAL_RULES_REGISTRY

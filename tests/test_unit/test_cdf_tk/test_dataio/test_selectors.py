@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     InstanceIO,
     RawIO,
     RecordIO,
+    SequenceRowIO,
     TimeSeriesDataIO,
     get_upload_io,
 )
@@ -51,6 +52,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     RecordContainerSelector,
     Selector,
     SelectorAdapter,
+    SequenceRowSelector,
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
 )
@@ -66,6 +68,13 @@ def example_selector_data() -> Iterable[tuple]:
         RawIO,
         RawIO.KIND,
         id="RawTableSelector",
+    )
+    yield pytest.param(
+        {"type": "sequenceRows", "externalId": "my_sequence"},
+        SequenceRowSelector,
+        SequenceRowIO,
+        SequenceRowIO.KIND,
+        id="SequenceRowSelector",
     )
     yield pytest.param(
         {

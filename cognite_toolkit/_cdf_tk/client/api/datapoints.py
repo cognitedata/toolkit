@@ -5,9 +5,9 @@ from typing import Any, ClassVar
 from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client._types import Timestamp
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     DatapointAggregate,
     DatapointsDeleteRequest,
@@ -16,6 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     DatapointsRequest,
     DatapointsSeriesResponse,
     LatestDatapointRequest,
+    SyntheticQueryRequest,
+    SyntheticQueryResponse,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -58,6 +60,7 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
         )
         # Latest uses the retrieve method with this path. Both endpoints accept 100 items per request.
         self._latest_endpoint = Endpoint(method="POST", path="/timeseries/data/latest", item_limit=100)
+        self._synthetic_endpoint = Endpoint(method="POST", path="/timeseries/synthetic/query", item_limit=10)
 
     @classmethod
     def _get_page_response_adapter(cls) -> TypeAdapter[PagedResponse[DatapointsSeriesResponse]]:
@@ -195,6 +198,30 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
             items: Delete ranges, each item targeting one time series.
         """
         self._request_no_response(items, "delete")
+
+    def synthetic_query(self, items: Sequence[SyntheticQueryRequest]) -> builtins.list[SyntheticQueryResponse]:
+        """Evaluate synthetic time series expressions.
+
+        Requests with more than 10 expressions are split automatically.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Synthetic-Time-Series/operation/querySyntheticTimeseries>`_.
+
+        Args:
+            items: The expressions to evaluate.
+
+        Returns:
+            The computed data points for each expression, in request order.
+        """
+        results: builtins.list[SyntheticQueryResponse] = []
+        for chunk in chunker_sequence(list(items), self._synthetic_endpoint.item_limit):
+            request = RequestMessage(
+                endpoint_url=self._make_url(self._synthetic_endpoint.path),
+                method=self._synthetic_endpoint.method,
+                body_content={"items": [item.dump() for item in chunk]},
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            results.extend(ResponseItems[SyntheticQueryResponse].model_validate_json(response.body).items)
+        return results
 
 
 def _chunk_datapoint_inserts(

@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
@@ -49,8 +49,8 @@ class FunctionAppIO(ResourceIO[ExternalId, FunctionAppRequest, FunctionAppRespon
     class _MetadataKey:
         function_hash = "cognite-toolkit-hash"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self._code_bundle = FunctionCodeBundle(client)

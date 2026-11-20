@@ -1,18 +1,21 @@
+from ._build_deploy_validate import BuildDeployValidateCommand
 from ._download import DownloadCommand
 from ._migrate import (
     MigrationCommand,
     MigrationPrepareCommand,
 )
+from ._module_lock_cmd import ModuleLockCommand
 from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
+from ._validation import ValidationCommand
 from .about import AboutCommand
 from .auth.command import AuthCommand
 from .build_v2.build_v2 import BuildV2Command
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
-from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
+from .functions_api import FunctionsAPICommand
 from .init import InitCommand
 from .instances import InstancesAPICommand
 from .modules import ModulesCommand
@@ -29,18 +32,20 @@ from .run_function_app import RunFunctionAppCommand
 __all__ = [
     "AboutCommand",
     "AuthCommand",
+    "BuildDeployValidateCommand",
     "BuildV2Command",
     "DeployOptions",
     "DeployV2Command",
     "DeploymentStep",
     "DownloadCommand",
     "DumpResourceCommand",
-    "EntityMatchingCommand",
+    "FunctionsAPICommand",
     "FunctionsCommand",
     "InitCommand",
     "InstancesAPICommand",
     "MigrationCommand",
     "MigrationPrepareCommand",
+    "ModuleLockCommand",
     "ModulesCommand",
     "PullV2Command",
     "PurgeCommand",
@@ -52,4 +57,5 @@ __all__ = [
     "RunTransformationV2Command",
     "RunWorkflowV2Command",
     "UploadCommand",
+    "ValidationCommand",
 ]

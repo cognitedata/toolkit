@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -18,6 +20,11 @@ class SimulatorRoutineYAML(ToolkitResource):
     )
     name: str = Field(description="Name of the simulator routine.", min_length=1, max_length=50)
     description: str | None = Field(None, description="Description of the simulator routine.", max_length=500)
+    kind: Literal["long"] | None = Field(
+        None,
+        description="Kind of simulator routine. Routines with 'long' kind may have more inputs, outputs and steps, "
+        "and a longer runtime.",
+    )
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

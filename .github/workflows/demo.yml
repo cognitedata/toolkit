@@ -4,7 +4,7 @@ on:
     branches:
       - main
 env:
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
 
 
 jobs:
@@ -20,13 +20,12 @@ jobs:
     name: Loadmaster
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Build the package
         run: uv build
       - name: Initialize project

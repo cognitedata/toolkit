@@ -4,16 +4,20 @@ import pytest
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     FeatureConfiguration,
     RootLocationConfiguration,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.resource_ios import (
+    GroupResourceScopedIO,
     InFieldCDMLocationConfigIO,
+    NodeIO,
+    SAPEndpointIO,
     SpaceIO,
     ViewIO,
 )
@@ -58,6 +62,10 @@ class TestInFieldCDMLocationConfigCRUD:
                 {
                     "space": "sp_instance",
                     "externalId": "my_location_config",
+                    "accessManagement": {
+                        "templateAdmins": ["template_admins"],
+                        "checklistAdmins": ["checklist_admins"],
+                    },
                     "viewMappings": {
                         "observation": [
                             {
@@ -65,6 +73,10 @@ class TestInFieldCDMLocationConfigCRUD:
                                     "space": "customer_idm_extention",
                                     "version": "v2",
                                     "externalId": "ObservationView",
+                                },
+                                "writeBack": {
+                                    "notificationsEndpointExternalId": "sap_notifications_endpoint",
+                                    "attachmentsEndpointExternalId": "sap_attachments_endpoint",
                                 },
                             },
                         ],
@@ -76,8 +88,12 @@ class TestInFieldCDMLocationConfigCRUD:
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
                     ),
+                    (GroupResourceScopedIO.__name__, NameId(name="template_admins")),
+                    (GroupResourceScopedIO.__name__, NameId(name="checklist_admins")),
+                    (SAPEndpointIO.__name__, ExternalId(external_id="sap_notifications_endpoint")),
+                    (SAPEndpointIO.__name__, ExternalId(external_id="sap_attachments_endpoint")),
                 },
-                id="observation-view",
+                id="observation-view-with-write-back-and-admins",
             ),
             pytest.param(
                 {
@@ -121,7 +137,10 @@ class TestInFieldCDMLocationConfigCRUD:
                     "space": "sp_instance",
                     "externalId": "my_location_config",
                     "dataFilters": {
-                        "assets": {"instanceSpaces": ["migrated_assets"]},
+                        "assets": {
+                            "instanceSpaces": ["migrated_assets"],
+                            "path": {"space": "migrated_assets", "externalId": "area_1"},
+                        },
                         "maintenanceOrders": {"instanceSpaces": ["APM_SourceData_3_LOR_NORWAY_cdm"]},
                     },
                     "dataStorage": {
@@ -134,8 +153,10 @@ class TestInFieldCDMLocationConfigCRUD:
                     (SpaceIO.__name__, SpaceId(space="migrated_assets")),
                     (SpaceIO.__name__, SpaceId(space="APM_SourceData_3_LOR_NORWAY_cdm")),
                     (SpaceIO.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
+                    (NodeIO.__name__, NodeId(space="migrated_assets", external_id="area_1")),
+                    (NodeIO.__name__, NodeId(space="migrated_assets", external_id="wefwef")),
                 },
-                id="data-filters-and-data-storage-spaces",
+                id="data-filters-and-data-storage",
             ),
         ],
     )

@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter, WorkflowFilterItem
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -49,7 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,
@@ -62,6 +63,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
@@ -74,10 +76,8 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
     TransformationTask,
 )
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._function import FunctionIO
-from ._group_scoped import GroupResourceScopedIO
 from ._simulators import SimulatorRoutineIO
 from ._streams import StreamIO
 from ._transformation import TransformationIO
@@ -97,14 +97,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
     kind = "Workflow"
-    dependencies = frozenset(
-        {
-            GroupAllScopedIO,
-            TransformationIO,
-            FunctionIO,
-            DataSetsIO,
-        }
-    )
+    dependencies = frozenset({DataSetsIO})
     yaml_cls = WorkflowYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
@@ -154,10 +147,10 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowResponse]:
         return self.client.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def create(self, items: Sequence[WorkflowRequest]) -> Sequence[WorkflowResponse]:
         return self.client.workflows.create(items)
 
-    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def update(self, items: Sequence[WorkflowRequest]) -> Sequence[WorkflowResponse]:
         return self.client.workflows.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
@@ -202,7 +195,7 @@ class WorkflowVersionIO(
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
     kind = "WorkflowVersion"
-    dependencies = frozenset({WorkflowIO})
+    dependencies = frozenset({WorkflowIO, FunctionIO, TransformationIO, SimulatorRoutineIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowVersionYAML
 
@@ -249,10 +242,8 @@ class WorkflowVersionIO(
         # JSONPaths that are part of the API and thus should not be replaced.
         raw_str = self.safe_read(filepath)
 
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             self._update_task_parameters(replaced, original)
@@ -465,18 +456,20 @@ class WorkflowVersionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
-        # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
-        for versions in self.client.workflows.versions.iterate(limit=None):
-            if parent_ids is not None:
-                workflow_ids = {
-                    parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
-                    for parent_id in parent_ids
-                    if isinstance(parent_id, (str, ExternalId))
-                }
-                for version in versions:
-                    if version.workflow_external_id in workflow_ids:
-                        yield version
-            else:
+        if parent_ids is None:
+            for versions in self.client.workflows.versions.iterate(limit=None):
+                yield from versions
+            return
+        workflow_ids = list(
+            dict.fromkeys(
+                parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
+                for parent_id in parent_ids
+                if isinstance(parent_id, (str, ExternalId))
+            )
+        )
+        for chunk in chunker_sequence(workflow_ids, self._list_workflow_filter_limit):
+            filter_ = WorkflowFilter(workflow_filters=[WorkflowFilterItem(external_id=id_) for id_ in chunk])
+            for versions in self.client.workflows.versions.iterate(filter=filter_, limit=None):
                 yield from versions
 
     @classmethod
@@ -521,7 +514,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, GroupResourceScopedIO, GroupAllScopedIO, StreamIO})
+    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, StreamIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowTriggerYAML
 
@@ -530,8 +523,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     class _MetadataKey:
         secret_hash = "cognite-toolkit-auth-hash"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property

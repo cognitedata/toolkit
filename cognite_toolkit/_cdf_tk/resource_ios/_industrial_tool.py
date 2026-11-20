@@ -30,17 +30,22 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ReadExtra,
+    ResourceIO,
+    SuccessExtra,
+    WarningHandler,
+)
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._file import FileMetadataIO
 
@@ -51,15 +56,15 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
 
     extra_kinds = frozenset({FileMetadataIO.kind})
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._source_file_by_external_id: dict[str, Path] = {}
         self.filemetadata_by_external_id: dict[str, Path] = {}
 
@@ -96,7 +101,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
     @classmethod
     def as_filename(cls, id: ExternalId) -> str:
-        return id.external_id
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -175,11 +180,13 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind.lower())].rstrip(".")

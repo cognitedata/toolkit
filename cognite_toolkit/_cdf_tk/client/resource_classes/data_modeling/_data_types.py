@@ -26,6 +26,7 @@ class TextProperty(ListablePropertyTypeDefinition):
 
 class Unit(BaseModelObject):
     external_id: str
+    space: str | None = None
     source_unit: str | None = None
 
 

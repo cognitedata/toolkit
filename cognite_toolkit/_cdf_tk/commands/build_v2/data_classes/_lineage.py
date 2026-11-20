@@ -1,3 +1,4 @@
+import warnings
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -20,16 +21,15 @@ from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    ModelSyntaxError,
-)
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.data_classes._insights import ERROR_TYPE
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceType, get_resource_build_io
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -38,11 +38,10 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_content,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
+from ._config import DeployProtection
 from ._module import BuildVariable
-from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
 
 class _BaseLineageModel(BaseModel):
@@ -88,12 +87,13 @@ class ResourceLineageItem(_BaseLineageModel):
             safe_read(organization_path / self.source_file), self.variables, self.source_file.suffix
         )
         resource_io = get_resource_build_io(self.type.resource_folder, self.type.kind)
-        raw = load_yaml_inject_variables(
+        raw, warning = load_yaml_inject_variables(
             content,
             environment_variables,
-            validate=validate,
             original_filepath=organization_path / self.source_file,
         )
+        if validate and warning:
+            warnings.warn(warning, stacklevel=2)
         if isinstance(raw, dict):
             return raw
         elif isinstance(raw, list):
@@ -140,12 +140,7 @@ class ModuleLineageItem(_BaseLineageModel):
     @property
     def is_success(self) -> bool:
         """Determine if module build was successful based on insights summary."""
-        return (
-            self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
-            and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
-            and self.insights_summary.get("Error", 0) == 0
-            and bool(self.resource_lineage)
-        )
+        return self.insights_summary.get(ERROR_TYPE, 0) == 0 and bool(self.resource_lineage)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -153,14 +148,9 @@ class ModuleLineageItem(_BaseLineageModel):
         """Overall status of the module build based on insights summary."""
         if self.is_success:
             return "SUCCESS"
-        elif self.insights_summary.get(ModelSyntaxError.__name__, 0) > 0:
-            return "FAILED: ModelSyntaxError"
-        elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
-            return "FAILED: ConsistencyError"
-        elif self.insights_summary.get("Error", 0) > 0:
-            return "FAILED: Error"
-        else:
-            return "FAILED: Unknown reason"
+        if self.insights_summary.get(ERROR_TYPE, 0) > 0:
+            return f"FAILED: {ERROR_TYPE}"
+        return "FAILED: Unknown reason"
 
     @classmethod
     def from_built_module(
@@ -203,6 +193,14 @@ class BuildLineage(_BaseLineageModel):
         default=None,
         description="Hash of the config YAML file at build time. Used to invalidate the incremental rebuild cache when the config changes.",
     )
+    deploy_branch: str | None = Field(
+        default=None,
+        description="Git branch that is expected to deploy the build.",
+    )
+    deploy_protection: DeployProtection | None = Field(
+        default=None,
+        description="Whether the build is protected from deployment on non-deploy branches.",
+    )
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -228,7 +226,10 @@ class BuildLineage(_BaseLineageModel):
 
     @classmethod
     def from_build(
-        cls, build: BuildFolder, cdf_project: str | None = None, config_yamls: list[Path] | None = None
+        cls,
+        build: BuildFolder,
+        cdf_project: str | None = None,
+        config_yamls: list[Path] | None = None,
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
@@ -255,16 +256,24 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
-            config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls else None,
+            deploy_branch=build.deploy_branch,
+            deploy_protection=build.deploy_protection,
+            config_hash=build.config_hash,
         )
 
     def to_yaml(self) -> str:
         """Convert BuildLineage to YAML string representation."""
+        exclude: set[str] = set()
+        if not Flags.GIT_DIFF_SELECT.is_enabled() and not Flags.DEPLOY_PROTECTION.is_enabled():
+            exclude.add("deploy_branch")
+        if not Flags.DEPLOY_PROTECTION.is_enabled():
+            exclude.add("deploy_protection")
         data = self.model_dump(
             by_alias=True,
             exclude_none=False,
             mode="json",
             context={"organization_dir": self.organization_dir},
+            exclude=exclude,
         )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 

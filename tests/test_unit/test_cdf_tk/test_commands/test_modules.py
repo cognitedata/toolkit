@@ -4,23 +4,25 @@ import json
 import shutil
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx2
 import pytest
 import respx
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from packaging.version import Version
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.commands._changes import Changes
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
@@ -165,7 +167,7 @@ class TestModulesCommand:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(dummy_resource)
 
-        def select_package(choices: list[Choice]) -> Package:
+        def select_package(choices) -> Package:
             selected_package = next((c for c in choices if "complete organization" in c.title.lower()), None)
             assert selected_package is not None
             return selected_package.value
@@ -177,7 +179,7 @@ class TestModulesCommand:
 
         answers = [select_package, select_first_module, False, False]
 
-        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+        with MockQuestionary(ModulesCommand.__module__, answers):
             cmd.add(my_org)
 
         yaml_file_count = len(list(modules.rglob("*.yaml")))
@@ -191,7 +193,7 @@ class TestModulesCommand:
 
         answers = [select_package, select_second_module, False, False]
 
-        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+        with MockQuestionary(ModulesCommand.__module__, answers):
             cmd.add(my_org)
 
         new_yaml_file_count = len(list(modules.rglob("*.yaml")))
@@ -371,14 +373,14 @@ class TestModulesCommand:
         assert payload == {
             "environment": "dev",
             "insights_summary": {
-                ModelSyntaxWarning.__name__: 1,
+                BuildWarning.model_fields["insight_type"].default: 1,
                 Recommendation.__name__: 2,
             },
             "modules": [
                 {
                     "build_result": "Success",
                     "insights": {
-                        ModelSyntaxWarning.__name__: 1,
+                        BuildWarning.model_fields["insight_type"].default: 1,
                         Recommendation.__name__: 2,
                     },
                     "location": "modules/my_module",
@@ -402,7 +404,7 @@ class TestModulesCommand:
         output = capsys.readouterr().out
         assert "my_module" in output
         assert "Syntax warnings" in output
-        assert ModelSyntaxWarning.__name__ in output
+        assert BuildWarning.model_fields["insight_type"].default in output
         assert Recommendation.__name__ in output
         assert "modules/my_module" not in output
 
@@ -628,7 +630,7 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
         build_dir=build_dir,
         modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
         insights_summary={
-            ModelSyntaxWarning.__name__: 1,
+            BuildWarning.model_fields["insight_type"].default: 1,
             Recommendation.__name__: 2,
         },
         module_lineage=[
@@ -636,10 +638,29 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
                 module_id="modules/my_module",
                 module_path=module_path.relative_to(tmp_path),
                 insights_summary={
-                    ModelSyntaxWarning.__name__: 1,
+                    BuildWarning.model_fields["insight_type"].default: 1,
                     Recommendation.__name__: 2,
                 },
                 resource_lineage=[*views, file_item],
             )
         ],
     )
+
+
+class TestModulesUpgrade:
+    @pytest.mark.parametrize("force, expect_load", [(False, False), (True, True)])
+    def test_upgrade_uncommitted_changes(self, force: bool, expect_load: bool, tmp_path: Path) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True)
+        with (
+            patch.object(ModulesCommand, "_get_module_version", return_value=Version("0.5.0")),
+            patch("cognite_toolkit._cdf_tk.commands.modules.__version__", "0.6.0"),
+            patch("cognite_toolkit._cdf_tk.commands.modules.Git") as git,
+            patch("cognite_toolkit._cdf_tk.commands.modules.Changes.load", return_value=Changes()) as load,
+        ):
+            git.is_installed.return_value = True
+            git.is_git_repo.return_value = True
+            git.get_uncommitted_changes.return_value = ["modules/my_module/space.yaml"]
+
+            cmd.upgrade(tmp_path, force=force)
+
+        assert load.called is expect_load

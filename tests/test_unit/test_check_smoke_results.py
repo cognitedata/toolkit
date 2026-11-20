@@ -89,7 +89,15 @@ def failed_tests_report_cases() -> Iterator[tuple]:
                 },
             ],
         },
-        [SlackMessage(topic="CDF API", message="[test-cluster] expected 1 but got 0")],
+        [
+            SlackMessage(
+                topic="CDF API",
+                message="[test-cluster] Smoke tests: 1 issue(s) detected (passed: 1, "
+                "failed: 1, errors: 0, skipped: 0, total: 3).\n"
+                "1. (CDF API) expected 1 but got 0\n"
+                "Go to https://github.com/cognitedata/toolkit to investigate.",
+            )
+        ],
         id="single_failed_test",
     )
 

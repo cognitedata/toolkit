@@ -1,7 +1,8 @@
 import csv
 import json
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Generator, Iterable, Mapping, Sequence, Set
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -39,8 +40,13 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
+    ModuleLockManager,
+    SuccessfulLockResult,
+)
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
+from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -52,16 +58,19 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitNotADirectoryError,
     ToolkitNotSupported,
+    ToolkitUserAbortError,
     ToolkitValidationError,
     ToolkitValueError,
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
     EdgeIO,
     FunctionIO,
+    GroupAllScopedIO,
     NodeIO,
     RawTableIO,
     ResourceContainerIO,
@@ -74,7 +83,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
     ToolkitWarning,
-    catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.ui import (
@@ -85,6 +93,7 @@ from cognite_toolkit._cdf_tk.ui import (
     hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
@@ -103,6 +112,15 @@ class DeployOptions:
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
+
+    @property
+    def requires_drop_confirmation(self) -> bool:
+        return self.drop and self.drop_data and not self.dry_run
+
+    @property
+    def runs_delete_pass(self) -> bool:
+        # In deploy dry-run, apply_plan already accounts for drop, so no separate delete pass is needed.
+        return self.drop and (self.operation == "clean" or not self.dry_run)
 
 
 @dataclass
@@ -171,7 +189,7 @@ class DeploymentStep(Generic[T_RequestResource]):
 @dataclass
 class Skipped(Generic[T_Identifier]):
     id: T_Identifier
-    code: str
+    code: InsightCode
     source_file: Path
     reason: str
 
@@ -214,6 +232,7 @@ class DeploymentResult:
     is_missing_read_acl: bool = False
     is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
+    warnings: list[ToolkitWarning] = field(default_factory=list)
 
     @property
     def created_count(self) -> int:
@@ -244,6 +263,8 @@ class DeploymentResult:
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
         self.skipped.extend(other.skipped)
+        # The clean and deploy passes read the same files, so they can emit the same warnings.
+        self.warnings.extend(warning for warning in other.warnings if warning not in self.warnings)
         self.created_ids.extend(other.created_ids)
         self.updated_ids.extend(other.updated_ids)
         self.deleted_ids.extend(other.deleted_ids)
@@ -258,65 +279,114 @@ class DeployV2Command(ToolkitCommand):
         env_vars: EnvironmentVariables | None = None,
         client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
+        display: CommandDisplay = CommandDisplay(),
     ) -> Sequence[DeploymentResult]:
-        if env_vars is None and client is None:
-            raise ToolkitValueError("Either env_vars or client must be provided.")
-
         options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
         insights_by_resource = self.read_insights_by_resource(user_build_dir, build_lineage)
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
-        if client is None:
-            if env_vars is None:
-                raise ToolkitValueError("Either env_vars or client must be provided.")
-            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
+        client = self._get_client(client, env_vars, build_dir.is_strict_validation)
+        console = client.console if client else Console(markup=True)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
-        plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
-        if options.drop:
-            self._validate_plan_container_references(client, plan, options)
+        with self._module_lock_context(client, options.dry_run, build_lineage, console):
+            plan = self.create_deployment_plan(build_dir)
+            if display.header:
+                self._display_setup(options.operation, build_dir, plan, client.config.project, console, options.verbose)
 
-        if options.drop and options.drop_data and not options.dry_run:
-            if not self._confirm_drop_data(client, plan, options):
-                return []
+            with display.progress_bar(console) as progress:
+                clean_result = self._drop_phase(client, plan, options, progress, console, insights_by_resource)
 
-        clean_result: Sequence[DeploymentResult] | None = None
-        if options.drop and (options.operation == "clean" or not options.dry_run):
-            # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
-            # for drop in dry-run mode.
-            clean_result = self.apply_plan(
-                client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
-            )
-            if options.operation == "clean":
-                self._display_results(clean_result, options.operation, client.console, options.verbose)
-                return clean_result
+                if options.operation == "clean":
+                    clean_result = clean_result or []
+                    self._display_results(clean_result, options.operation, console, options.verbose)
+                    return clean_result
 
-        results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+                results = self.apply_plan(
+                    client, plan, options, progress, console=console, insights_by_resource=insights_by_resource
+                )
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        self._display_results(results, options.operation, client.console, options.verbose)
+        if display.results:
+            self._display_results(results, options.operation, console, options.verbose)
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             # To aviod circular imports, we import UploadCommand here.
             from cognite_toolkit._cdf_tk.commands import UploadCommand
 
-            self._display_deprecation_warning(raw_files, client.console)
+            self._display_deprecation_warning(raw_files, console)
             UploadCommand.upload_data(
                 cast(Mapping[Selector, list[Path]], raw_files),
                 user_build_dir,
                 client,
                 options.dry_run,
-                client.console,
+                console,
                 options.verbose,
                 self.tracker,
             )
 
         return results
+
+    def _drop_phase(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+        progress: Progress,
+        console: Console,
+        insights_by_resource: InsightsByResource | None,
+    ) -> Sequence[DeploymentResult] | None:
+        """Validates, confirms, and runs the delete pass. Raises ToolkitUserAbortError if the user declines."""
+        if not options.drop:
+            return None
+        self._validate_plan_container_references(client, plan, options, console)
+        if options.requires_drop_confirmation and not self._confirm_drop_data(client, plan, options):
+            raise ToolkitUserAbortError("Drop data aborted by user. No resources were deleted.")
+        if not options.runs_delete_pass:
+            return None
+        return self.apply_plan(
+            client,
+            list(reversed(plan)),
+            options,
+            is_delete=True,
+            progress=progress,
+            console=console,
+            insights_by_resource=insights_by_resource,
+        )
+
+    @staticmethod
+    def _module_lock_context(
+        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None, console: Console
+    ) -> AbstractContextManager[SuccessfulLockResult | None, bool | None]:
+        if (
+            not Flags.DEPLOY_PROTECTION.is_enabled()
+            or build_lineage is None
+            or build_lineage.deploy_protection != "protected"
+        ):
+            return nullcontext()
+        return ModuleLockManager(
+            client,
+            Git(),
+            dry_run,
+            build_lineage.deploy_branch,
+            module_ids=[module.module_id for module in build_lineage.module_lineage],
+            console=console,
+        )
+
+    @classmethod
+    def _get_client(
+        cls, client: ToolkitClient | None, env_vars: EnvironmentVariables | None, is_strict_validation: bool
+    ) -> ToolkitClient:
+        if client is None:
+            if env_vars is None:
+                raise ToolkitValueError("Either env_vars or client must be provided.")
+            client = env_vars.get_client(is_strict_validation=is_strict_validation)
+        return client
 
     @classmethod
     def read_build_lineage(cls, build_dir: Path) -> BuildLineage | None:
@@ -434,10 +504,11 @@ class DeployV2Command(ToolkitCommand):
         self,
         operation: str,
         build_dir: ReadBuildDirectory,
+        plan: list[DeploymentStep],
         cdf_project: str,
         console: Console,
         verbose: bool,
-    ) -> list[DeploymentStep]:
+    ) -> None:
         startup_section = ToolkitPanelSection(
             content=[
                 f"Target project: {cdf_project!r}",
@@ -513,24 +584,6 @@ class DeployV2Command(ToolkitCommand):
             content=read_dir_subsections,
         )
 
-        try:
-            plan = self.create_deployment_plan(build_dir)
-        except Exception as e:
-            console.print(
-                ToolkitPanel(
-                    Group(
-                        Padding(startup_section, (0, 0, 1, 0)),
-                        read_dir_section,
-                        ToolkitPanelSection(
-                            description=f"[bold]Failed to create plan for {operation}:[/] {escape(str(e))}"
-                        ),
-                    ),
-                    title=operation,
-                    border_style=AuraColor.AMBER.rich,
-                )
-            )
-            raise
-
         if not plan:
             plan_section = ToolkitPanelSection(description=f"[bold]No resources to {operation}.[/]")
         else:
@@ -552,7 +605,6 @@ class DeployV2Command(ToolkitCommand):
                 border_style=border_style,
             )
         )
-        return plan
 
     def _validate_cdf_project(
         self,
@@ -619,6 +671,10 @@ class DeployV2Command(ToolkitCommand):
         except CycleError as e:
             raise RuntimeError("Bug in Toolkit. Cyclic dependencies in support resource types detected.") from e
 
+        if GroupAllScopedIO in ordered:
+            ordered.remove(GroupAllScopedIO)
+            ordered.insert(0, GroupAllScopedIO)
+
         plan: list[DeploymentStep] = []
         for step in ordered:
             if step not in files_by_crud:
@@ -665,7 +721,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls not in (SpaceIO, NodeIO, EdgeIO):
                 continue
-            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_io(client))
+            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -686,13 +742,14 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        console: Console,
     ) -> None:
         """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
         container_ids: list[ContainerId] = []
         for step in plan:
             if step.crud_cls is not ContainerIO:
                 continue
-            crud = step.crud_cls.create_io(client)
+            crud = step.crud_cls(client)
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -704,7 +761,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls is not ViewIO:
                 continue
-            view_crud = step.crud_cls.create_io(client)
+            view_crud = step.crud_cls(client)
             view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
             in_scope_view_ids.update(view_resource_by_id.keys())
         inspect_results = client.containers.inspect(container_ids)
@@ -715,14 +772,11 @@ class DeployV2Command(ToolkitCommand):
             if options.operation == "clean"
             else "deploying with --drop flag",
             scope="build directory",
-            console=client.console,
+            console=console,
         )
 
     def _confirm_drop_data(
-        self,
-        client: ToolkitClient,
-        plan: list[DeploymentStep],
-        options: DeployOptions,
+        self, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, console: Console | None = None
     ) -> bool:
         """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
         instance_count = self._count_dms_instances_in_plan(client, plan, options)
@@ -738,7 +792,7 @@ class DeployV2Command(ToolkitCommand):
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
                 instance_count,
-                client.console,
+                console or client.console,
             )
             acknowledge = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
@@ -746,7 +800,7 @@ class DeployV2Command(ToolkitCommand):
             ).ask()
             if not acknowledge:
                 return False
-        client.console.print(
+        (console or client.console).print(
             ToolkitPanel(
                 "[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
                 "Resources and their data will be permanently deleted.",
@@ -755,7 +809,9 @@ class DeployV2Command(ToolkitCommand):
                 expand=False,
             )
         )
-        return confirm_by_typing_project_name("You are about to delete resources and their data", client)
+        return confirm_by_typing_project_name(
+            "You are about to delete resources and their data", client.config.project, console or client.console
+        )
 
     @classmethod
     def apply_plan(
@@ -763,7 +819,9 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        progress: Progress,
         is_delete: bool = False,
+        console: Console | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> Sequence[DeploymentResult]:
         """Applies the given plan using the given client.
@@ -772,7 +830,9 @@ class DeployV2Command(ToolkitCommand):
             client: The client to use to apply the plan.
             plan: The plan to apply.
             options: The options to use when applying the plan.
+            progress: The progress bar to use when applying the plan.
             is_delete: Whether this plan application is a delete/clean operation.
+            console: The console to use for output. If None, a new console will be created.
             insights_by_resource: Optional mapping of resources to related build insights.
 
         Returns:
@@ -780,12 +840,14 @@ class DeployV2Command(ToolkitCommand):
         """
 
         results: list[DeploymentResult] = []
-        console = client.console
-        with Progress(console=console) as progress:
-            total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
+        console = console or client.console
+        collected_warnings: list[ToolkitWarning] = []
+        total_files = sum(len(step.files) for step in plan)
+        task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
+        with cls._print_warnings_on_error(collected_warnings, console):
             for step in plan:
-                crud = step.crud_cls.create_io(client)
+                step_warning_start = len(collected_warnings)
+                crud = step.crud_cls(client, on_warning=collected_warnings.append)
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
@@ -831,6 +893,7 @@ class DeployV2Command(ToolkitCommand):
                                 )
                                 for resource in resource_by_id.values()
                             ],
+                            warnings=collected_warnings[step_warning_start:],
                         )
                     )
                     progress.update(task_id, advance=len(step.files))
@@ -881,12 +944,24 @@ class DeployV2Command(ToolkitCommand):
                     )
                     progress.update(task_id, description=f"{options.operation.title()}ed {resource_name} successfully.")
 
+                result.warnings.extend(collected_warnings[step_warning_start:])
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
-            progress.update(task_id, description=finished)
+        finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
+        progress.update(task_id, description=finished, completed=total_files)
         return results
+
+    @staticmethod
+    @contextmanager
+    def _print_warnings_on_error(warnings: list[ToolkitWarning], console: Console) -> Generator[None, None, None]:
+        """Collected warnings are only shown in the results, which are never displayed if the deployment fails."""
+        try:
+            yield
+        except BaseException:
+            for warning in warnings:
+                warning.print_warning(console=console)
+            raise
 
     @classmethod
     def _read_resource_files(
@@ -899,18 +974,11 @@ class DeployV2Command(ToolkitCommand):
         to_deploy_by_id: dict[T_Identifier, ReadResource[T_RequestResource]] = {}
         environment_variables = options.environment_variables or {}
         for filepath in filepaths:
-            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+            with cls._capture_missing_env_vars(crud) as missing_env_vars:
                 try:
                     resource_list = crud.load_resource_file(filepath, environment_variables)
                 except YAMLError as e:
                     raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.as_posix()}: {e}")
-            # Note we only catch EnvironmentVariableMissingWarning, so all warnings should be of that type.
-            missing_env_vars = {
-                env_var
-                for warning in warning_list
-                if isinstance(warning, EnvironmentVariableMissingWarning)
-                for env_var in warning.variables
-            }
             for resource_dict in resource_list:
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
@@ -933,6 +1001,25 @@ class DeployV2Command(ToolkitCommand):
                     to_deploy_by_id[identifier].source_files.append(filepath)
 
         return to_deploy_by_id
+
+    @staticmethod
+    @contextmanager
+    def _capture_missing_env_vars(crud: ResourceIO) -> Generator[set[str], None, None]:
+        """Missing environment variables are not shown to the user, only used to explain failed deployments."""
+        missing_env_vars: set[str] = set()
+        forward_warning = crud.on_warning
+
+        def on_warning(warning: ToolkitWarning) -> None:
+            if isinstance(warning, EnvironmentVariableMissingWarning):
+                missing_env_vars.update(warning.variables)
+            else:
+                forward_warning(warning)
+
+        crud.on_warning = on_warning
+        try:
+            yield missing_env_vars
+        finally:
+            crud.on_warning = forward_warning
 
     @classmethod
     def validate_access(
@@ -1067,7 +1154,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            "AMBIGUOUS",
+                            "DUPLICATED-IDENTIFIER",
                             filepath,
                             f"Identifier is not unique. Will use definition in {first_file.as_posix()}",
                         )
@@ -1082,7 +1169,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="NONEXISTENT-RESOURCE",
+                            code="MISSING-REFERENCED-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -1102,7 +1189,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="UNSUPPORTED-RESOURCE-DELETION",
+                            code="UNSUPPORTED-RESOURCE-REMOVAL",
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )
@@ -1329,7 +1416,7 @@ class DeployV2Command(ToolkitCommand):
             lines: list[RenderableType] = [
                 f"[bold]{escape(insight.message)}[/]",
                 f"[dim]Code:[/] {escape(insight.code)}",
-                f"[dim]Source:[/] {escape(insight.display_source_file_cwd)}",
+                f"[dim]Source:[/] {escape(insight.display_source)}",
             ]
             if insight.fix:
                 lines.append(
@@ -1511,6 +1598,9 @@ class DeployV2Command(ToolkitCommand):
 
         sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
 
+        if warning_rows := cls._warning_rows(results):
+            sections.append(ToolkitPanelSection(title="Warnings", content=warning_rows))
+
         if total.skipped and not verbose:
             most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
             sections.append(
@@ -1526,6 +1616,18 @@ class DeployV2Command(ToolkitCommand):
         console.print(ToolkitPanel(Group(*sections), title=panel_title))
         if verbose:
             cls._print_verbose_resources(results, is_dry_run, console)
+
+    @staticmethod
+    def _warning_rows(results: Sequence[DeploymentResult]) -> list[RenderableType]:
+        return [
+            hanging_indent(
+                "!",
+                f"[bold]{escape(result.resource_name)}[/] {warning.get_message()}",
+                marker_style="yellow",
+            )
+            for result in results
+            for warning in result.warnings
+        ]
 
     # Outcome order puts the long unchanged list last so creates, updates, deletes, and skips stay visible.
     _VERBOSE_OUTCOMES: tuple[tuple[str, str, str], ...] = (

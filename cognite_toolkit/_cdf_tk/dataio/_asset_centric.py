@@ -92,11 +92,11 @@ class AssetCentricIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsIO.create_io(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO(self.client))
 
         yield from self._configurations(
             [ExternalId(external_id=label) for label in self._downloaded_labels_by_selector[selector]],
-            LabelIO.create_io(self.client),
+            LabelIO(self.client),
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
@@ -245,8 +245,9 @@ class UploadableAssetCentricIO(
         cleaned_row: dict[str, JsonVal] = {}
         for key, value in row.items():
             if key.startswith("metadata."):
-                metadata_key = key[len("metadata.") :]
-                metadata[metadata_key] = value
+                # Tables store a metadata key that only some rows have as null in the other rows.
+                if value is not None:
+                    metadata[key[len("metadata.") :]] = value
             else:
                 cleaned_row[key] = value
         if metadata:
@@ -265,10 +266,11 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     UPLOAD_ENDPOINT = "/assets"
+    AGGREGATE_KEYS: ClassVar[frozenset[str]] = frozenset({"childCount", "depth", "path"})
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = AssetIO.create_io(self.client)
+        self._crud = AssetIO(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -386,7 +388,9 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetRequest:
-        return self._crud.load_resource(item_json)
+        # The aggregates are read-only, and the API rejects them on create.
+        writable = {key: value for key, value in item_json.items() if key not in self.AGGREGATE_KEYS}
+        return self._crud.load_resource(writable)
 
     def retrieve(self, ids: Sequence[int]) -> list[AssetResponse]:
         return self.client.assets.retrieve(InternalId.from_ids(ids))
@@ -438,7 +442,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = FileMetadataIO.create_io(self.client)
+        self._crud = FileMetadataIO(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -560,7 +564,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = TimeSeriesIO.create_io(self.client)
+        self._crud = TimeSeriesIO(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -687,7 +691,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = EventIO.create_io(self.client)
+        self._crud = EventIO(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:

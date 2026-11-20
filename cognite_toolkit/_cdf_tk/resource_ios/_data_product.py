@@ -3,13 +3,12 @@ from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, DataProductScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
-from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
@@ -21,7 +20,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     resource_write_cls = DataProductRequest
     kind = "DataProduct"
     yaml_cls = DataProductYAML
-    dependencies = frozenset({GroupAllScopedIO, SpaceIO})
+    dependencies = frozenset({SpaceIO, ViewIO})
     support_drop = True
     support_update = True
     _doc_url = "Data-Products/operation/createDataProduct"
@@ -48,14 +47,18 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.schema_space:
             yield SpaceIO, SpaceId(space=resource.schema_space)
+        for scope in resource.instance_scope or []:
+            yield ViewIO, ViewNoVersionId(space=scope.source.space, external_id=scope.source.external_id)
+            for space in [scope.source.space, *scope.read, *scope.upsert, *scope.delete]:
+                yield SpaceIO, SpaceId(space=space)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:
-        return AllScope()
+        return DataProductScope(external_ids=sorted({item.external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataProductScope):
             yield DataProductsAcl(
                 actions=as_read_create_update_delete_actions(actions),
                 scope=scope,
@@ -79,7 +82,34 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         for key, default in defaults:
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key, None)
+        # Toolkit only manages an instanceScope that the YAML declares.
+        if "instanceScope" not in local:
+            dumped.pop("instanceScope", None)
+        elif dumped.get("instanceScope"):
+            self._strip_scope_defaults(dumped["instanceScope"], local["instanceScope"])
+        elif local["instanceScope"] == []:
+            # The API cannot tell an empty scope from an unset one, so it returns no instanceScope for both.
+            dumped["instanceScope"] = []
+        else:
+            dumped.pop("instanceScope", None)
         return dumped
+
+    @staticmethod
+    def _strip_scope_defaults(dumped_scope: list[dict[str, Any]], local_scope: list[dict[str, Any]] | None) -> None:
+        """Remove source type and empty upsert/delete lists that the local entry for the same view leaves out."""
+        local_by_view = {
+            (entry.get("source", {}).get("space"), entry.get("source", {}).get("externalId")): entry
+            for entry in local_scope or []
+        }
+        for entry in dumped_scope:
+            local_entry = local_by_view.get((entry["source"]["space"], entry["source"]["externalId"]))
+            if local_entry is None:
+                continue
+            if "type" not in local_entry["source"]:
+                entry["source"].pop("type", None)
+            for key in ("upsert", "delete"):
+                if entry.get(key) == [] and key not in local_entry:
+                    entry.pop(key)
 
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.data_products.create(list(items))

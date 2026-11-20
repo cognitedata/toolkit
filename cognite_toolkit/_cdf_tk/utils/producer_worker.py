@@ -7,6 +7,7 @@ import typing
 from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
 
+import sentry_sdk
 from rich.console import Console, RenderableType
 from rich.markup import escape
 from rich.panel import Panel
@@ -25,7 +26,8 @@ from rich.progress import (
 from rich.table import Column
 from rich.text import Text
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitRuntimeError
+from cognite_toolkit._cdf_tk.constants import USE_SENTRY
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRepeatedUploadFailureError, ToolkitRuntimeError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
@@ -255,14 +257,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.error_traceback = traceback.format_exc()
         self.error_exception = error
         if not isinstance(error, ToolkitRepeatedUploadFailureError):
-            self.console.print(f"[red]Error[/red] occurred while {description}: {self.error_message}")
+            self.console.print(f"[red]Error[/red] occurred while {description}: {escape(self.error_message)}")
+        if not isinstance(error, ToolkitError) and USE_SENTRY:
+            sentry_sdk.capture_exception(error)
 
     def print_traceback(self) -> None:
         """Prints the traceback if an error occurred during execution."""
         if self.error_traceback:
             self.console.print(
                 Panel(
-                    self.error_traceback,
+                    escape(self.error_traceback),
                     title="Traceback",
                     expand=False,
                     border_style="red",
@@ -274,9 +278,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         try:
             iterator = iter(self._download_iterable)
         except TypeError as e:
-            self._error_event.set()
-            self.error_message = str(e)
-            self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
+            self._report_error(self.download_description, e)
             return
         self.downloaded_items = start_item
         progress.update(download_task, advance=start_item)

@@ -1,9 +1,9 @@
 from collections.abc import Mapping
 from graphlib import CycleError
 from pathlib import Path
+from tomllib import TOMLDecodeError
 
 from rich.markup import escape
-from tomllib import TOMLDecodeError
 from yaml import YAMLError
 
 
@@ -258,6 +258,10 @@ class ToolkitRuntimeError(RuntimeError, ToolkitError):
     """General runtime error for toolkit operations."""
 
     ...
+
+
+class ToolkitUserAbortError(ToolkitError):
+    """Raised when the user declines a confirmation prompt and the operation is aborted."""
 
 
 class ToolkitRepeatedUploadFailureError(ToolkitRuntimeError):

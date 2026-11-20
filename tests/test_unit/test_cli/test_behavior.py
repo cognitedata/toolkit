@@ -1,7 +1,10 @@
 import json
+import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -9,9 +12,14 @@ from cognite.client.data_classes import (
     DataSet,
 )
 from pytest import MonkeyPatch
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk import cdf_toml
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
+from cognite_toolkit._cdf_tk.client.api.lookup import LookUpGroup, UserLookUpAPI
+from cognite_toolkit._cdf_tk.client.api.project import ProjectAPI
+from cognite_toolkit._cdf_tk.client.api.token import ToolkitTokenAPI
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -29,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
@@ -54,14 +63,17 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployV2Command,
     DumpResourceCommand,
     PullV2Command,
+    ValidationCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildError, BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios import AgentIO, FunctionIO, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
 from tests.data import (
@@ -1128,13 +1140,47 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    insights = [insight for insight in folder.all_insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
+    validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
+        [resource for module in folder.built_modules for resource in module.resources],
+        [],
+        None,
+        env_vars_with_client.get_client(),
+        display=CommandDisplay(header=False, results=False),
+    )
+
+    insights = [insight for insight in validation_result.insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(insights) == 1
     insight = insights[0]
     assert isinstance(insight, BuildError)
     assert insight.message.startswith("The space 'my_non_existent_space' does not exist locally or in CDF.")
     assert insight.source_file == yaml_filepath
     assert (insight.line, insight.column) == (12, 11)
+
+
+def test_build_config_and_env_mismatch(tmp_path: Path) -> None:
+    """Test that a mismatch between config and environment variables is detected."""
+    config_yaml = """
+environment:
+  name: dev
+  project: projectA
+  selected:
+  - modules/
+"""
+    config_path = tmp_path / "config.dev.yaml"
+    config_path.write_text(config_yaml, encoding="utf-8")
+    workflow_file = tmp_path / MODULES / "my_module" / "workflows" / "my_workflow.Workflow.yaml"
+    workflow_file.parent.mkdir(parents=True, exist_ok=True)
+    workflow_file.write_text("externalId: myWorkflow\n")
+
+    with patch.dict(os.environ, {"CDF_PROJECT": "projectB"}), pytest.raises(ToolkitValueError) as exc_info:
+        BuildV2Command(silent=True, skip_tracking=True).build(
+            client=None,
+            parameters=BuildParameters(
+                organization_dir=tmp_path, build_dir=tmp_path / "build", config_yamls=[config_path]
+            ),
+        )
+    assert str(exc_info.value).startswith("Environment variable CDF_PROJECT is set to 'projectB'")
+    assert "projectA" in str(exc_info.value)
 
 
 def test_unresolved_variable_does_not_cause_unknown_reference(
@@ -1168,7 +1214,7 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    codes = {insight.code for insight in folder.all_insights}
+    codes = {insight.code for insight in folder.module_insights}
     assert "UNRESOLVED-VARIABLE" in codes
     assert "MISSING-REFERENCED-RESOURCE" not in codes
 
@@ -1223,14 +1269,132 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
+
     # The unknown capability should produce an UNRECOGNIZED-VALUE (not an error — the YAML
     # is still valid from the build perspective; CDF may or may not accept it at deploy time).
-    syntax_warnings = [i for i in folder.all_insights if i.code == "UNRECOGNIZED-VALUE"]
+    syntax_warnings = [i for i in folder.module_insights if i.code == "UNRECOGNIZED-VALUE"]
     assert len(syntax_warnings) >= 1, "Expected an UNRECOGNIZED-VALUE for the unknown capability"
 
+    validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
+        [resource for module in folder.built_modules for resource in module.resources],
+        [],
+        None,
+        env_vars_with_client.get_client(),
+        display=CommandDisplay(header=False, results=False),
+    )
     # The space reference in the VALID sibling capability must still be checked against CDF.
-    unknown_refs = [i for i in folder.all_insights if i.code == "MISSING-REFERENCED-RESOURCE"]
+    unknown_refs = [i for i in validation_result.insights if i.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(unknown_refs) == 1, (
         "Expected MISSING-REFERENCED-RESOURCE for 'my_non_existent_space' even when group has an unknown capability"
     )
     assert "my_non_existent_space" in unknown_refs[0].message
+
+
+def test_built_function_as_request_injects_environment_variables(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    function_yaml = """name: my_function
+externalId: my_function
+space: my_space
+secrets:
+  my-secret: ${MY_SECRET}
+"""
+    my_org = tmp_path / "my_org"
+    function_dir = my_org / MODULES / "my_module" / "functions"
+    (function_dir / "my_function").mkdir(parents=True)
+    (function_dir / "my_function" / "handler.py").write_text("def handle(client, data):\n    return {}\n")
+    (function_dir / "my_function.Function.yaml").write_text(function_yaml, encoding="utf-8")
+    monkeypatch.setenv("MY_SECRET", "super-secret")
+
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=None,
+        parameters=BuildParameters(
+            organization_dir=my_org, build_dir=tmp_path / "build", user_selected_modules=[f"{MODULES}/"]
+        ),
+    )
+    resources = [resource for module in folder.built_modules for resource in module.resources]
+    assert len(resources) == 1
+    crud = FunctionIO(cast(ToolkitClient, SimpleNamespace(console=None)))
+
+    request = resources[0].as_request(crud, is_dry_run=True).request
+
+    assert isinstance(request, FunctionRequest)
+    assert request.secrets == {"my-secret": "super-secret"}
+
+
+@pytest.mark.skipif(not Flags.CDF_GROUP_EMAILS.is_enabled(), reason="CDF_GROUP_EMAILS feature flag is not enabled")
+def test_build_deploy_cdf_group_with_member_emails(tmp_path: Path) -> None:
+    """Test that a group with member emails can be built and deployed successfully."""
+    group_yaml = """name: group_with_emails
+members: "emails"
+memberEmails:
+- bob@example.com
+- alice@example.com
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "group_with_emails.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+
+    # Mock client
+    def lookup(email: list[str] | tuple[str, ...], warn: bool = True) -> None | str | list[str]:
+        if not isinstance(email, str):
+            assert False, f"Expected a single email string, got {email}"
+        return {
+            "bob@example.com": "123",
+            "alice@example.com": "456",
+        }.get(email)
+
+    client = MagicMock(spec=ToolkitClient)
+    client.console = Console()
+    client.config = MagicMock(spec=ToolkitClientConfig)
+    client.config.project = CDF_PROJECT
+    client.project = MagicMock(spec=ProjectAPI)
+    client.lookup = MagicMock(spec=LookUpGroup)
+    # Instance attributes set in LookUpGroup.__init__ are not part of the class spec, so set them explicitly.
+    for lookup_name in [
+        "data_sets",
+        "extraction_pipelines",
+        "location_filters",
+        "security_categories",
+        "time_series",
+        "assets",
+    ]:
+        setattr(client.lookup, lookup_name, MagicMock())
+    client.lookup.users = MagicMock(spec=UserLookUpAPI)
+    client.lookup.users.user_id.side_effect = lookup
+    client.groups = MagicMock(spec=GroupsAPI)
+    client.groups.list.return_value = []
+    client.token = MagicMock(spec=ToolkitTokenAPI)
+    client.token.verify_acls.return_value = []
+    client.groups.create.return_value = [
+        GroupResponse(name="group_with_emails", members=["123", "456"], id=1, is_deleted=False)
+    ]
+
+    # Build the project
+    build_dir = tmp_path / "build"
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=client,
+        parameters=BuildParameters(organization_dir=my_org, build_dir=build_dir, user_selected_modules=["modules/"]),
+    )
+
+    # Deploy the project
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_dir,
+        env_vars=None,
+        client=client,
+        options=DeployOptions(
+            cdf_project=CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=None,
+        ),
+    )
+
+    assert client.groups.create.call_count == 1
+    created_groups = client.groups.create.call_args.args[0]
+    assert len(created_groups) == 1
+    assert created_groups[0].dump() == {"name": "group_with_emails", "members": ["123", "456"]}

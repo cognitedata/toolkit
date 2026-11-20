@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter, WorkflowFilterItem
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
@@ -152,7 +153,9 @@ if __name__ == "__main__":
         data_source: str | WorkflowVersionId | None = None,
         wait: bool = False,
         config_yaml: Path | None = None,
+        data: str | None = None,
     ) -> bool:
+        input_data = self._parse_data_option(data, data_source)
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
@@ -170,7 +173,10 @@ if __name__ == "__main__":
         )
         is_interactive = external_id is None
         external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
-        call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
+        if input_data is not None:
+            call_args = FunctionCallArgs(input_data)
+        else:
+            call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
         retrieved_functions = client.functions.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
         function = retrieved_functions[0] if retrieved_functions else None
         if function is None:
@@ -182,7 +188,16 @@ if __name__ == "__main__":
             wait = questionary.confirm("Do you want to wait for the function to complete?").unsafe_ask()
 
         # Todo: Get one shot token using the call_args.authentication
-        session = client.sessions.create_one_shot_token_exchange_session()
+        try:
+            session = client.sessions.create_one_shot_token_exchange_session()
+        except ToolkitAPIError as e:
+            message = f"Could not create oneshot session for function {external_id!r}: {e!s}"
+            if env_vars.LOGIN_FLOW == "token":
+                message += (
+                    "\nOneshot sessions exchange your token with the identity provider, which a static "
+                    "CDF_TOKEN may not support. Try LOGIN_FLOW=client_credentials or LOGIN_FLOW=interactive."
+                )
+            raise AuthorizationError(message) from e
         result = client.functions.calls.call(function_id=function.id, nonce=session.nonce, data=call_args.data)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
@@ -236,6 +251,25 @@ if __name__ == "__main__":
         table.add_row("Logs", str(logs))
         print(table)
         return True
+
+    @staticmethod
+    def _parse_data_option(data: str | None, data_source: str | WorkflowVersionId | None) -> dict[str, Any] | None:
+        if data is None:
+            return None
+        if data_source is not None:
+            raise ToolkitValueError("Cannot use both --data and --schedule. Please provide only one of them.")
+
+        def reject_constant(value: str) -> Any:
+            # NaN and Infinity are not valid JSON and cannot be passed to the function.
+            raise ToolkitValueError(f"Invalid JSON in --data: {value} is not supported.")
+
+        try:
+            loaded = json.loads(data, parse_constant=reject_constant)
+        except json.JSONDecodeError as e:
+            raise ToolkitValueError(f"Invalid JSON in --data: {e}") from e
+        if not isinstance(loaded, dict):
+            raise ToolkitValueError(f"Expected a JSON object in --data, got {type(loaded).__name__}.")
+        return loaded
 
     @staticmethod
     def _get_function(external_id: str | None, build_folder: BuildLineage) -> ResourceLineageItem:
@@ -452,7 +486,9 @@ if __name__ == "__main__":
         rebuild_env: bool = False,
         config_yaml: Path | None = None,
         virtual_env_folder_name: str = virtual_env_folder,
+        data: str | None = None,
     ) -> None:
+        input_data = self._parse_data_option(data, data_source)
         try:
             from ._virtual_env import FunctionVirtualEnvironment
         except ImportError:
@@ -553,14 +589,16 @@ if __name__ == "__main__":
 
         print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
 
-        is_interactive = external_id is None
-        call_args = self._get_call_args(
-            data_source,
-            function_external_id,
-            build_folder,
-            env_vars.dump(),
-            is_interactive,
-        )
+        if input_data is not None:
+            call_args = FunctionCallArgs(input_data)
+        else:
+            call_args = self._get_call_args(
+                data_source,
+                function_external_id,
+                build_folder,
+                env_vars.dump(),
+                is_interactive=external_id is None,
+            )
 
         run_check_py, env = self._create_run_check_file_with_env(
             env_vars,
@@ -899,7 +937,7 @@ class RunWorkflowV2Command(ToolkitCommand):
 
     @classmethod
     def _interactive_select_workflow(cls, client: ToolkitClient) -> WorkflowVersionResponse:
-        workflow_versions = client.workflows.versions.list(workflow_external_id=None, limit=None)
+        workflow_versions = client.workflows.versions.list(limit=None)
 
         versions_by_external_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
         for item in workflow_versions:
@@ -953,17 +991,22 @@ class RunWorkflowV2Command(ToolkitCommand):
             # We specifically requested a version, so we know there is only one workflow in the list.
             return workflows[0]
         else:
-            options = client.workflows.versions.list(workflow_external_id=external_id, limit=None)
+            options = client.workflows.versions.list(
+                filter=WorkflowFilter(workflow_filters=[WorkflowFilterItem(external_id=external_id)]), limit=None
+            )
             if len(options) == 0:
                 raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
             return max(options, key=lambda item: item.last_updated_time)
 
     @staticmethod
     def _get_trigger_input(client: ToolkitClient, id_: ToolkitWorkflowVersionId) -> dict[str, JsonValue] | None:
-        triggers = client.workflows.triggers.list(
-            workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
-        )
-        triggers_with_data = [trigger for trigger in triggers if isinstance(trigger.input, dict)]
+        triggers_with_data = [
+            trigger
+            for trigger in client.workflows.triggers.list(limit=None)
+            if trigger.workflow_external_id == id_.workflow_external_id
+            and trigger.workflow_version == id_.version
+            and isinstance(trigger.input, dict)
+        ]
         if len(triggers_with_data) == 0:
             return None
         if len(triggers_with_data) == 1:

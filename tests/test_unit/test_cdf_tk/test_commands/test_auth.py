@@ -2,13 +2,21 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
+    EventsAcl,
     GroupCapability,
     GroupResponse,
+    LabelsAcl,
+    ProjectsAcl,
     RelationshipsAcl,
+    SecurityCategoriesAcl,
+    SequencesAcl,
+    SessionsAcl,
     StreamsAcl,
+    TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.project import (
     Claim,
@@ -22,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     InspectProjectInfo,
     InspectResponse,
 )
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -69,7 +77,7 @@ def _create_inspect_response() -> InspectResponse:
 
 
 def _setup_verify_mocks(
-    client: MagicMock,
+    client: ToolkitClientMock,
     user_groups: list[GroupResponse],
     all_cdf_groups: list[GroupResponse] | None = None,
     data_modeling_status: str = "HYBRID",
@@ -77,8 +85,7 @@ def _setup_verify_mocks(
     if all_cdf_groups is None:
         all_cdf_groups = list(user_groups)
 
-    client.config.project = CDF_PROJECT
-    client.config.is_private_link = False
+    client.config = MagicMock(spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False)
 
     client.token.inspect.return_value = _create_inspect_response()
     client.token.verify_acls.return_value = []
@@ -201,11 +208,7 @@ class TestAuthCommand:
             client.groups.delete.return_value = None
 
             monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.command.Prompt.ask", lambda *a, **k: None)
-            with MockQuestionary(
-                "cognite_toolkit._cdf_tk.commands.auth.command",
-                monkeypatch,
-                answers=[True],
-            ):
+            with MockQuestionary("cognite_toolkit._cdf_tk.commands.auth.command", answers=[True]):
                 cmd = AuthCommand(print_warning=False)
                 result = cmd.verify(client, dry_run=False, no_prompt=False)
 
@@ -220,6 +223,16 @@ def test_get_capabilities_by_loader_hybrid_project() -> None:
     acl_types_hybrid = {type(c) for c in acls_hybrid}
     assert AssetsAcl in acl_types_hybrid
     assert RelationshipsAcl in acl_types_hybrid
+    assert LabelsAcl in acl_types_hybrid
+    assert SecurityCategoriesAcl in acl_types_hybrid
+    assert TimeSeriesAcl in acl_types_hybrid
+    assert EventsAcl in acl_types_hybrid
+    assert SequencesAcl in acl_types_hybrid
+
+    projects_acl = next(acl for acl in acls_hybrid if isinstance(acl, ProjectsAcl))
+    assert set(projects_acl.actions) == {"LIST", "READ"}
+    sessions_acl = next(acl for acl in acls_hybrid if isinstance(acl, SessionsAcl))
+    assert set(sessions_acl.actions) == {"CREATE", "DELETE", "LIST"}
 
 
 def test_get_capabilities_by_loader_dm_only_project() -> None:
@@ -229,6 +242,13 @@ def test_get_capabilities_by_loader_dm_only_project() -> None:
     acl_types_dm_only = {type(c) for c in acl_dm_only}
     assert AssetsAcl not in acl_types_dm_only
     assert RelationshipsAcl not in acl_types_dm_only
+    assert LabelsAcl not in acl_types_dm_only
+    assert SecurityCategoriesAcl not in acl_types_dm_only
+    assert TimeSeriesAcl not in acl_types_dm_only
+    assert EventsAcl not in acl_types_dm_only
+    assert SequencesAcl not in acl_types_dm_only
+    assert ProjectsAcl in acl_types_dm_only
+    assert SessionsAcl in acl_types_dm_only
 
 
 def test_update_missing_capabilities_dm_only_project() -> None:

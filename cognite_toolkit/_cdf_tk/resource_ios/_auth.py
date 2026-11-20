@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
     InternalUnwrappedId,
     NameId,
+    PostgresGatewayUserId,
     RawDatabaseId,
     RawTableId,
 )
@@ -61,8 +62,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitWrongResourceError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -113,8 +115,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all_scoped_only",
+        on_warning: WarningHandler | None = None,
     ):
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self.target_scopes = target_scopes
 
     @property
@@ -153,13 +156,18 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     @classmethod
     def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        from ._agent import AgentIO
+        from ._app import AppIO
         from ._classic import AssetIO
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
         from ._datamodel import SpaceIO
         from ._extraction_pipeline import ExtractionPipelineIO
+        from ._integrations import IntegrationsIO
         from ._location import LocationFilterIO
+        from ._postgres_gateway import PostgresGatewayUserIO
         from ._raw import RawDatabaseIO, RawTableIO
+        from ._sap_writeback import SAPInstanceIO
         from ._timeseries import TimeSeriesIO
 
         for capability in resource.capabilities or []:
@@ -189,6 +197,21 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             elif isinstance(scope, yaml_cap.AssetRootIDScope):
                 for asset_root_id in scope.root_ids:
                     yield AssetIO, ExternalId(external_id=asset_root_id)
+            elif isinstance(scope, yaml_cap.ExternalIdScope):
+                for integration_id in scope.external_ids:
+                    yield IntegrationsIO, ExternalId(external_id=integration_id)
+            elif isinstance(scope, yaml_cap.InstancesScope):
+                for instance_id in scope.instances:
+                    yield SAPInstanceIO, ExternalId(external_id=instance_id)
+            elif isinstance(scope, yaml_cap.AgentExternalIdScope):
+                for agent_id in scope.external_ids:
+                    yield AgentIO, ExternalId(external_id=agent_id)
+            elif isinstance(scope, yaml_cap.AppExternalIdScope):
+                for app_id in scope.external_ids:
+                    yield AppIO, ExternalId(external_id=app_id)
+            elif isinstance(scope, yaml_cap.PostgresGatewayUsersScope):
+                for username in scope.usernames:
+                    yield PostgresGatewayUserIO, PostgresGatewayUserId(username=username)
             elif isinstance(scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase):
                 loader: type[ResourceIO] | None = None
                 if isinstance(capability, yaml_cap.DataSetsAcl):
@@ -319,6 +342,24 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
 
+        if Flags.CDF_GROUP_EMAILS.is_enabled():
+            member_emails = substituted.pop("memberEmails", None)
+            if substituted.get("members") == "emails":
+                missing_ids: list[str] = []
+                member_ids: list[str] = []
+                for email in member_emails or []:
+                    user_id = self.client.lookup.users.user_id(email)
+                    if user_id:
+                        member_ids.append(user_id)
+                    else:
+                        missing_ids.append(email)
+                if missing_ids:
+                    raise ToolkitMissingResourceError(
+                        f"The following member emails could not be found in CDF: {missing_ids}."
+                        f" Please ensure that the users exist in CDF before deploying the group {self.get_id(substituted)!r}."
+                    )
+                substituted["members"] = member_ids
+
         return GroupRequest._load(substituted)
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -386,8 +427,8 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 try:
                     created = self.client.groups.create([item])
                 except ToolkitAPIError as e:
-                    HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
-                        include_timestamp=True, console=self.console
+                    self.on_warning(
+                        HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}")
                     )
                 else:
                     created_list.extend(created)
@@ -421,18 +462,22 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         counts_by_name: dict[str, int] = defaultdict(int)
         for group in delete_candidates:
             if group.source_id in my_source_ids:
-                HighSeverityWarning(
-                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
-                    f"the current service principal. If you want to delete this group, you must do it manually."
-                ).print_warning(console=self.console)
+                self.on_warning(
+                    HighSeverityWarning(
+                        f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
+                        f"the current service principal. If you want to delete this group, you must do it manually."
+                    )
+                )
             else:
                 to_delete.append(group.id)
                 to_delete_groups.append(group)
                 counts_by_name[group.name] += 1
         if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
-            MediumSeverityWarning(
-                f"The following names are used by multiple groups (all will be deleted): {duplicates}"
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"The following names are used by multiple groups (all will be deleted): {humanize_collection(duplicates)}"
+                )
+            )
 
         failed_deletes = []
         error_str = ""
@@ -454,11 +499,13 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 error_str = str(e)
                 failed_deletes.extend(to_delete)
         if failed_deletes:
-            MediumSeverityWarning(
-                f"Failed to delete groups: {humanize_collection(to_delete)}. "
-                "These must be deleted manually in the Fusion UI."
-                f"Error: {escape(error_str)}"
-            ).print_warning(include_timestamp=True, console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Failed to delete groups: {humanize_collection(to_delete)}. "
+                    "These must be deleted manually in the Fusion UI."
+                    f"Error: {escape(error_str)}"
+                )
+            )
         failed = set(failed_deletes)
         return [NameId(name=group.name) for group in to_delete_groups if group.id not in failed]
 
@@ -485,8 +532,8 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
 @final
 class GroupAllScopedIO(GroupIO):
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client, "all_scoped_only")
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, "all_scoped_only", on_warning=on_warning)
 
     @property
     def display_name(self) -> str:
@@ -500,7 +547,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 

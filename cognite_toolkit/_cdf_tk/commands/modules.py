@@ -40,17 +40,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    BuildError,
-    BuildWarning,
-    ConsistencyError,
-    FileReadError,
-    IgnoredFileWarning,
-    InsightDefinition,
-    ModelSyntaxError,
-    ModelSyntaxWarning,
-    Recommendation,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
@@ -65,6 +54,15 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Package,
     Packages,
 )
+from cognite_toolkit._cdf_tk.data_classes._insights import (
+    ERROR_TYPE,
+    RECOMMENDATION_TYPE,
+    WARNING_TYPE,
+    BuildError,
+    BuildWarning,
+    InsightDefinition,
+    Recommendation,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
@@ -77,32 +75,24 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_write,
     yaml_safe_dump,
 )
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
 INDENT = "  "
 POINTER = INDENT + "▶"
 
+
 # Named Rich colors so Windows terminals show green/yellow/red without truecolor.
 _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
-    FileReadError.__name__: ("red", "✗"),
-    ConsistencyError.__name__: ("red", "✗"),
-    ModelSyntaxError.__name__: ("red", "✗"),
-    IgnoredFileWarning.__name__: ("yellow", "○"),
-    ModelSyntaxWarning.__name__: ("yellow", "!"),
-    "Error": ("red", "✗"),
-    "Warning": ("yellow", "!"),
-    Recommendation.__name__: ("green", "*"),
+    ERROR_TYPE: ("red", "✗"),
+    WARNING_TYPE: ("yellow", "!"),
+    RECOMMENDATION_TYPE: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
-    FileReadError.__name__: FileReadError.severity,
-    ConsistencyError.__name__: ConsistencyError.severity,
-    ModelSyntaxError.__name__: ModelSyntaxError.severity,
-    IgnoredFileWarning.__name__: IgnoredFileWarning.severity,
-    ModelSyntaxWarning.__name__: ModelSyntaxWarning.severity,
-    "Error": BuildError.severity,
-    "Warning": BuildWarning.severity,
-    Recommendation.__name__: Recommendation.severity,
+    ERROR_TYPE: BuildError.severity,
+    WARNING_TYPE: BuildWarning.severity,
+    RECOMMENDATION_TYPE: Recommendation.severity,
 }
 _INSIGHT_ORDER: tuple[str, ...] = tuple(
     name for name, _ in sorted(_INSIGHT_SEVERITY.items(), key=lambda item: item[1], reverse=True)
@@ -739,7 +729,7 @@ class ModulesCommand(ToolkitCommand):
             raise typer.Exit()
         return "clean"
 
-    def upgrade(self, organization_dir: Path, verbose: bool = False) -> Changes:
+    def upgrade(self, organization_dir: Path, verbose: bool = False, force: bool = False) -> Changes:
         module_version = self._get_module_version(organization_dir)
         cli_version = parse_version(__version__)
 
@@ -761,15 +751,36 @@ class ModulesCommand(ToolkitCommand):
             )
             return Changes()
 
-        if not CLICommands.use_git():
+        git_installed = Git.is_installed()
+        use_git = git_installed and Git.is_git_repo()
+        if not git_installed:
             self.warn(MediumSeverityWarning("git is not installed. It is strongly recommended to use version control."))
+        elif not use_git:
+            self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
         else:
-            if not CLICommands.has_initiated_repo():
-                self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
-            else:
-                if CLICommands.has_uncommitted_changes():
-                    print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
-                    return Changes()
+            try:
+                uncommitted = Git.get_uncommitted_changes(
+                    (organization_dir / MODULES).resolve(),
+                    f"{organization_dir.resolve().as_posix()}/config.*.yaml",
+                    Path.cwd() / "cdf.toml",
+                    Path.cwd() / ".github" / "workflows",
+                )
+            except RuntimeError as e:
+                self.warn(MediumSeverityWarning(f"Could not check for uncommitted changes: {e}"))
+                uncommitted = []
+            if uncommitted and force:
+                self.warn(
+                    MediumSeverityWarning(
+                        f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
+                        "Proceeding with the upgrade because --force is set."
+                    )
+                )
+            elif uncommitted:
+                print(
+                    f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
+                    "Please commit your changes before upgrading the modules."
+                )
+                return Changes()
         # Update the docstring of the change 'UpdateModuleVersion' to be more informative
         UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING.format(
             module_version=module_version, cli_version=cli_version
@@ -831,7 +842,6 @@ class ModulesCommand(ToolkitCommand):
                 print(Markdown(change.__doc__ or "Missing description."))
                 print(Rule())
 
-        use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All automatic changes have been applied."]
         color = "green"
         if total_changed:
@@ -883,7 +893,7 @@ class ModulesCommand(ToolkitCommand):
             "resource_folders": len(resource_folders),
             "resources": len(module.resource_lineage),
             "insights": {name: count for name, count in sorted(module.insights_summary.items()) if count},
-            "syntax_warnings": module.insights_summary.get(ModelSyntaxWarning.__name__, 0),
+            "syntax_warnings": module.insights_summary.get(WARNING_TYPE, 0),
             "build_result": "Success" if module.is_success else module.status,
             "location": cls._module_location_display(module.module_path, organization_dir),
         }
@@ -964,7 +974,7 @@ class ModulesCommand(ToolkitCommand):
             insight_lines.append("[green]✓[/] No insights")
 
         if failed:
-            max_severity = max(max_severity, ModelSyntaxError.severity)
+            max_severity = max(max_severity, BuildError.severity)
 
         match max_severity:
             case severity if severity < 15:
@@ -1013,7 +1023,7 @@ class ModulesCommand(ToolkitCommand):
                 self._format_module_status(module),
                 f"{len(module.resource_lineage):,}",
                 self._format_module_insights(module.insights_summary),
-                self._format_syntax_warnings(module.insights_summary.get(ModelSyntaxWarning.__name__, 0)),
+                self._format_syntax_warnings(module.insights_summary.get(WARNING_TYPE, 0)),
             )
 
         print(table)
@@ -1035,7 +1045,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_module_insights(cls, insights_summary: dict[str, int]) -> str:
         lines = []
         for insight_type, count in cls._ordered_insight_counts(insights_summary):
-            if insight_type == ModelSyntaxWarning.__name__:
+            if insight_type == WARNING_TYPE:
                 continue
             lines.append(cls._format_insight_line(insight_type, count))
         if not lines:
@@ -1046,7 +1056,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_syntax_warnings(count: int) -> str:
         if count == 0:
             return "[green]0[/]"
-        style, icon = _INSIGHT_STYLE[ModelSyntaxWarning.__name__]
+        style, icon = _INSIGHT_STYLE[WARNING_TYPE]
         return f"[{style}]{icon} {count:,}[/]"
 
     @classmethod

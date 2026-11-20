@@ -78,7 +78,7 @@ class FunctionCodeBundle:
             function_rootdir = cls.get_code_implicitly(filepath, external_id)
         except ValueError as error:
             yield FailedReadExtra(
-                code="SYNTAX-ERROR",
+                code="INVALID-VALUE",
                 error=str(error),
                 source_path=filepath.parent,
             )

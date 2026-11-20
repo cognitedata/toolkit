@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from cognite.client import CogniteClient
@@ -41,7 +41,7 @@ def create_canvas(three_events: EventList) -> IndustrialCanvasRequest:
         external_id="efc2de9d-27a5-4a3b-9779-dff11c572610",
         name="ToolkitTestData",
         created_by="ndTFZh9K9-m2W9WBKc30-Q",
-        updated_at=datetime(2025, 6, 28, 10, 24, 34, tzinfo=timezone.utc),
+        updated_at=datetime(2025, 6, 28, 10, 24, 34, tzinfo=UTC),
         updated_by="ndTFZh9K9-m2W9WBKc30-Q",
         visibility="private",
         context=[{"type": "FILTERS", "payload": {"filters": []}}],

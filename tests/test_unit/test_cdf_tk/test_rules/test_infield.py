@@ -7,6 +7,11 @@ import yaml
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APMConfigRequest,
+    FeatureConfiguration,
+    RootLocationConfiguration,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
@@ -103,12 +108,12 @@ def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
 
 class TestInFieldCDMRuleSet:
     def test_get_status_with_client(self) -> None:
-        rule = InFieldCDMRuleSet(modules=[], client=MagicMock())
+        rule = InFieldCDMRuleSet(resources=[], client=MagicMock())
         status = rule.get_status()
         assert status.code == "ready"
 
     def test_get_status_without_client(self) -> None:
-        rule = InFieldCDMRuleSet(modules=[])
+        rule = InFieldCDMRuleSet(resources=[])
         status = rule.get_status()
         assert status.code == "reduced"
 
@@ -137,7 +142,7 @@ class TestInFieldCDMRuleSet:
 
         mock_client = MagicMock()
         mock_client.views.retrieve.side_effect = lambda ids, **_: [view_map[v] for v in ids if v in view_map]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         results = list(rule.validate())
         assert results == []
         mock_client.views.retrieve.assert_called_once()
@@ -171,7 +176,7 @@ class TestInFieldCDMRuleSet:
         activities_required = _REQUIRED_PROPERTIES["assetActivitiesCardView"]
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(activities_id, activities_required - {"mainAsset"})]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == "INVALID-REFERENCED-RESOURCE"
@@ -203,7 +208,7 @@ class TestInFieldCDMRuleSet:
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = []
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert list(rule.validate()) == []
 
     def test_retrieve_called_once_for_multiple_resources(
@@ -234,7 +239,7 @@ class TestInFieldCDMRuleSet:
             mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
             mock_view(documents_id, _REQUIRED_PROPERTIES["assetDocumentsCardView"]),
         ]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         list(rule.validate())
         mock_client.views.retrieve.assert_called_once()
         call_view_ids = mock_client.views.retrieve.call_args[0][0]
@@ -276,7 +281,7 @@ class TestInFieldCDMRuleSet:
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets", "files"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert list(rule.validate()) == []
 
     def test_observation_fields_config_unknown_property(
@@ -315,7 +320,7 @@ class TestInFieldCDMRuleSet:
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
@@ -351,7 +356,7 @@ class TestInFieldCDMRuleSet:
         resource = create_built_resource(yaml_file, yaml_file)
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert list(rule.validate()) == []
         mock_client.views.retrieve.assert_not_called()
 
@@ -389,7 +394,7 @@ class TestInFieldCDMRuleSet:
         asset_id = ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(asset_id, frozenset({"name", "description"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert list(rule.validate()) == []
 
     def test_asset_properties_card_config_unknown_property(
@@ -426,7 +431,7 @@ class TestInFieldCDMRuleSet:
         asset_id = ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(asset_id, frozenset({"name"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
@@ -459,9 +464,69 @@ class TestInFieldCDMRuleSet:
         default_asset_id = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(default_asset_id, frozenset({"name"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert list(rule.validate()) == []
         mock_client.views.retrieve.assert_called_once_with([default_asset_id], include_inherited_properties=True)
+
+    @pytest.mark.parametrize(
+        "app_instance_space, expected_codes",
+        [
+            pytest.param("legacy_app_space", ["INVALID-VALUE"], id="legacy space is rejected"),
+            pytest.param("new_app_space", [], id="new space is accepted"),
+        ],
+    )
+    def test_app_instance_space_used_by_legacy_infield(
+        self,
+        app_instance_space: str,
+        expected_codes: list[str],
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataStorage": {"appInstanceSpace": app_instance_space},
+            },
+        )
+        module = create_module(tmp_path, [create_built_resource(yaml_file, yaml_file)])
+        mock_client = MagicMock()
+        mock_client.infield.apm_config.list.return_value = [
+            APMConfigRequest(
+                external_id="legacy_config",
+                feature_configuration=FeatureConfiguration(
+                    root_location_configurations=[RootLocationConfiguration(app_data_instance_space="legacy_app_space")]
+                ),
+            )
+        ]
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
+        assert [insight.code for insight in rule.validate()] == expected_codes
+
+    def test_legacy_infield_lookup_failure_is_reported(
+        self,
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataStorage": {"appInstanceSpace": "my_app_space"},
+            },
+        )
+        module = create_module(tmp_path, [create_built_resource(yaml_file, yaml_file)])
+        mock_client = MagicMock()
+        mock_client.infield.apm_config.list.side_effect = ToolkitAPIError("Forbidden", code=403)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
+        assert [insight.code for insight in rule.validate()] == ["INTERNAL-VALIDATOR-EXCEPTION"]
 
     def test_retrieve_batch_failure_propagates(
         self,
@@ -477,6 +542,6 @@ class TestInFieldCDMRuleSet:
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.views.retrieve.side_effect = ToolkitAPIError("Server error", code=500)
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         with pytest.raises(ToolkitAPIError, match="Server error"):
             list(rule.validate())

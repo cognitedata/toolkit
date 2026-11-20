@@ -1,5 +1,6 @@
 import json
 import re
+import tomllib as toml
 import uuid
 from collections.abc import Callable
 from datetime import datetime
@@ -7,17 +8,17 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Self, TypeAlias, get_args
 
-import tomllib as toml
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, field_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning, Recommendation
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceType
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import BuildError, BuildWarning, ModelSyntaxError, ModelSyntaxWarning
-from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
+from ._config import VariableSource
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md", ".ttl"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
@@ -27,6 +28,7 @@ class BuildVariable(BaseModel):
     id: RelativeDirPath
     value: str | bool | int | float | list[str | bool | int | float]
     is_selected: bool
+    source: VariableSource = Field(description="Where in the config YAML files the variable is defined.")
     iteration: int | None = None
 
     @property
@@ -135,7 +137,7 @@ class BuildVariable(BaseModel):
 
 
 class InvalidBuildVariable(BuildVariable):
-    error: ModelSyntaxError | BuildError
+    error: BuildError
 
 
 class ModuleId(Identifier):
@@ -326,32 +328,33 @@ class FailedReadYAMLFile(ReadYAMLFile):
         "INVALID-FILE-SUFFIX",
         "UNREADABLE-FILE",
         "INVALID-FILE-CONTENT",
-        "EMPTY-FILE",
     ]
     error: str
+    line: int | None = None
+    column: int | None = None
 
 
 class ReadResource(BaseModel, Generic[T_Resource]):
     raw: dict[str, JsonValue | datetime]
     identifier: Identifier
+    resource_type: ResourceType
     validated: ToolkitResource | None = None
     extra_files: list[ReadExtra] = Field(default_factory=list)
 
 
 class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
-    resource_type: ResourceType
     source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
-    syntax_error: ModelSyntaxError | BuildError | None = None
-    syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = Field(default_factory=list)
+    syntax_errors: list[BuildError] = Field(default_factory=list)
+    syntax_warnings: list[BuildWarning | Recommendation] = Field(default_factory=list)
     line_count: int
     rules_ignore: set[str] = Field(default_factory=set, description="The set of rules to ignore for this file. ")
 
 
 class IgnoredFile(BaseModel):
     filepath: Path
-    code: Literal["MISSING-FILE-SUFFIX", "MISSING-SUFFIX"]
+    code: Literal["MISSING-FILE-SUFFIX"] = "MISSING-FILE-SUFFIX"
     reason: str
     fix: str
 

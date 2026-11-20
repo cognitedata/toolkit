@@ -250,7 +250,7 @@ class TestInFieldSpaceSelection:
         client = _mock_client(*_standard_infield_configs())
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]):
+        with MockQuestionary(infield_setup.__name__, ["app_space", "cdm_app"]):
             spaces = user_input.prompt_migration_spaces()
 
         assert spaces == InfieldMigrationSpaces(source="app_space", _target="cdm_app")
@@ -260,7 +260,7 @@ class TestInFieldSpaceSelection:
         client = _mock_client([_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, ["shared_app"]):
+        with MockQuestionary(infield_setup.__name__, ["shared_app"]):
             spaces = user_input.prompt_migration_spaces()
 
         assert spaces == InfieldMigrationSpaces(source="shared_app", _target=None)
@@ -268,7 +268,7 @@ class TestInFieldSpaceSelection:
     def test_prompt_flags_returns_answers(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         log_dir = tmp_path / "migration_logs"
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, [str(log_dir), False, True]):
+        with MockQuestionary(infield_setup.__name__, [str(log_dir), False, True]):
             result = InFieldUserInput.prompt_flags(log_dir, dry_run=False, verbose=True)
 
         assert result == (log_dir, False, True)
@@ -388,7 +388,7 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, operation))
 
         with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["unused", "unused"]),
+            MockQuestionary(infield_setup.__name__, ["unused", "unused"]),
             pytest.raises(typer.BadParameter),
         ):
             user_input.prompt_migration_spaces()
@@ -430,7 +430,7 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]),
+            MockQuestionary(infield_setup.__name__, ["app_space", "cdm_app"]),
             pytest.raises(typer.BadParameter),
         ):
             user_input.prompt_migration_spaces()
@@ -443,7 +443,7 @@ class TestInFieldSpaceSelection:
         )
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]):
+        with MockQuestionary(infield_setup.__name__, ["app_space", "cdm_app"]):
             spaces = user_input.prompt_migration_spaces()
 
         console = cast(_RecordingConsole, client.console)
@@ -463,7 +463,7 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", None]),
+            MockQuestionary(infield_setup.__name__, ["app_space", None]),
             pytest.raises(typer.BadParameter),
         ):
             user_input.prompt_migration_spaces()

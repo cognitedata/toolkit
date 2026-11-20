@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api._classic_list import (
     Sort,
     TimeRange,
     classic_list_body,
+    classic_search_body,
     int_ids,
     object_ids,
     time_range,
@@ -44,6 +45,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
                 "delete": Endpoint(method="POST", path="/sequences/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/sequences/list", item_limit=1000),
                 "aggregate": Endpoint(method="POST", path="/sequences/aggregate", item_limit=1000),
+                "search": Endpoint(method="POST", path="/sequences/search", item_limit=1000),
             },
         )
         self.rows = SequenceRowsAPI(http_client)
@@ -286,6 +288,25 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
             sort=sort,
             partition=partition,
         )
+
+    def search(
+        self,
+        query: str | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        limit: int = 100,
+    ) -> builtins.list[SequenceResponse]:
+        """Search sequences by text. Results are sorted by relevance.
+
+        ``query`` does a wildcard search for each word in the name and description, ``name`` and ``description``
+        are prefix and fuzzy searches on a single field. ``filter`` is the same strict filter as :meth:`list`.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/searchSequences>`_.
+        """
+        body = classic_search_body(filter=filter, search={"query": query, "name": name, "description": description})
+        return self._search(body, limit)
 
     def count(
         self,

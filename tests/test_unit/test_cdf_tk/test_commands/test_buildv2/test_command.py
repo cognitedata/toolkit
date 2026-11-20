@@ -12,9 +12,8 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     FailedReadYAMLFile,
@@ -25,15 +24,18 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
     SuccessfulReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, InsightList
+from cognite_toolkit._cdf_tk.data_classes._types import RelativeDirPath
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from tests.test_unit.utils import MockQuestionary
 
 BASE_URL = "http://neat.cognitedata.com"
@@ -140,7 +142,7 @@ class TestBuildCommand:
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
-        _ = cmd.build(parameters, tlk_client)
+        _ = cmd.build(parameters, client=tlk_client)
 
         built_space = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
         assert len(built_space) == 1
@@ -174,20 +176,20 @@ name: My Space
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
-        folder = cmd.build(parameters, tlk_client)
+        folder = cmd.build(parameters, client=tlk_client)
 
         my_module = next(m for m in folder.built_modules if m.module_id.name == "my_module")
         assert {
             "resource_count": len(my_module.resources),
             "syntax_errors": len(my_module.syntax_errors_by_source),
-            "insight_codes": {i.code for i in folder.all_insights if i.code},
+            "insight_codes": {i.code for i in folder.module_insights},
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
             "insight_codes": {"INVALID-FIELD"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "INVALID-FIELD")
+        syntax_insight = next(i for i in folder.module_insights if i.code == "INVALID-FIELD")
         assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
@@ -329,7 +331,7 @@ class TestDependencyValidationSearchConfig:
         build_file = mod_path / "1-x-out.SearchConfig.yaml"
         build_file.touch()
         module = BuiltModule(
-            module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(mod_path.resolve())),
+            module_id=ModuleId(id=Path("modules/my"), path=mod_path.resolve()),
             resources=[],
             yaml_line_count=2,
         )
@@ -343,8 +345,8 @@ class TestDependencyValidationSearchConfig:
                 identifier=ViewId(space="my_space", external_id="View1", version="v1"),
                 source_hash="h-view",
                 type=ResourceType(resource_folder=ViewIO.folder_name, kind=ViewIO.kind),
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
+                source_path=source_file.resolve(),
+                build_path=build_file.resolve(),
                 crud_cls=ViewIO,
                 dependencies=set(),
                 has_syntax_error=False,
@@ -359,15 +361,15 @@ class TestDependencyValidationSearchConfig:
                     resource_folder=SearchConfigIO.folder_name,
                     kind=SearchConfigIO.kind,
                 ),
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
+                source_path=source_file.resolve(),
+                build_path=build_file.resolve(),
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
                 has_syntax_error=False,
                 module_id=module.module_id,
             )
         )
-        result = list(DependencyRuleSet([module]).validate())
+        result = list(DependencyRuleSet(module.resources).validate())
         assert len(result) == 0
 
 
@@ -480,12 +482,15 @@ class TestReadFileSystem:
             "user_selected_modules": {"module1", "module2"},
             "validation_type": "dev",
             "cdf_project": "my-project",
+            "deploy_branch": None,
+            "deploy_protection": None,
             "organization_dir": tmp_path.resolve(),
             "config_files": [
                 {
                     "selected_modules": {"module1", "module2"},
                     "variables": {},
                     "path": config_yaml.resolve(),
+                    "variable_sources": {},
                 }
             ],
         }
@@ -599,7 +604,7 @@ class TestDisplayModuleSourcesOutput:
                 build_source,
                 console,
                 verbose=False,
-                selection_source="modules",
+                selection_source="cli-arg",
                 config_file_name="",
             )
 
@@ -627,7 +632,7 @@ class TestDisplayModuleSourcesOutput:
                 build_source,
                 console,
                 verbose=True,
-                selection_source="modules",
+                selection_source="cli-arg",
                 config_file_name="",
             )
 
@@ -651,7 +656,7 @@ class TestDisplayModuleSourcesOutput:
             build_source,
             console,
             verbose=True,
-            selection_source="modules",
+            selection_source="cli-arg",
             config_file_name="",
         )
 
@@ -788,6 +793,37 @@ class TestReadResourceFile:
         assert result.code == expected_code
 
     @pytest.mark.parametrize(
+        "content, expected_position",
+        [
+            pytest.param(
+                "space: my_space\nname: [unclosed\ndescription: text\n",
+                (2, 7),
+                id="unclosed bracket points at the bracket",
+            ),
+            pytest.param(
+                'space: my_space\nname: "unclosed\ndescription: text\n',
+                (2, 7),
+                id="unclosed quote points at the quote",
+            ),
+            pytest.param(
+                "space: my_space\nname:\n  first: 1\n second: 2\n",
+                (4, 2),
+                id="bad indentation points where the parser gave up",
+            ),
+        ],
+    )
+    def test_read_resource_file_yaml_parse_error_has_position(
+        self, content: str, expected_position: tuple[int, int], tmp_path: Path
+    ) -> None:
+        resource_file = tmp_path / "resource.Space.yaml"
+        resource_file.write_text(content)
+
+        result = BuildV2Command()._read_resource_file(resource_file, SpaceIO, [])
+
+        assert isinstance(result, FailedReadYAMLFile)
+        assert (result.line, result.column) == expected_position
+
+    @pytest.mark.parametrize(
         "filename, content, crud_class, expected_resource_count, has_syntax_error, has_syntax_warning",
         [
             pytest.param(
@@ -846,7 +882,7 @@ class TestReadResourceFile:
         result = cmd._read_resource_file(resource_file, crud_class, [])
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
-        assert has_syntax_error == (result.syntax_error is not None)
+        assert has_syntax_error == bool(result.syntax_errors)
         assert has_syntax_warning == bool(result.syntax_warnings)
 
 
@@ -1138,7 +1174,7 @@ class TestSelectModule:
 
         answers = [module if a == "__MODULE__" else a for a in answers_template]
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(BuildV2Command.__module__, answers):
             result = BuildV2Command.select_module(
                 organization_dir=org,
                 selected_module=selected_module,
@@ -1158,7 +1194,7 @@ class TestSelectModule:
         org = self._org(tmp_path)
         scan = ModuleScanResult(module_dir=org / MODULES, modules=[])
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, ["NEW", "created_module"]):
+        with MockQuestionary(BuildV2Command.__module__, ["NEW", "created_module"]):
             result = BuildV2Command.select_module(
                 organization_dir=org,
                 selected_module=None,
@@ -1211,7 +1247,7 @@ class TestSelectModule:
         org = self._org(tmp_path)
         scan = ModuleScanResult(module_dir=org / MODULES, **scan_kwargs)
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(BuildV2Command.__module__, answers):
             with pytest.raises(ToolkitValueError, match=match):
                 BuildV2Command.select_module(
                     organization_dir=org,
@@ -1219,3 +1255,193 @@ class TestSelectModule:
                     module_scan_result=scan,
                     allow_creation=allow_creation,
                 )
+
+
+_GIT_SPACE_FILE = f"org/{MODULES}/my_module/{SpaceIO.folder_name}/my_space.{SpaceIO.kind}.yaml"
+
+
+class TestParseGitDiffSelection:
+    @pytest.mark.parametrize(
+        "current_branch, changed_files, uncommitted_files, expected_selected, expected_uncommitted",
+        [
+            pytest.param(
+                "feature-branch",
+                [_GIT_SPACE_FILE],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="feature_branch_changed_module_file",
+            ),
+            pytest.param(
+                "main",
+                [_GIT_SPACE_FILE],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="default_branch_uses_last_commit",
+            ),
+            pytest.param(
+                "feature-branch",
+                [
+                    "README.md",
+                    "org/other/some_file.yaml",
+                    f"org/{MODULES}/my_module/README.md",
+                    f"org/{MODULES}/not_a_module/notes.md",
+                ],
+                [],
+                set(),
+                [],
+                id="irrelevant_changes_no_uncommitted",
+            ),
+            pytest.param(
+                "feature-branch",
+                [f"org/{MODULES}/my_module/{SpaceIO.folder_name}/notes.md"],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="non_yaml_sidecar_file_selects_module",
+            ),
+            pytest.param(
+                "feature-branch",
+                [f"org/{MODULES}/my_module/functions/my_fn/auth/token.py"],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="code_bundle_subdir_named_like_resource_folder_selects_module",
+            ),
+            pytest.param(
+                "feature-branch",
+                [f"org/{MODULES}/my_module/transformations/my_transformation.sql"],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="sql_file_selects_module",
+            ),
+            pytest.param(
+                "feature-branch",
+                [],
+                [_GIT_SPACE_FILE, "README.md"],
+                set(),
+                [_GIT_SPACE_FILE],
+                id="no_committed_changes_with_uncommitted_module_file",
+            ),
+            pytest.param(
+                "main",
+                [],
+                [_GIT_SPACE_FILE],
+                set(),
+                [_GIT_SPACE_FILE],
+                id="default_branch_no_last_commit_changes_with_uncommitted",
+            ),
+        ],
+    )
+    def test_parse_git_diff_selection(
+        self,
+        current_branch: str,
+        changed_files: list[str],
+        uncommitted_files: list[str],
+        expected_selected: set[RelativeDirPath | str],
+        expected_uncommitted: list[str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Git returns paths relative to the repository root, which are resolved against the CWD.
+        monkeypatch.chdir(tmp_path)
+        org = tmp_path / "org"
+        filepath = tmp_path / _GIT_SPACE_FILE
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(SPACE_YAML)
+
+        git = MagicMock(spec=Git)
+        git.is_git_repo.return_value = True
+        git.get_root.return_value = tmp_path
+        git.get_default_branch.return_value = "main"
+        git.get_current_branch.return_value = current_branch
+        git.get_changed_files.return_value = changed_files
+        git.get_changed_files_last_commit.return_value = changed_files
+        git.get_uncommitted_changes.return_value = uncommitted_files
+
+        actual_selected, actual_uncommitted = BuildV2Command.parse_git_diff_selection(org, git)
+
+        assert actual_selected == expected_selected
+        assert actual_uncommitted == [(tmp_path / file).resolve() for file in expected_uncommitted]
+        if current_branch == "main":
+            git.get_changed_files_last_commit.assert_called_once()
+            git.get_changed_files.assert_not_called()
+        else:
+            git.get_changed_files.assert_called_once_with("main", current_branch)
+            git.get_changed_files_last_commit.assert_not_called()
+        if expected_selected:
+            git.get_uncommitted_changes.assert_not_called()
+        else:
+            git.get_uncommitted_changes.assert_called_once()
+
+    def test_parse_git_diff_selection_streamlit_app_files_from_organization_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        org = tmp_path / "org"
+        streamlit_dir = org / MODULES / "my_module" / "streamlit"
+        app_dir = streamlit_dir / "my_app"
+        (app_dir / "pages").mkdir(parents=True)
+        (streamlit_dir / "my_app.Streamlit.yaml").write_text("externalId: my_app\nname: My App\n")
+        (app_dir / "main.py").write_text("import streamlit as st\n")
+        (app_dir / "requirements.txt").write_text("streamlit\n")
+        (app_dir / "pages" / "upload.py").write_text("import streamlit as st\n")
+        # The organization directory is a subdirectory of the repository root, while git returns
+        # paths relative to the repository root.
+        monkeypatch.chdir(org)
+
+        git = MagicMock(spec=Git)
+        git.is_git_repo.return_value = True
+        git.get_root.return_value = tmp_path
+        git.get_default_branch.return_value = "main"
+        git.get_current_branch.return_value = "feature-branch"
+        git.get_changed_files.return_value = [
+            f"org/{MODULES}/my_module/streamlit/my_app/main.py",
+            f"org/{MODULES}/my_module/streamlit/my_app/pages/upload.py",
+        ]
+
+        actual_selected, _ = BuildV2Command.parse_git_diff_selection(Path("."), git)
+
+        assert actual_selected == {Path(MODULES) / "my_module"}
+
+    def test_parse_git_diff_selection_not_git_repo(self, tmp_path: Path) -> None:
+        git = MagicMock(spec=Git)
+        git.is_git_repo.return_value = False
+
+        with pytest.raises(ToolkitValueError, match="not a Git repository"):
+            BuildV2Command.parse_git_diff_selection(tmp_path / "org", git)
+
+        git.get_default_branch.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "config_selected, expected",
+        [
+            pytest.param({"module_a"}, {Path(MODULES) / "module_a"}, id="by_module_name"),
+            pytest.param({Path(MODULES) / "module_a"}, {Path(MODULES) / "module_a"}, id="by_module_path"),
+            pytest.param(
+                {Path(MODULES) / "group"},
+                {Path(MODULES) / "group" / "module_b"},
+                id="by_parent_path",
+            ),
+            pytest.param({Path(MODULES)}, {Path(MODULES) / "module_a", Path(MODULES) / "group" / "module_b"}, id="all"),
+            pytest.param({"module_c"}, set(), id="no_overlap"),
+        ],
+    )
+    def test_restrict_git_diff_selection(
+        self, config_selected: set[RelativeDirPath | str], expected: set[RelativeDirPath | str]
+    ) -> None:
+        git_diff_selected: set[RelativeDirPath | str] = {
+            Path(MODULES) / "module_a",
+            Path(MODULES) / "group" / "module_b",
+        }
+
+        assert BuildV2Command._restrict_git_diff_selection(git_diff_selected, config_selected) == expected
+
+    def test_git_diff_selection_requires_selected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.GIT_DIFF_SELECT)
+        config_path = tmp_path / "config.dev.yaml"
+        config_path.write_text("environment:\n  name: dev\n  project: dev-project\n  selection-type: git-diff\n")
+
+        with pytest.raises(ToolkitValueError, match="No `selected` modules set"):
+            BuildV2Command._read_file_system(tmp_path, [config_path], None)

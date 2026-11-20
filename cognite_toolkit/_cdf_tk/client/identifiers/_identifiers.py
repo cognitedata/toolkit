@@ -284,6 +284,19 @@ class DataProductVersionId(Identifier):
         return f"{self.data_product_external_id}.{self.version}"
 
 
+class DataProductRoleId(Identifier):
+    data_product_external_id: str = Field(exclude=True)
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"dataProductExternalId='{self.data_product_external_id}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dataProductExternalId-{self.data_product_external_id}.externalId-{self.external_id}"
+        return f"{self.data_product_external_id}.{self.external_id}"
+
+
 class TransformationNotificationId(Identifier):
     transformation_external_id: str
     destination: str
@@ -319,6 +332,18 @@ class UserProfileId(Identifier):
         if include_type:
             return f"userIdentifier-{self.user_identifier}"
         return self.user_identifier
+
+
+class MeterId(Identifier):
+    meter_id: str
+
+    def __str__(self) -> str:
+        return f"meterId='{self.meter_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"meterId-{self.meter_id}"
+        return self.meter_id
 
 
 class PrincipalLoginId(Identifier):
@@ -359,6 +384,43 @@ class WritebackRequestId(Identifier):
         return self.request_id
 
 
+class LimitId(Identifier):
+    limit_id: str
+
+    def __str__(self) -> str:
+        return f"limitId='{self.limit_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"limitId-{self.limit_id}"
+        return self.limit_id
+
+
+class PostgresGatewayUserId(Identifier):
+    username: str
+
+    def __str__(self) -> str:
+        return f"username='{self.username}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"username-{self.username}"
+        return self.username
+
+
+class PostgresGatewayTableId(Identifier):
+    username: str
+    tablename: str
+
+    def __str__(self) -> str:
+        return f"{self.username}.{self.tablename}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"username-{self.username}.tablename-{self.tablename}"
+        return f"{self.username}.{self.tablename}"
+
+
 class SignalSinkId(Identifier):
     type: Literal["email", "user"]
     external_id: str
@@ -370,3 +432,18 @@ class SignalSinkId(Identifier):
         if include_type:
             return f"type-{self.type}.externalId-{self.external_id}"
         return f"{self.type}.{self.external_id}"
+
+
+class ThreeDJobId(Identifier):
+    """A 3D job. The space scopes the job, the job itself is not a data modeling instance."""
+
+    space: str
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"space='{self.space}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"

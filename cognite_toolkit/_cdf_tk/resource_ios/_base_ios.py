@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from typing_extensions import TypeForm
@@ -18,14 +19,16 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-
-from typing import Self
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 T_YamlResource = TypeVar("T_YamlResource")
+WarningHandler: TypeAlias = Callable[[ToolkitWarning], None]
 
 
 class ReadExtra(BaseModel):
@@ -37,7 +40,7 @@ class FailedReadExtra(ReadExtra):
         "MISSING-REFERENCED-FILE",
         "MISSING-REFERENCED-DIRECTORY",
         "INVALID-FILE-CONTENT",
-        "SYNTAX-ERROR",
+        "INVALID-VALUE",
     ]
     error: str
 
@@ -193,20 +196,28 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return BuildVariable.substitute(content, variables, ".yaml")
 
 
+@dataclass
+class CrudResource(Generic[T_Identifier]):
+    raw: dict[str, Any]
+    identifier: T_Identifier
+    type_: ResourceType
+    validated: ToolkitResource | None = None
+
+
 class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
-        """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
-        the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
+    def to_crud_types(
+        cls, raw: dict[str, Any], source_file: Path, resource: T_YamlResource | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
+        raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
-        """Converts the CRUD resource to the raw type. This is used to convert the resource from the CRUD format to
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
+        """Converts the CRUD resources to the raw type. This is used to convert the resource from the CRUD format to
         the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"from_crud_type must be implemented for {cls.__name__}.")
+        raise NotImplementedError(f"from_crud_types must be implemented for {cls.__name__}.")
 
 
 class ResourceIO(
@@ -257,9 +268,13 @@ class ResourceIO(
     # the resource type does not have a parent resource.
     parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
         self.client = client
         self.console = client.console
+        self.on_warning = on_warning or self._print_warning
+
+    def _print_warning(self, warning: ToolkitWarning) -> None:
+        warning.print_warning(console=self.console)
 
     @classmethod
     def as_crud_type(cls) -> ResourceType:
@@ -356,11 +371,13 @@ class ResourceIO(
         Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_RequestResource:
@@ -434,11 +451,7 @@ class ResourceIO(
         return
         yield
 
-    @classmethod
-    def create_io(cls, client: ToolkitClient) -> Self:
-        return cls(client)
-
-        # Helper methods
+    # Helper methods
 
     @property
     def display_name(self) -> str:

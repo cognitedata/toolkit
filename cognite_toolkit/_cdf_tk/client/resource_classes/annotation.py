@@ -189,3 +189,10 @@ class AnnotationResponse(Annotation, ResponseResource[AnnotationRequest]):
     @classmethod
     def request_cls(cls) -> type[AnnotationRequest]:
         return AnnotationRequest
+
+
+class AnnotatedResourceReference(BaseModelObject):
+    """A file or 3D model that has annotations matching a reverse lookup filter."""
+
+    id: int | None = None
+    external_id: str | None = None

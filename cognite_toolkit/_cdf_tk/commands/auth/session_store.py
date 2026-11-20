@@ -2,7 +2,7 @@ import json
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -35,7 +35,7 @@ class SessionMetadata:
         now: datetime | None = None,
         leeway_seconds: int = COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS,
     ) -> SessionTokenState:
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         refresh_expires = _parse_iso_timestamp(self.refresh_token_expires_at)
         if now >= refresh_expires:
             return "EXPIRED"
@@ -154,7 +154,7 @@ def _refresh_token_account(org: str) -> str:
 
 
 def format_session_timestamp(dt: datetime) -> str:
-    dt = dt.astimezone(timezone.utc)
+    dt = dt.astimezone(UTC)
     milliseconds = dt.microsecond // 1000
     return dt.strftime(f"%Y-%m-%dT%H:%M:%S.{milliseconds:03d}Z")
 
@@ -164,7 +164,7 @@ def _parse_iso_timestamp(value: str) -> datetime:
         value = value[:-1] + "+00:00"
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 

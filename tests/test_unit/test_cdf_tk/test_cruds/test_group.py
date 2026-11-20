@@ -1,10 +1,22 @@
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
+from typing import get_args
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    NameId,
+    PostgresGatewayUserId,
+    RawDatabaseId,
+    RawTableId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
@@ -17,16 +29,250 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_ios import (
+    AgentIO,
+    AppIO,
+    AssetIO,
+    DataProductIO,
+    DataSetsIO,
+    ExtractionPipelineIO,
     GroupAllScopedIO,
     GroupResourceScopedIO,
+    IntegrationsIO,
+    LocationFilterIO,
+    PostgresGatewayUserIO,
+    RawDatabaseIO,
+    RawTableIO,
+    ResourceIO,
+    SAPInstanceIO,
+    SecurityCategoryIO,
+    SpaceIO,
+    TimeSeriesIO,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import (
+    AgentExternalIdScope,
+    AgentsAcl,
+    AppConfigAcl,
+    AppConfigScope,
+    AppExternalIdScope,
+    AppHostingAcl,
+    AssetRootIDScope,
+    Capability,
+    CapabilityType,
+    CurrentUserScope,
+    DataDomainScope,
+    DataModelInstancesAcl,
+    DataModelsAcl,
+    DataProductsAcl,
+    DataProductScope,
+    DataSetsAcl,
+    DataSetScope,
+    EventsAcl,
+    ExperimentsAcl,
+    ExperimentScope,
+    ExternalIdScope,
+    ExtractionConfigsAcl,
+    ExtractionPipelinesAcl,
+    ExtractionPipelineScope,
+    ExtractionsRunAcl,
+    FilesAcl,
+    GroupsAcl,
+    IDScope,
+    IDScopeLowerCase,
+    InstancesScope,
+    IntegrationActionsAcl,
+    IntegrationConfigsAcl,
+    IntegrationsAcl,
+    LabelsAcl,
+    LocationFiltersAcl,
+    PartitionScope,
+    PostgresGatewayAcl,
+    PostgresGatewayUsersScope,
+    RawAcl,
+    RelationshipsAcl,
+    RoboticsAcl,
+    SAPWritebackAcl,
+    SAPWritebackRequestsAcl,
+    Scope,
+    SecurityCategoriesAcl,
+    SeismicAcl,
+    SequencesAcl,
+    SignalsCurrentUserScope,
+    SimulatorsAcl,
+    SpaceIDScope,
+    StreamRecordsAcl,
+    SubscribeSignalsAcl,
+    TableScope,
+    TemplateGroupsAcl,
+    TemplateInstancesAcl,
+    ThreeDAcl,
+    TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
+    TransformationsAcl,
+    TransformationsExternalDataSourcesAcl,
+    UnknownCapability,
+    VideoStreamingAcl,
+    WorkflowOrchestrationAcl,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.groups import ExternalGroupYAML
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
+_DATA_SET_SCOPED_ACLS: tuple[type[Capability], ...] = (
+    yaml_cap.AssetsAcl,
+    EventsAcl,
+    ExtractionConfigsAcl,
+    ExtractionPipelinesAcl,
+    ExtractionsRunAcl,
+    FilesAcl,
+    LabelsAcl,
+    RelationshipsAcl,
+    RoboticsAcl,
+    SequencesAcl,
+    SimulatorsAcl,
+    TemplateGroupsAcl,
+    TemplateInstancesAcl,
+    ThreeDAcl,
+    TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
+    TransformationsAcl,
+    TransformationsExternalDataSourcesAcl,
+    VideoStreamingAcl,
+    WorkflowOrchestrationAcl,
+)
 
-class TestGroupLoader:
+
+def group_acl_expected_dependency() -> Iterable[ParameterSet]:
+    """Test cases for all non-all scopes of all ACLs and the dependencies they are expected to give."""
+    for acl_cls in _DATA_SET_SCOPED_ACLS:
+        yield pytest.param(
+            acl_cls.model_validate({"actions": ["READ"], "scope": DataSetScope(ids=["my_data_set"])}),
+            [(DataSetsIO, ExternalId(external_id="my_data_set"))],
+            id=f"{acl_cls.__name__} with DataSetScope depends on DataSetsIO",
+        )
+    for acl_cls in (ExtractionConfigsAcl, ExtractionsRunAcl):
+        yield pytest.param(
+            acl_cls(actions=["READ"], scope=ExtractionPipelineScope(ids=["my_pipeline"])),
+            [(ExtractionPipelineIO, ExternalId(external_id="my_pipeline"))],
+            id=f"{acl_cls.__name__} with ExtractionPipelineScope depends on ExtractionPipelineIO",
+        )
+    for acl_cls in (DataModelInstancesAcl, DataModelsAcl, StreamRecordsAcl):
+        yield pytest.param(
+            acl_cls(actions=["READ"], scope=SpaceIDScope.model_validate({"spaceIds": ["my_space"]})),
+            [(SpaceIO, SpaceId(space="my_space"))],
+            id=f"{acl_cls.__name__} with SpaceIDScope depends on SpaceIO",
+        )
+    for acl_cls in (IntegrationActionsAcl, IntegrationConfigsAcl, IntegrationsAcl):
+        yield pytest.param(
+            acl_cls(actions=["READ"], scope=ExternalIdScope.model_validate({"externalIds": ["my_integration"]})),
+            [(IntegrationsIO, ExternalId(external_id="my_integration"))],
+            id=f"{acl_cls.__name__} with ExternalIdScope depends on IntegrationsIO",
+        )
+        yield pytest.param(
+            acl_cls(actions=["READ"], scope=DataDomainScope.model_validate({"externalIds": ["my_domain"]})),
+            [],
+            id=f"{acl_cls.__name__} with DataDomainScope has no dependencies",
+        )
+    for acl_cls in (SAPWritebackAcl, SAPWritebackRequestsAcl):
+        yield pytest.param(
+            acl_cls(actions=["WRITE"], scope=InstancesScope(instances=["my_sap_instance"])),
+            [(SAPInstanceIO, ExternalId(external_id="my_sap_instance"))],
+            id=f"{acl_cls.__name__} with InstancesScope depends on SAPInstanceIO",
+        )
+    yield pytest.param(
+        AgentsAcl(actions=["READ"], scope=AgentExternalIdScope.model_validate({"externalIds": ["agent1"]})),
+        [(AgentIO, ExternalId(external_id="agent1"))],
+        id="AgentsAcl with AgentExternalIdScope depends on AgentIO",
+    )
+    yield pytest.param(
+        AppConfigAcl(actions=["READ"], scope=AppConfigScope(apps=["SEARCH"])),
+        [],
+        id="AppConfigAcl with AppConfigScope has no dependencies",
+    )
+    yield pytest.param(
+        AppHostingAcl(actions=["READ"], scope=AppExternalIdScope.model_validate({"externalIds": ["my_app"]})),
+        [(AppIO, ExternalId(external_id="my_app"))],
+        id="AppHostingAcl with AppExternalIdScope depends on AppIO",
+    )
+    yield pytest.param(
+        DataProductsAcl(actions=["READ"], scope=DataProductScope.model_validate({"externalIds": ["my_data_product"]})),
+        [(DataProductIO, ExternalId(external_id="my_data_product"))],
+        id="DataProductsAcl with DataProductScope depends on DataProductIO",
+    )
+    yield pytest.param(
+        DataSetsAcl(actions=["READ"], scope=IDScope(ids=["my_data_set"])),
+        [(DataSetsIO, ExternalId(external_id="my_data_set"))],
+        id="DataSetsAcl with IDScope depends on DataSetsIO",
+    )
+    yield pytest.param(
+        ExtractionPipelinesAcl(actions=["READ"], scope=IDScope(ids=["my_pipeline"])),
+        [(ExtractionPipelineIO, ExternalId(external_id="my_pipeline"))],
+        id="ExtractionPipelinesAcl with IDScope depends on ExtractionPipelineIO",
+    )
+    yield pytest.param(
+        LocationFiltersAcl(actions=["READ"], scope=IDScope(ids=["my_location"])),
+        [(LocationFilterIO, ExternalId(external_id="my_location"))],
+        id="LocationFiltersAcl with IDScope depends on LocationFilterIO",
+    )
+    yield pytest.param(
+        SecurityCategoriesAcl(actions=["MEMBEROF"], scope=IDScopeLowerCase(ids=["my_category"])),
+        [(SecurityCategoryIO, NameId(name="my_category"))],
+        id="SecurityCategoriesAcl with IDScopeLowerCase depends on SecurityCategoryIO",
+    )
+    yield pytest.param(
+        TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=["my_timeseries"])),
+        [(TimeSeriesIO, ExternalId(external_id="my_timeseries"))],
+        id="TimeSeriesAcl with IDScopeLowerCase depends on TimeSeriesIO",
+    )
+    yield pytest.param(
+        TimeSeriesAcl(actions=["READ"], scope=AssetRootIDScope.model_validate({"rootIds": ["my_root_asset"]})),
+        [(AssetIO, ExternalId(external_id="my_root_asset"))],
+        id="TimeSeriesAcl with AssetRootIDScope depends on AssetIO",
+    )
+    yield pytest.param(
+        RawAcl(actions=["READ"], scope=TableScope.model_validate({"dbsToTables": {"my_db": ["my_table"]}})),
+        [
+            (RawDatabaseIO, RawDatabaseId(name="my_db")),
+            (RawTableIO, RawTableId(db_name="my_db", name="my_table")),
+        ],
+        id="RawAcl with TableScope depends on RawDatabaseIO and RawTableIO",
+    )
+    yield pytest.param(
+        GroupsAcl(actions=["READ"], scope=CurrentUserScope()),
+        [],
+        id="GroupsAcl with CurrentUserScope has no dependencies",
+    )
+    yield pytest.param(
+        SubscribeSignalsAcl(actions=["READ"], scope=SignalsCurrentUserScope()),
+        [],
+        id="SubscribeSignalsAcl with SignalsCurrentUserScope has no dependencies",
+    )
+    yield pytest.param(
+        SeismicAcl(actions=["READ"], scope=PartitionScope.model_validate({"partitionIds": [1]})),
+        [],
+        id="SeismicAcl with PartitionScope has no dependencies",
+    )
+    yield pytest.param(
+        ExperimentsAcl(actions=["USE"], scope=ExperimentScope(experiments=["my_experiment"])),
+        [],
+        id="ExperimentsAcl with ExperimentScope has no dependencies",
+    )
+    yield pytest.param(
+        PostgresGatewayAcl(actions=["READ"], scope=PostgresGatewayUsersScope(usernames=["my_user"])),
+        [(PostgresGatewayUserIO, PostgresGatewayUserId(username="my_user"))],
+        id="PostgresGatewayAcl with PostgresGatewayUsersScope",
+    )
+
+
+def _possible_scopes(capability_cls: type[Capability]) -> set[type[Scope]]:
+    annotation = capability_cls.model_fields["scope"].annotation
+    return set(get_args(annotation) or (annotation,))
+
+
+class TestGroupIO:
     def test_load_all_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupAllScopedIO(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", env_vars_with_client.dump()
         )
@@ -38,7 +284,7 @@ class TestGroupLoader:
             loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_load_resource_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupResourceScopedIO(env_vars_with_client.get_client())
         with pytest.raises(ToolkitWrongResourceError):
             raw_list = loader.load_resource_file(
                 LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", env_vars_with_client.dump()
@@ -61,7 +307,7 @@ class TestGroupLoader:
     def test_load_group_list_resource_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
-        loader = GroupResourceScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupResourceScopedIO(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", env_vars_with_client.dump()
         )
@@ -73,7 +319,7 @@ class TestGroupLoader:
     def test_load_group_list_all_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
-        loader = GroupAllScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupAllScopedIO(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", env_vars_with_client.dump()
         )
@@ -88,7 +334,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupResourceScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupResourceScopedIO(env_vars_with_client.get_client())
         filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
@@ -134,7 +380,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ):
-        loader = GroupResourceScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupResourceScopedIO(env_vars_with_client.get_client())
         filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
@@ -172,7 +418,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupAllScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupAllScopedIO(env_vars_with_client.get_client())
         local_group = """name: gp_no_metadata
 sourceId: '123'
 capabilities:
@@ -219,7 +465,7 @@ capabilities:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupResourceScopedIO.create_io(env_vars_with_client.get_client())
+        loader = GroupResourceScopedIO(env_vars_with_client.get_client())
         local_group = """name: gp_raw_acl_table_scoped
 sourceId: '123'
 capabilities:
@@ -275,3 +521,27 @@ capabilities:
             "delete": len(result.to_delete),
             "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+    def test_dependencies_test_cases_is_complete(self) -> None:
+        """Test that the test cases cover every non-all scope of every ACL."""
+        acls = [case.values[0] for case in group_acl_expected_dependency()]
+        covered = {(type(acl), type(acl.scope)) for acl in acls if isinstance(acl, Capability)}
+        expected = {
+            (capability_cls, scope_cls)
+            for capability_cls in get_concrete_subclasses(Capability)
+            if capability_cls is not UnknownCapability
+            for scope_cls in _possible_scopes(capability_cls)
+            if scope_cls is not yaml_cap.AllScope
+        }
+
+        missing = sorted(f"{acl.__name__} with {scope.__name__}" for acl, scope in expected - covered)
+        assert not missing, f"Missing test cases in group_acl_expected_dependency: {missing}"
+
+    @pytest.mark.parametrize("acl, expected", list(group_acl_expected_dependency()))
+    def test_get_dependencies(self, acl: CapabilityType, expected: list[tuple[type[ResourceIO], Identifier]]):
+        group = ExternalGroupYAML.model_validate(
+            {"name": "external_group", "sourceId": "external_source_id", "capabilities": [acl]},
+        )
+
+        actual = list(GroupResourceScopedIO.get_dependencies(group))
+        assert actual == expected

@@ -51,10 +51,28 @@ class AppExternalIdScope(ScopeDefinition):
     external_ids: list[str]
 
 
+class DataDomainScope(ScopeDefinition):
+    """Scope limited to specific data domains by external ID."""
+
+    scope_name: Literal["dataDomainScope"] = Field("dataDomainScope", exclude=True)
+    external_ids: list[str]
+
+
 class DataProductScope(ScopeDefinition):
     """Scope limited to specific Data Products by External ID."""
 
     scope_name: Literal["dataProductScope"] = Field("dataProductScope", exclude=True)
+    external_ids: list[str]
+
+
+class ExternalIdScope(ScopeDefinition):
+    """Scope limited to specific resources by external ID.
+
+    Used by integration ACLs (``integrationsAcl``, ``integrationConfigsAcl``, and
+    ``integrationActionsAcl``).
+    """
+
+    scope_name: Literal["externalIdScope"] = Field("externalIdScope", exclude=True)
     external_ids: list[str]
 
 
@@ -68,6 +86,16 @@ class CurrentUserScope(ScopeDefinition):
     """Scope that applies to the current user only."""
 
     scope_name: Literal["currentuserscope"] = Field("currentuserscope", exclude=True)
+
+
+class SignalsCurrentUserScope(ScopeDefinition):
+    """Scope that applies to the current user only, used by SubscribeSignalsAcl.
+
+    The proto field for this ACL's current-user scope is named ``currentuser``, unlike
+    other / older ACLs (e.g. groupsAcl) which use ``currentuserscope``.
+    """
+
+    scope_name: Literal["currentuser"] = Field("currentuser", exclude=True)
 
 
 class DataSetScope(ScopeDefinition):
@@ -230,7 +258,10 @@ Scope: TypeAlias = Annotated[
         | PostgresGatewayUsersScope
         | AgentExternalIdScope
         | AppExternalIdScope
+        | DataDomainScope
         | DataProductScope
+        | ExternalIdScope
+        | SignalsCurrentUserScope
         | UnknownScope
     ),
     BeforeValidator(_handle_unknown_scope),

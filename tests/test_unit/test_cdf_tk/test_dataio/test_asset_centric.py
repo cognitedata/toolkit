@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.dataio._base import Page, TableUploadableDataIO
 from cognite_toolkit._cdf_tk.dataio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from tests.constants import CDF_CLUSTER
 
 RESOURCE_COUNT = 50
@@ -370,6 +371,24 @@ class TestAssetIO:
         )
 
         assert len(respx_mock.calls) == 1
+
+    def test_json_to_resource_drops_aggregates(self, asset_centric_client: ToolkitClient) -> None:
+        item: dict[str, JsonVal] = {
+            "externalId": "pump",
+            "name": "Pump",
+            "childCount": 0,
+            "depth": 1,
+            "path": ["root", "pump"],
+        }
+
+        request = AssetDataIO(asset_centric_client).json_to_resource(item)
+
+        assert request.dump() == {"externalId": "pump", "name": "Pump"}
+
+    def test_row_to_json_skips_null_metadata(self) -> None:
+        row: dict[str, JsonVal] = {"externalId": "pump", "metadata.area": "north", "metadata.type": None}
+
+        assert AssetDataIO.row_to_json(row) == {"externalId": "pump", "metadata": {"area": "north"}}
 
     def test_read_assets_chunks(self) -> None:
         assets = [

@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     RawDatabaseId,
     RawTableId,
 )
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ExtractionPipelineFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -64,7 +64,6 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import data_set_scope_from_ids
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._raw import RawDatabaseIO, RawTableIO
 
@@ -80,7 +79,7 @@ class ExtractionPipelineIO(
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO})
     yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
@@ -236,9 +235,9 @@ class ExtractionPipelineIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineResponse]:
-        filter: ClassicFilter | None = None
+        filter: ExtractionPipelineFilter | None = None
         if data_set_external_id is not None:
-            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+            filter = ExtractionPipelineFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
         for pipelines in self.client.extraction_pipelines.iterate(filter=filter, limit=None):
             yield from pipelines
 
@@ -315,10 +314,8 @@ class ExtractionPipelineConfigIO(
     ) -> list[dict[str, Any]]:
         raw_str = self.safe_read(filepath)
 
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
@@ -343,17 +340,21 @@ class ExtractionPipelineConfigIO(
             result = read_yaml_content(config_raw)
         except yaml.YAMLError as e:
             id_ = self._get_id(resource, default="missing")
-            HighSeverityWarning(
-                f"Configuration for {id_!r} could not be parsed "
-                f"as valid YAML, which is the recommended format. Error: {e}"
-            ).print_warning(console=self.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    f"Configuration for {id_!r} could not be parsed "
+                    f"as valid YAML, which is the recommended format. Error: {e}"
+                )
+            )
         else:
             if isinstance(result, dict):
                 return result
             id_ = self._get_id(resource, default="missing")
-            HighSeverityWarning(
-                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
+                )
+            )
         return {}
 
     def _get_id(self, resource: dict[str, Any], default: str) -> str:

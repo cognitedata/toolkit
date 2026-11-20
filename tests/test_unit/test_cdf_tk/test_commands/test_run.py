@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecu
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
@@ -46,7 +47,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs, RunTransformationV2Command
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitMissingResourceError, ToolkitValueError
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
@@ -151,12 +152,12 @@ class TestRunTransformationV2:
             _transformation_response("tr_files", "Files"),
         ]
 
-        def select_transformation(choices: list[Choice]) -> str:
+        def select_transformation(choices) -> str:
             assert len(choices) == 3
             return choices[1].value
 
         answers = [select_transformation, False, False]
-        with MockQuestionary(RunTransformationV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(RunTransformationV2Command.__module__, answers):
             client = self._mock_client()
             client.transformations.list.return_value = transformations
 
@@ -179,10 +180,13 @@ class TestRunTransformationV2:
 
 @pytest.fixture(scope="session")
 def function_build_folder() -> BuildLineage:
-    return BuildV2Command(print_warning=False, silent=True).tmp_build(
-        RUN_DATA,
-        RUN_DATA / "config.dev.yaml",
-    )
+    # Session-scoped fixtures run before the function-scoped autouse fixture that unsets CDF_PROJECT.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.delenv("CDF_PROJECT", raising=False)
+        return BuildV2Command(print_warning=False, silent=True).tmp_build(
+            RUN_DATA,
+            RUN_DATA / "config.dev.yaml",
+        )
 
 
 @pytest.fixture
@@ -192,8 +196,19 @@ def mock_function_venv() -> Iterator[MagicMock]:
 
 
 class TestRunFunction:
+    @pytest.mark.parametrize(
+        "data_source, data",
+        [
+            pytest.param("daily-8pm-utc", None, id="schedule"),
+            pytest.param(None, '{"breakfast": "toast", "count": 2}', id="inline data"),
+        ],
+    )
     def test_run_function_live(
-        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+        self,
+        data_source: str | None,
+        data: str | None,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
     ) -> None:
         function = Function(
             id=1234567890,
@@ -236,11 +251,49 @@ class TestRunFunction:
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
-            data_source="daily-8pm-utc",
+            data_source=data_source,
             wait=False,
             config_yaml=RUN_DATA / "config.dev.yaml",
+            data=data,
         )
-        assert toolkit_client_approval.mock_client.functions.calls.call.called
+        call = toolkit_client_approval.mock_client.functions.calls.call
+        assert call.called
+        if data is not None:
+            assert call.call_args.kwargs["data"] == {"breakfast": "toast", "count": 2}
+
+    def test_run_function_live_session_error(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        env_vars_with_client.LOGIN_FLOW = "token"
+        client = toolkit_client_approval.mock_client
+        client.functions.retrieve.side_effect = None
+        client.functions.retrieve.return_value = [
+            FunctionResponse(
+                id=1,
+                created_time=1,
+                name="test3",
+                external_id="fn_test3",
+                status="Ready",
+                file_id=1,
+            )
+        ]
+        client.sessions.create_one_shot_token_exchange_session.side_effect = ToolkitAPIError(
+            "Invalid access token from identity provider", code=400
+        )
+
+        with pytest.raises(AuthorizationError, match="LOGIN_FLOW=client_credentials"):
+            RunFunctionCommand().run_cdf(
+                env_vars_with_client,
+                organization_dir=RUN_DATA,
+                build_env_name="dev",
+                external_id="fn_test3",
+                wait=False,
+                config_yaml=RUN_DATA / "config.dev.yaml",
+                data="{}",
+            )
+        client.functions.calls.call.assert_not_called()
 
     @patch.dict(
         os.environ,
@@ -336,15 +389,31 @@ class TestRunFunction:
     def test_get_call_args(
         self, data_source: str, expected: FunctionCallArgs, function_build_folder: BuildLineage
     ) -> None:
-        environment_variables = {
-            expected.client_id_env_name: expected.authentication.client_id,
-            expected.client_secret_env_name: expected.authentication.client_secret,
+        auth = expected.authentication
+        assert auth is not None and expected.client_id_env_name and expected.client_secret_env_name
+        environment_variables: dict[str, str | None] = {
+            expected.client_id_env_name: auth.client_id,
+            expected.client_secret_env_name: auth.client_secret,
         }
         actual = RunFunctionCommand._get_call_args(
             data_source, "fn_test3", function_build_folder, environment_variables, is_interactive=False
         )
 
         assert actual == expected
+
+    @pytest.mark.parametrize(
+        "data, data_source, match",
+        [
+            pytest.param("{not json", None, "Invalid JSON", id="invalid json"),
+            pytest.param("[1, 2]", None, "Expected a JSON object", id="not an object"),
+            pytest.param('{"a": NaN}', None, "NaN is not supported", id="nan"),
+            pytest.param('{"a": -Infinity}', None, "-Infinity is not supported", id="infinity"),
+            pytest.param('{"a": 1}', "daily-8pm-utc", "Cannot use both --data and --schedule", id="both"),
+        ],
+    )
+    def test_parse_data_option_invalid(self, data: str, data_source: str | None, match: str) -> None:
+        with pytest.raises(ToolkitValueError, match=match):
+            RunFunctionCommand._parse_data_option(data, data_source)
 
 
 def _workflow_version(
@@ -478,21 +547,28 @@ class TestRunWorkflowV2:
     def test_run_workflow_interactive_uses_trigger_input(
         self, workflow_client: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        trigger = WorkflowTriggerResponse.model_validate(
-            {
-                "externalId": "my_trigger",
-                "triggerRule": {"triggerType": "schedule", "cronExpression": "0 0 * * *"},
-                "workflowExternalId": "workflow",
-                "workflowVersion": "v1",
-                "input": {"breakfast": "egg and bacon"},
-                "createdTime": 0,
-                "lastUpdatedTime": 0,
-                "isPaused": False,
-            }
-        )
+        def trigger(external_id: str, workflow_external_id: str, workflow_version: str) -> WorkflowTriggerResponse:
+            return WorkflowTriggerResponse.model_validate(
+                {
+                    "externalId": external_id,
+                    "triggerRule": {"triggerType": "schedule", "cronExpression": "0 0 * * *"},
+                    "workflowExternalId": workflow_external_id,
+                    "workflowVersion": workflow_version,
+                    "input": {"breakfast": f"input from {external_id}"},
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                    "isPaused": False,
+                }
+            )
+
         client = workflow_client
         client.workflows.versions.list.return_value = [_workflow_version()]
-        client.workflows.triggers.list.return_value = [trigger]
+        # The API cannot filter triggers, so it returns the triggers of every workflow.
+        client.workflows.triggers.list.return_value = [
+            trigger("other_workflow_trigger", "other_workflow", "v1"),
+            trigger("my_trigger", "workflow", "v1"),
+            trigger("other_version_trigger", "workflow", "v2"),
+        ]
 
         def select_workflow(choices: list[Choice]) -> object:
             assert len(choices) == 1
@@ -500,7 +576,7 @@ class TestRunWorkflowV2:
 
         # 1. Select the workflow, 2. confirm using the trigger input, 3. confirm not to wait.
         answers = [select_workflow, True, False]
-        with MockQuestionary(RunWorkflowV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(RunWorkflowV2Command.__module__, answers):
             RunWorkflowV2Command().run_workflow(
                 client,
                 external_id=None,
@@ -511,7 +587,7 @@ class TestRunWorkflowV2:
         client.workflows.executions.run.assert_called_once_with(
             ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
             nonce="dummy-nonce",
-            input={"breakfast": "egg and bacon"},
+            input={"breakfast": "input from my_trigger"},
         )
 
     @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")

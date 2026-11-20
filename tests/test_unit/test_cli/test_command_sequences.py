@@ -15,6 +15,7 @@ import pytest
 import respx
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import PostgresGatewayUserResponse
 from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     DeployOptions,
@@ -75,7 +76,7 @@ def test_build_deploy_module(
 
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-        lambda msg, client: True,
+        lambda msg, project, console: True,
     )
     with patch.dict(
         os.environ,
@@ -179,7 +180,7 @@ def test_init_build_clean(
     )
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-        lambda msg, client: True,
+        lambda msg, project, console: True,
     )
     with patch.dict(
         os.environ,
@@ -210,7 +211,9 @@ def test_init_build_clean(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")
 
 
-TEST_CASES = [COMPLETE_ORG]
+TEST_CASES = []
+if Flags.v010.is_enabled():
+    TEST_CASES.append(COMPLETE_ORG)
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
@@ -239,6 +242,10 @@ def test_build_deploy_v2_complete_orgs(
     ):
         # Mock /raw/dbs/{dbName}/tables/{tableName}/rows as the deploy command uploads RAW rows.
         respx_mock.route(url__regex=r".*/raw/dbs/[^/]+/tables/[^/]+/rows(?:\?.*)?$").respond(status_code=200)
+        # CDF generates Postgres gateway usernames, so Toolkit only updates users that already exist.
+        toolkit_client_approval.append(
+            PostgresGatewayUserResponse, [PostgresGatewayUserResponse(username="pg_user_001", created_time=0)]
+        )
 
         DeployV2Command(silent=True, skip_tracking=True).deploy(
             user_build_dir=build_tmp_path,
@@ -265,7 +272,7 @@ def test_build_deploy_v2_complete_orgs(
 
 
 def test_complete_org_is_complete() -> None:
-    module_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
+    module_scan, *_ = BuildV2Command.read_filesystem_and_find_modules(
         organization_dir=COMPLETE_ORG,
         config_yamls=[COMPLETE_ORG / "config.dev.yaml"],
         user_selected_modules=[f"{MODULES}/"],
@@ -278,7 +285,7 @@ def test_complete_org_is_complete() -> None:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
-    alpha_dir_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
+    alpha_dir_scan, *_ = BuildV2Command.read_filesystem_and_find_modules(
         COMPLETE_ORG_ALPHA_FLAGS,
         config_yamls=[COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
         user_selected_modules=[f"{MODULES}/"],

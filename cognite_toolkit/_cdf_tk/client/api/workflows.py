@@ -10,9 +10,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import (
+    WorkflowCreateResponse,
+    WorkflowRequest,
+    WorkflowResponse,
+)
 
 from .workflow_executions import WorkflowExecutionsAPI
+from .workflow_tasks import WorkflowTasksAPI
 from .workflow_triggers import WorkflowTriggersAPI
 from .workflow_versions import WorkflowVersionsAPI
 
@@ -31,6 +36,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
         self.versions = WorkflowVersionsAPI(http_client)
         self.triggers = WorkflowTriggersAPI(http_client)
         self.executions = WorkflowExecutionsAPI(http_client)
+        self.tasks = WorkflowTasksAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -40,18 +46,21 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[WorkflowRequest]) -> builtins.list[WorkflowResponse]:
+    def create(self, items: Sequence[WorkflowRequest]) -> builtins.list[WorkflowCreateResponse]:
         """Create or update workflows in CDF.
 
         Args:
             items: List of WorkflowRequest objects to create or update.
         Returns:
-            List of created/updated WorkflowResponse objects.
+            List of created/updated WorkflowCreateResponse objects.
         """
-        return self._request_item_response(items, "upsert")
+        response_items: list[WorkflowCreateResponse] = []
+        for response in self._chunk_requests(items, "upsert", self._serialize_items):
+            response_items.extend(ResponseItems[WorkflowCreateResponse].model_validate_json(response.body).items)
+        return response_items
 
     # This is a duplicate of the create method, included to standardize the API interface.
-    def update(self, items: Sequence[WorkflowRequest]) -> builtins.list[WorkflowResponse]:
+    def update(self, items: Sequence[WorkflowRequest]) -> builtins.list[WorkflowCreateResponse]:
         """Create or update workflows in CDF.
 
         Args:

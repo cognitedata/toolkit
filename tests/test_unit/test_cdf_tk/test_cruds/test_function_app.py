@@ -39,7 +39,7 @@ def test_function_app_response_has_alpha_wire_status_and_owner() -> None:
 def test_function_app_load_resource_normalizes_null_metadata(tmp_path: Path) -> None:
     resource_file = tmp_path / "app.FunctionApp.yaml"
     resource_file.write_text("externalId: app\nname: App\nmetadata: null\nsecrets:\n  password: secret\n")
-    loader = FunctionAppIO.create_io(MagicMock())
+    loader = FunctionAppIO(MagicMock())
 
     loaded = loader.load_resource_file(resource_file)
 
@@ -69,7 +69,7 @@ def test_function_app_rejects_unsafe_code_paths(tmp_path: Path, external_id: str
     [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id({"externalId": external_id}), {})
 
     assert isinstance(failed, FailedReadExtra)
-    assert failed.code == "SYNTAX-ERROR"
+    assert failed.code == "INVALID-VALUE"
     assert "Invalid identifier" in failed.error
 
 
@@ -82,13 +82,13 @@ def test_function_app_rejects_symlinked_code_directory(tmp_path: Path) -> None:
     [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id({"externalId": "app"}), {})
 
     assert isinstance(failed, FailedReadExtra)
-    assert failed.code == "SYNTAX-ERROR"
+    assert failed.code == "INVALID-VALUE"
     assert "path must remain inside" in failed.error
 
 
 @pytest.mark.parametrize("method, argument", [("create", []), ("retrieve", []), ("delete", []), ("iterate", None)])
 def test_function_app_deployment_stubs_are_typed(method: str, argument: list[object] | None) -> None:
-    loader = FunctionAppIO.create_io(MagicMock())
+    loader = FunctionAppIO(MagicMock())
     with pytest.raises(ToolkitNotSupported, match="alpha resource supports build only"):
         if argument is None:
             list(loader.iterate())
@@ -106,8 +106,8 @@ def test_function_and_function_app_share_folder_without_misattributing_sidecars(
     function_sidecar.write_text("externalId: classic-code\nname: code\n")
     app_sidecar.write_text("externalId: app-code\nname: code\n")
 
-    function = FunctionIO.create_io(MagicMock())
-    app = FunctionAppIO.create_io(MagicMock())
+    function = FunctionIO(MagicMock())
+    app = FunctionAppIO(MagicMock())
     function.load_resource_file(function_yaml)
     app.load_resource_file(app_yaml)
 

@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
-from ._datamodel import ContainerIO
+from ._datamodel import ContainerIO, ViewIO
 
 _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
@@ -137,3 +137,7 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
             {"gte": window_start, "lt": window_end}
             for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms)
         ]
+
+
+# _datamodel cannot import StreamIO: _streams imports ContainerIO from _datamodel.
+ViewIO.dependencies = ViewIO.dependencies | {StreamIO}

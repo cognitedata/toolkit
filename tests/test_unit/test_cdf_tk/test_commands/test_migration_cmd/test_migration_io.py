@@ -275,11 +275,23 @@ class TestThreeDAssetMappingMigrationIO:
 
         assert io.count(selector) is None, "3D Asset mapping count should be None"
 
+        dm_items = [
+            DataItem(
+                tracking_id=di.tracking_id,
+                item=AssetMappingDMRequestId(
+                    node_id=di.item.node_id,
+                    asset_instance_id=NodeId(space="mySpace", external_id=f"asset_{di.item.asset_id}"),
+                    model_id=di.item.model_id,
+                    revision_id=di.item.revision_id,
+                ),
+            )
+            for di in data_items
+        ]
         with HTTPClient(config) as http_client:
             io.upload_items(
                 Page(
                     worker_id="main",
-                    items=data_items,
+                    items=dm_items,
                 ),
                 http_client=http_client,
             )
@@ -412,10 +424,10 @@ class TestThreeDAssetMappingMigrationIO:
                 DataItem(
                     tracking_id="mapping",
                     item=AssetMappingDMRequestId(
-                        nodeId=1,
-                        assetInstanceId=NodeId(space="assets", externalId="asset"),
-                        modelId=37,
-                        revisionId=42,
+                        node_id=1,
+                        asset_instance_id=NodeId(space="assets", external_id="asset"),
+                        model_id=37,
+                        revision_id=42,
                     ),
                 )
             ],

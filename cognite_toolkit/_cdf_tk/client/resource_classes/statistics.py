@@ -57,3 +57,8 @@ class SpaceStatisticsResponse(BaseModelObject):
     container_properties: int | None = None
     records_only_containers: int | None = None
     records_only_container_properties: int | None = None
+
+    @property
+    def total_containers(self) -> int:
+        """Containers used for nodes/edges plus records-only containers, which `containers` does not count."""
+        return self.containers + (self.records_only_containers or 0)

@@ -60,6 +60,7 @@ from typing_extensions import TypeForm
 from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from tests.data import COMPLETE_ORG
 from tests.test_unit.get_type_hints import _TypeHints
@@ -86,25 +87,20 @@ def mock_read_yaml_file(
         filepath: Path | str,
         environment_variables: dict[str, str | None],
         required_return_type: Literal["any", "list", "dict"] = "any",
-        validate: bool = True,
         original_filepath: Path | None = None,
-    ) -> dict[str, Any] | list[dict[str, Any]]:
+    ) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]:
         if isinstance(filepath, str):
-            return load_yaml_inject_variables(
-                filepath, environment_variables, required_return_type, validate, original_filepath
-            )
+            return load_yaml_inject_variables(filepath, environment_variables, required_return_type, original_filepath)
         if file_content := file_content_by_name.get(filepath.name):
-            if modify:
-                source = load_yaml_inject_variables(
-                    filepath, environment_variables, required_return_type, validate, original_filepath
-                )
-                if isinstance(source, dict):
-                    source.update(file_content)
-                file_content = source
-            return file_content
-        return load_yaml_inject_variables(
-            filepath, environment_variables, required_return_type, validate, original_filepath
-        )
+            if not modify:
+                return file_content, None
+            source, warning = load_yaml_inject_variables(
+                filepath, environment_variables, required_return_type, original_filepath
+            )
+            if isinstance(source, dict):
+                source.update(file_content)
+            return source, warning
+        return load_yaml_inject_variables(filepath, environment_variables, required_return_type, original_filepath)
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)
@@ -547,17 +543,15 @@ class MockQuestion:
 
 
 class MockQuestionary:
-    def __init__(self, module_target: str | list[str], monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+    def __init__(self, module_target: str | list[str], answers: list[Any]) -> None:
         """Initialize MockQuestionary to patch questionary methods for one or more module targets.
 
         Args:
             module_target: Single module path string or list of module paths to patch
-            monkeypatch: Pytest monkeypatch fixture
             answers: List of answers to return for each questionary call
         """
         self.module_targets = [module_target] if isinstance(module_target, str) else module_target
         self.answers = answers
-        self.monkeypatch = monkeypatch
 
     def select(self, _: str, choices: list[Choice] | None = None, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
@@ -575,13 +569,16 @@ class MockQuestionary:
         return MockQuestion(self.answers.pop(0))
 
     def __enter__(self) -> MockQuestionary:
+        # Use a dedicated MonkeyPatch so that exiting only undoes the questionary patches, and not
+        # other patches on the test's monkeypatch fixture (e.g., the autouse CDF_PROJECT isolation).
+        self._questionary_patch = MonkeyPatch()
         for method in [self.select, self.confirm, self.checkbox, self.text, self.path]:
             for module_target in self.module_targets:
-                self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
+                self._questionary_patch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
     def __exit__(self, *args: object) -> Literal[False]:
-        self.monkeypatch.undo()
+        self._questionary_patch.undo()
         return False
 
     @staticmethod

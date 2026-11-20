@@ -3,85 +3,70 @@ import io
 import json
 from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar
+from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar, cast
 
 from pydantic import (
     BaseModel,
     Field,
-    StringConstraints,
     TypeAdapter,
     field_serializer,
     field_validator,
+    model_validator,
 )
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.data_classes._types import URL, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
+ERROR_TYPE: Literal["Error"] = "Error"
+WARNING_TYPE: Literal["Warning"] = "Warning"
+RECOMMENDATION_TYPE: Literal["Recommendation"] = "Recommendation"
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
 # See technical_decision_log/TDL-0005-insight-code-naming.md for the code conventions.
 InsightCode: TypeAlias = Literal[
-    "MISSING-FILE-SUFFIX",
-    "INVALID-FILE-SUFFIX",
-    "UNREADABLE-FILE",
-    "EMPTY-FILE",
-    "INVALID-FILE-CONTENT",
-    "INVALID-FIELD",
-    "UNRECOGNIZED-FIELD",
-    "UNRECOGNIZED-VALUE",
-    "MISSING-REFERENCED-FILE",
-    "MISSING-REFERENCED-DIRECTORY",
-    "UNRESOLVED-VARIABLE",
-    "INVALID-VARIABLE-PATH",
-    "INVALID-VARIABLE-TYPE",
+    "ANTI-PATTERN",
+    "BLOCKED-RESOURCE",
+    "DEGRADED-PERFORMANCE",
+    "DEPRECATED-FEATURE",
+    "DUPLICATED-IDENTIFIER",
     "EXCEEDED-LIMIT",
-    "INVALID-VALUE",
-    "INVALID-FUNCTION-REQUIREMENTS",
-    "UNVERIFIED-REFERENCED-PROPERTY",
-    "MISSING-REFERENCED-PROPERTY",
+    "FAILING-JOB",
+    "INVALID-CREDENTIALS",
+    "INVALID-FIELD",
+    "INVALID-FILE-CONTENT",
+    "INVALID-FILE-SUFFIX",
     "INVALID-REFERENCED-PROPERTY",
     "INVALID-REFERENCED-RESOURCE",
-    "MISSING-REFERENCED-RESOURCE",
-    "UNVERIFIED-REFERENCED-RESOURCE",
+    "INVALID-REQUIREMENTS",
     "INVALID-RESOURCE-CHANGE",
-    "UNSUPPORTED-RESOURCE-REMOVAL",
-    "INVALID-DIRECT-RELATION",
+    "INVALID-VALUE",
+    "INVALID-VARIABLE-PATH",
+    "INVALID-VARIABLE-TYPE",
+    "MISSING-CREDENTIALS",
+    "MISSING-FILE-SUFFIX",
+    "MISSING-READ-ACCESS",
+    "MISSING-REFERENCED-DIRECTORY",
+    "MISSING-REFERENCED-FILE",
+    "MISSING-REFERENCED-PROPERTY",
+    "MISSING-REFERENCED-RESOURCE",
+    "MISSING-VALUE",
+    "NONEMPTY-RESOURCE",
+    "REDUNDANT-PROPERTY",
     "UNGOVERNED-RESOURCE",
-    "MISSING-SUFFIX",
-    "INVALID-KIND",
-    "READ-ERROR",
-    "YAML-PARSE-ERROR",
-    "MODEL-SYNTAX-ERROR",
-    "MODEL-SYNTAX-WARNING",
-    "MISSING",
-    "SYNTAX-ERROR",
-    "UNRESOLVED-VARIABLES",
-    "CONFIG_VARIABLE_001",
-    "UNKNOWN-REFERENCE",
-    "UNVERIFIED-REFERENCE",
-    "INVALID-OPERATION",
-    "UNVERIFIED-PROPERTY-REFERENCE",
-    "INVALID-PROPERTY-REFERENCE",
-    "DMS-CONTAINER-001",
-    "AUTH-001",
-    "FUNCTION-CPU-OUT-OF-RANGE",
-    "FUNCTION-MEMORY-OUT-OF-RANGE",
-    "FUNCTION-UNKNOWN-RUNTIME",
-    "FUNCTION-INVALID-REQUIREMENTS",
-    "AGENT-MODEL",
-    "AGENT-UNKNOWN-RUNTIME",
-    "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY",
-    "AGENT-TOOLS-LIMIT",
-    "INFIELD-VIEW-MISSING-PROPERTIES",
-    "INFIELD-UNKNOWN-VIEW-PROPERTY",
+    "UNREADABLE-FILE",
+    "UNRECOGNIZED-FIELD",
+    "UNRECOGNIZED-VALUE",
+    "UNRESOLVED-VARIABLE",
+    "UNSUPPORTED-RESOURCE-REMOVAL",
+    "UNTRIGGERED-RESOURCE",
+    "UNVERIFIED-CREDENTIALS",
+    "UNVERIFIED-REFERENCED-PROPERTY",
+    "UNVERIFIED-REFERENCED-RESOURCE",
 ]
-# NEAT issues come with codes defined by the neat package.
-# Remove this once NEAT support is removed from Toolkit.
-NeatInsightCode: TypeAlias = Annotated[str, StringConstraints(pattern=r"^NEAT-")]
 
 
 class InsightDefinition(BaseModel):
@@ -90,26 +75,35 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    code: InsightCode | NeatInsightCode
+    code: InsightCode
     message: str
-    source_file: AbsoluteFilePath
+    source_file: AbsoluteFilePath | None = None
+    source_url: URL | None = None
     line: int | None = None
     column: int | None = None
     fix: str | None = None
     alpha: bool = False
 
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> Self:
+        if (self.source_file is None) == (self.source_url is None):
+            raise ValueError("Exactly one of source_file and source_url must be set.")
+        return self
+
     @property
-    def display_source_file_cwd(self) -> str:
-        """Returns the source file path relative to the current working directory."""
+    def display_source(self) -> str:
+        """Returns the source file path relative to the current working directory, or the source URL as is."""
+        if self.source_file is None:
+            return cast(str, self.source_url)
         return format_insight_source_file(self.source_file)
 
     @property
     def display_location(self) -> str:
-        """The source file, with ':line:column' appended when the position is known.
+        """The source file or URL, with ':line:column' appended when the position is known.
 
         The 'path:line:column' format is made clickable by terminals such as the one in VS Code.
         """
-        location = self.display_source_file_cwd
+        location = self.display_source
         if self.line is None:
             return location
         if self.column is None:
@@ -118,7 +112,9 @@ class InsightDefinition(BaseModel):
 
     @property
     def display_source_file_modules(self) -> str:
-        """Returns the source file path relative to the organization's modules directory."""
+        """Returns the source file path relative to the organization's modules directory, or the source URL as is."""
+        if self.source_file is None:
+            return cast(str, self.source_url)
         return relative_to_modules(self.source_file)
 
     @property
@@ -131,16 +127,21 @@ class InsightDefinition(BaseModel):
         """Insights with the same key are displayed together, listing their locations."""
         return self.insight_type, self.code, self.message, self.fix
 
-    @field_validator("line", "column", mode="before")
+    @field_validator("source_url", "line", "column", mode="before")
     @classmethod
     def _empty_to_none(cls, value: Any) -> Any:
-        """CSV serializes a missing position as an empty cell."""
+        """CSV serializes a missing value as an empty cell."""
         return None if value == "" else value
 
     @field_validator("source_file", mode="before")
     @classmethod
-    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path:
-        """Convert the source file path to an absolute path relative to the organization directory."""
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path | None:
+        """Convert the source file path to an absolute path relative to the organization directory.
+
+        CSV serializes a missing source file as an empty cell.
+        """
+        if value is None or value == "":
+            return None
         if not isinstance(value, str | Path):
             raise ValueError(f"Unexpected type for source_file: {type(value)}")
         if info.context and isinstance(organization_dir := info.context.get("organization_dir", None), Path):
@@ -148,8 +149,10 @@ class InsightDefinition(BaseModel):
         return Path(value).resolve()
 
     @field_serializer("source_file")
-    def as_relative_to_modules(self, source_file: AbsoluteFilePath) -> str:
+    def as_relative_to_modules(self, source_file: AbsoluteFilePath | None) -> str | None:
         """Serialize the source_file field as a path relative to the organization's modules directory."""
+        if source_file is None:
+            return None
         return relative_to_modules(source_file)
 
     @field_validator("message", "fix", mode="after")
@@ -159,33 +162,6 @@ class InsightDefinition(BaseModel):
         if value is None:
             return value
         return _normalize_csv_cell(value)
-
-
-class FileReadError(InsightDefinition):
-    insight_type: Literal["FileReadError"] = "FileReadError"
-    severity = 60
-
-
-class ModelSyntaxError(InsightDefinition):
-    """If any syntax error is found. Stop validation
-    and ask user to fix the syntax error first."""
-
-    insight_type: Literal["ModelSyntaxError"] = "ModelSyntaxError"
-    severity = 40
-
-
-class ModelSyntaxWarning(InsightDefinition):
-    """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
-
-    insight_type: Literal["ModelSyntaxWarning"] = "ModelSyntaxWarning"
-    severity = 15
-
-
-class ConsistencyError(InsightDefinition):
-    """If any consistency error is found, the deployment of the CDF resource will fail."""
-
-    insight_type: Literal["ConsistencyError"] = "ConsistencyError"
-    severity = 45
 
 
 class InternalValidatorException(BaseModel):
@@ -215,43 +191,29 @@ class InternalValidatorException(BaseModel):
         return message[: cls.MAX_MESSAGE_LENGTH] + "... (truncated)"
 
 
-class IgnoredFileWarning(InsightDefinition):
-    """A file was ignored because it was not recognized as a valid resource file."""
-
-    insight_type: Literal["IgnoredFileWarning"] = "IgnoredFileWarning"
-    severity = 20
-
-
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
-    insight_type: Literal["Recommendation"] = "Recommendation"
+    insight_type: Literal["Recommendation"] = RECOMMENDATION_TYPE
     severity = 10
 
 
 class BuildError(InsightDefinition):
     """A confirmed problem. The resource cannot be built or deployed as configured."""
 
-    insight_type: Literal["Error"] = "Error"
+    insight_type: Literal["Error"] = ERROR_TYPE
     severity = 50
 
 
 class BuildWarning(InsightDefinition):
     """A potential problem that could not be confirmed, or an issue that does not block the build."""
 
-    insight_type: Literal["Warning"] = "Warning"
+    insight_type: Literal["Warning"] = WARNING_TYPE
     severity = 20
 
 
 Insight = Annotated[
-    ModelSyntaxError
-    | ModelSyntaxWarning
-    | ConsistencyError
-    | Recommendation
-    | FileReadError
-    | IgnoredFileWarning
-    | BuildError
-    | BuildWarning,
+    Recommendation | BuildError | BuildWarning,
     Field(discriminator="insight_type"),
 ]
 
@@ -293,14 +255,9 @@ class InsightList(UserList[Insight]):
         return dict(result)
 
     @property
-    def has_model_syntax_errors(self) -> bool:
-        """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, BuildError)) for insight in self.data)
-
-    @property
     def has_errors(self) -> bool:
-        """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError, BuildError)) for insight in self.data)
+        """Returns True if there are any errors in the insights."""
+        return any(isinstance(insight, BuildError) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:

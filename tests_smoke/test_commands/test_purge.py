@@ -13,14 +13,20 @@ from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId, ViewId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, RelationshipFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerRequest,
     InstanceResponse,
     InstanceSource,
     NodeRequest,
+    SpaceRequest,
     SpaceResponse,
+    TextProperty,
+    ViewCorePropertyRequest,
+    ViewRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import Datapoint, DatapointsRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
@@ -46,8 +52,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_unit.utils import MockQuestionary
+from tests_smoke.constants import SMOKE_TEST_STREAM
 
 T = TypeVar("T")
 
@@ -76,7 +85,10 @@ def _labels_in_dataset(client: ToolkitClient, dataset_external_id: str) -> list[
 def _relationships_from_source(client: ToolkitClient, source_external_id: str | None) -> list[RelationshipResponse]:
     if source_external_id is None:
         return []
-    return [item for item in client.relationships.list(limit=None) if item.source_external_id == source_external_id]
+    return client.relationships.list(
+        filter=RelationshipFilter(source_external_ids=[source_external_id]),
+        limit=None,
+    )
 
 
 def _retrieve_3d_model(client: ToolkitClient, model_id: int) -> ThreeDModelClassicResponse | None:
@@ -268,6 +280,38 @@ def populated_datasets_2(toolkit_client: ToolkitClient) -> Iterable[PopulatedDat
     )
     yield populated2
     cleanup_populated_dataset(toolkit_client, populated2)
+
+
+@pytest.fixture()
+def space_with_records_view(toolkit_client: ToolkitClient) -> Iterable[str]:
+    # Create a space and a records view.
+    space_name = "space_with_records"
+    space_request = SpaceRequest(space=space_name, name="Test Space for Purge Command")
+    container_request = ContainerRequest(
+        space=space_name,
+        external_id="ToBePurged_record_container",
+        used_for="record",
+        properties={"name": ContainerPropertyDefinition(type=TextProperty())},
+    )
+    view_request = ViewRequest(
+        space=space_name,
+        external_id="ToBePurged_record_view",
+        version="v1",
+        stream_id=[SMOKE_TEST_STREAM],
+        properties={
+            "name": ViewCorePropertyRequest(container=container_request.as_id(), container_property_identifier="name")
+        },
+    )
+    try:
+        _ = toolkit_client.spaces.create([space_request])
+        _ = toolkit_client.containers.create([container_request])
+        _ = toolkit_client.views.create([view_request])
+        yield space_name
+    finally:
+        # Cleanup
+        toolkit_client.views.delete([view_request.as_id()])
+        toolkit_client.containers.delete([container_request.as_id()])
+        toolkit_client.spaces.delete([space_request.as_id()])
 
 
 def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_id: str, no: int) -> PopulatedDataSet:
@@ -681,3 +725,29 @@ class TestPurgeSmoke:
             is not None
         ):
             raise AssertionError("Expected extraction pipeline to be deleted when include_configurations=True")
+
+    def test_purge_space_with_records_view(
+        self,
+        toolkit_client: ToolkitClient,
+        space_with_records_view: str,
+        tmp_path: Path,
+    ) -> None:
+        # Create a dataset and a view with records in it
+        purge = PurgeCommand(silent=True)
+        with MockQuestionary(PurgeCommand.__module__, [toolkit_client.config.project]):
+            results = purge.space(
+                toolkit_client,
+                selected_space=space_with_records_view,
+                dry_run=False,
+                verbose=False,
+                log_dir=tmp_path,
+                include_space=True,
+            )
+        retrieved_space = toolkit_client.spaces.retrieve([SpaceId(space=space_with_records_view)])
+        assert not retrieved_space
+        deleted_by_kind = {
+            name: result.deleted
+            for name, result in results.items()
+            if isinstance(result, ResourceDeployResult) and result.deleted
+        }
+        assert deleted_by_kind == {"views": 1, "containers": 1, "spaces": 1}

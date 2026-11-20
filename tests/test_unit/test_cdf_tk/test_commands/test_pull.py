@@ -9,9 +9,10 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
 from cognite_toolkit._cdf_tk.commands.pull import PullV2Command
-from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ViewIO
 
 
 def _built_resource(identifier: Identifier, variables: list[BuildVariable] | None = None) -> MagicMock:
@@ -20,7 +21,7 @@ def _built_resource(identifier: Identifier, variables: list[BuildVariable] | Non
     resource.variables = variables or []
     resource.extra_files = []
     # MagicMock would otherwise invent source_type. These cases are CRUD files, so pull should not
-    # look up a ResourceFileIO and convert with from_crud_type.
+    # look up a ResourceFileIO and convert with from_crud_types.
     resource.source_type = None
     return resource
 
@@ -41,6 +42,7 @@ description: This dataset contains Transformations, Functions, and Workflows for
         id=Path("modules/dataset"),
         value="ingestion",
         is_selected=True,
+        source=VariableSource(file=Path("config.dev.yaml")),
     )
     ingestion = _built_resource(ExternalId(external_id="ingestion"), [variable])
     resources = [ingestion]
@@ -151,6 +153,7 @@ filter:
         id=Path("modules/instance_space"),
         value="my_space",
         is_selected=True,
+        source=VariableSource(file=Path("config.dev.yaml")),
     )
     view_resource = _built_resource(
         ViewId(space="my_space", external_id="my_external_id", version="v1"),
@@ -191,9 +194,9 @@ class TestPullV2Command:
         self,
         source: str,
         to_write: dict[Identifier, dict[str, Any]],
-        resources: list[MagicMock],
+        resources: list[BuiltResource],
         expected: str,
-        loader_type: type,
+        loader_type: type[ResourceIO],
         source_file: Path,
         toolkit_client_cheap: ToolkitClient,
     ) -> None:
@@ -204,7 +207,7 @@ class TestPullV2Command:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            resource_io=loader_type.create_io(toolkit_client_cheap),
+            resource_io=loader_type(toolkit_client_cheap),
             source_file=source_file,
         )
         assert not extra_files, "This tests does not support testing extra files"

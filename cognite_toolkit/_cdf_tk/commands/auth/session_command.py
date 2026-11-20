@@ -32,6 +32,11 @@ def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:
 
 class AuthSessionCommand(ToolkitCommand):
     def login(self, org: str | None, force: bool, port: int | None) -> StoredSession | None:
+        if sys.platform == "darwin":
+            print(
+                "[yellow]macOS may ask for your login password more than once to let Toolkit access the "
+                "Keychain. Enter your Mac login password and choose 'Always Allow' to avoid future prompts.[/yellow]"
+            )
         try:
             existing = StoredSession.load()
         except AuthenticationError:

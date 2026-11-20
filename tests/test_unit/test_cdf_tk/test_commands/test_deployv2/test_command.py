@@ -11,8 +11,10 @@ import httpx2
 import pytest
 import respx
 from rich.console import Console
+from rich.progress import Progress
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
@@ -50,7 +52,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentResult,
@@ -62,6 +63,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     Skipped,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, URL
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InsightList
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -72,6 +74,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_IO_BY_FOLDER_NAME,
     AssetIO,
     CogniteFileIO,
     ContainerIO,
@@ -79,6 +82,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionAppIO,
     FunctionIO,
     FunctionScheduleIO,
+    GroupAllScopedIO,
     LabelIO,
     RawDatabaseIO,
     RawTableIO,
@@ -87,7 +91,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, LowSeverityWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -165,7 +169,7 @@ class TestReadBuildDirectory:
     def test_read_build_directory(
         self,
         build_files_and_dir: list[str],
-        include: DeployOptions | list[str] | None,
+        include: list[str] | None,
         expected: type[Exception] | ReadBuildDirectory,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -264,6 +268,26 @@ class TestCreateDeploymentPlan:
                 ],
                 id="Skipped potential dependency",
             ),
+            pytest.param(
+                ReadBuildDirectory(
+                    path=Path("build"),
+                    resource_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/data_modeling"),
+                            files_by_crud={SpaceIO: [Path("build/data_modeling/my.Space.yaml")]},
+                        ),
+                        ResourceDirectory(
+                            directory=Path("build/auth"),
+                            files_by_crud={GroupAllScopedIO: [Path("build/auth/my.Group.yaml")]},
+                        ),
+                    ],
+                ),
+                [
+                    DeploymentStep(GroupAllScopedIO, [Path("build/auth/my.Group.yaml")]),
+                    DeploymentStep(SpaceIO, [Path("build/data_modeling/my.Space.yaml")]),
+                ],
+                id="All-scoped groups first",
+            ),
         ],
     )
     def test_create_deployment_plan(self, read_dir: ReadBuildDirectory, expected_plan: list[DeploymentStep]) -> None:
@@ -284,6 +308,26 @@ class TestCreateDeploymentPlan:
 
         with pytest.raises(ToolkitNotSupported, match="alpha resource supports build only"):
             DeployV2Command.create_deployment_plan(read_dir)
+
+    def test_create_deployment_plan_all_resource_types_no_cycles(self) -> None:
+        deployable_by_folder = {
+            folder: [crud for crud in cruds if crud.support_deploy]
+            for folder, cruds in RESOURCE_IO_BY_FOLDER_NAME.items()
+        }
+        read_dir = ReadBuildDirectory(
+            path=Path("build"),
+            resource_directories=[
+                ResourceDirectory(
+                    Path(f"build/{folder}"),
+                    files_by_crud={crud: [Path(f"build/{folder}/my.{crud.kind}.yaml")] for crud in cruds},
+                )
+                for folder, cruds in deployable_by_folder.items()
+            ],
+        )
+
+        plan = DeployV2Command.create_deployment_plan(read_dir)
+
+        assert {step.crud_cls for step in plan} == {crud for cruds in deployable_by_folder.values() for crud in cruds}
 
 
 @dataclass
@@ -369,7 +413,7 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=SpaceId(space="my_space"),
-                                    code="AMBIGUOUS",
+                                    code="DUPLICATED-IDENTIFIER",
                                     source_file=Path("data_modeling/b.Space.yaml"),
                                     reason="Identifier is not unique. Will use definition in data_modeling/a.Space.yaml",
                                 )
@@ -412,6 +456,35 @@ class TestApplyPlan:
                     ],
                 ),
                 id="changed_function_schedule_requires_delete_and_update",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={
+                        "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\nfunctionId: 37\nauthentication:\n  clientId: test_id\n  clientSecret: test_secret\n"
+                    },
+                    crud_cls=FunctionScheduleIO,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[
+                        DeploymentResult(
+                            resource_name="function schedules",
+                            is_dry_run=True,
+                            updated_ids=[],
+                            unchanged_ids=[],
+                            deleted_ids=[],
+                            is_missing_write_acl=False,
+                            created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
+                            warnings=[
+                                LowSeverityWarning(
+                                    "FunctionId will be ignored in the schedule "
+                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')"
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                id="function_schedule_warning_is_collected_in_result",
             ),
             pytest.param(
                 ApplyPlanTestCase(
@@ -553,14 +626,14 @@ class TestApplyPlan:
             path.write_text(content)
 
         plan = [DeploymentStep(case.crud_cls, [tmp_path / p for p in case.yaml_files])]
-
+        progress = MagicMock(spec=Progress)
         with monkeypatch_toolkit_client() as client:
             self._set_up_mock_client(case, client)
 
             actual: Sequence[DeploymentResult] | type[Exception]
             error_message = ""
             try:
-                actual = DeployV2Command.apply_plan(client, plan, case.options)
+                actual = DeployV2Command.apply_plan(client, plan, case.options, progress)
             except Exception as e:
                 actual = type(e)
                 error_message = str(e)
@@ -626,7 +699,7 @@ class TestDeployResourcesValidationError:
         an unexpected JSON structure that will cause a pydantic ValidationError.
         """
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -674,7 +747,7 @@ class TestDeployResourcesRetryDump:
     ) -> None:
         """A 502 is retried once, then a 409 fails and the request is written with retriedStatusCodes [502]."""
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -733,7 +806,7 @@ class TestCategorizeResources:
         dataset_raw = {"externalId": "my_dataset", "name": "My DataSet"}
         request = DataSetRequest.model_validate(dataset_raw)
         result = DeployV2Command.categorize_resources(
-            DataSetsIO.create_io(toolkit_client_cheap),
+            DataSetsIO(toolkit_client_cheap),
             resource_by_id={
                 request.as_id(): ReadResource(request, dataset_raw, [MagicMock()]),
             },
@@ -768,7 +841,7 @@ class TestCategorizeResources:
                 },
             ),
         )
-        loader = WorkflowTriggerIO.create_io(toolkit_client_approval.mock_client)
+        loader = WorkflowTriggerIO(toolkit_client_approval.mock_client)
 
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """externalId: my_trigger
@@ -834,7 +907,7 @@ def _space_lineage_with_insights(
     )
     insights = InsightList(
         [
-            ConsistencyError(
+            BuildError(
                 message="Space is fine this is a test",
                 code="INVALID-VALUE",
                 source_file=source_file,
@@ -885,7 +958,7 @@ class TestDeployResourcesRelatedInsights:
         client = MagicMock()
         client.console = Console(file=console_output, width=200)
         client.spaces.create.side_effect = ToolkitAPIError("API failed")
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
         with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
                 crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
@@ -922,7 +995,7 @@ class TestDryRunDataSetPlaceholders:
     def test_validate_access_dry_run_never_retrieves_dry_run_dataset(self) -> None:
         client = MagicMock()
         client.token.verify_acls.return_value = []
-        loader = AssetIO.create_io(client)
+        loader = AssetIO(client)
         resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
         is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command.validate_access(
             loader, [resource], is_dry_run=True
@@ -984,7 +1057,7 @@ class TestDryRunDataSetPlaceholders:
     ) -> None:
         client = MagicMock()
         client.token.verify_acls.return_value = []
-        io = FunctionIO.create_io(client)
+        io = FunctionIO(client)
         _ = DeployV2Command.validate_access(io, resources, is_dry_run=False)
 
         assert client.token.verify_acls.call_args_list == [call(expected_checked_acls)]
@@ -1014,9 +1087,11 @@ class TestDeployAccessControlErrors:
             json={"subject": "test", "projects": [], "capabilities": []}
         )
         client = ToolkitClient(config=toolkit_config)
-
+        progress = MagicMock(spec=Progress)
         with pytest.raises(AuthorizationError) as exc_info:
-            DeployV2Command.apply_plan(client, [DeploymentStep(SpaceIO, [yaml_file])], DeployOptions(dry_run=False))
+            DeployV2Command.apply_plan(
+                client, [DeploymentStep(SpaceIO, [yaml_file])], DeployOptions(dry_run=False), progress
+            )
 
         required = DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=["my_space"]))
         assert str(exc_info.value) == (
@@ -1059,9 +1134,11 @@ class TestDeployAccessControlErrors:
         )
         client = ToolkitClient(config=toolkit_config)
 
+        progress = MagicMock(spec=Progress)
+
         with pytest.raises(AuthorizationError) as exc_info:
             DeployV2Command.apply_plan(
-                client, [DeploymentStep(TimeSeriesIO, [yaml_file])], DeployOptions(dry_run=False)
+                client, [DeploymentStep(TimeSeriesIO, [yaml_file])], DeployOptions(dry_run=False), progress
             )
 
         missing_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id]))
@@ -1109,7 +1186,7 @@ class TestVerboseResourceOutcomes:
                 skipped=[
                     Skipped(
                         id=SpaceId(space="dup_space"),
-                        code="AMBIGUOUS",
+                        code="DUPLICATED-IDENTIFIER",
                         source_file=Path("data_modeling/b.Space.yaml"),
                         reason="Identifier is not unique",
                     )
@@ -1139,7 +1216,7 @@ class TestVerboseResourceOutcomes:
             "deleted_id": "old_space" in verbose_output,
             "unchanged_id": "same_space" in verbose_output,
             "skipped_id": "dup_space" in verbose_output,
-            "skipped_code": "AMBIGUOUS" in verbose_output,
+            "skipped_code": "DUPLICATED-IDENTIFIER" in verbose_output,
             "skipped_file": "b.Space.yaml" in verbose_output,
             "schedule_id": "my_function" in verbose_output and "my schedule" in verbose_output,
             "quiet_hides_ids": "new_space" not in quiet_output and "dup_space" not in quiet_output,
@@ -1162,7 +1239,7 @@ class TestVerboseResourceOutcomes:
         }
 
     def test_verbose_keeps_every_id_when_there_are_many(self) -> None:
-        unchanged = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
+        unchanged: list[Identifier] = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
         long_id = "asset_" + ("external-id-" * 20)
         results = [
             DeploymentResult(
@@ -1197,14 +1274,14 @@ class TestVerboseResourceOutcomes:
         crud = MagicMock()
         crud.display_name = "spaces"
         crud.support_drop = True
-        crud.get_id.side_effect = lambda resource: resource
+        crud.get_id.side_effect = lambda resource: resource.as_id()
         new = SpaceId(space="new")
         edited = SpaceId(space="edited")
         same = SpaceId(space="same")
         old = SpaceId(space="old")
         resources = ResourceToDeploy(
-            to_create=[new],
-            to_update=[edited],
+            to_create=[SpaceRequest(space=new.space)],
+            to_update=[SpaceRequest(space=edited.space)],
             to_delete=[old],
             unchanged=[same],
         )
@@ -1242,8 +1319,8 @@ class TestVerboseResourceOutcomes:
         deleted = SpaceId(space="old")
         unchanged = SpaceId(space="same")
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy(
-            to_create=[created],
-            to_update=[updated],
+            to_create=[SpaceRequest(space=created.space)],
+            to_update=[SpaceRequest(space=updated.space)],
             to_delete=[deleted],
             unchanged=[unchanged],
         )

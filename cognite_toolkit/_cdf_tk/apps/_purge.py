@@ -1,5 +1,5 @@
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -41,7 +41,7 @@ def _reject_ignored_interactive_options(flags: list[str]) -> None:
     raise ToolkitValueError(f"Cannot specify {listed} when running in interactive mode. {instruction}")
 
 
-class InstanceTypeEnum(str, Enum):
+class InstanceTypeEnum(StrEnum):
     node = "node"
     edge = "edge"
 

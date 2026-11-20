@@ -86,7 +86,7 @@ class InstanceIO(
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
-        self._view_crud = ViewIO.create_io(self.client)
+        self._view_crud = ViewIO(self.client)
 
     @staticmethod
     def _exclude_deleted(items: Iterable[InstanceResponse]) -> list[InstanceResponse]:
@@ -617,6 +617,11 @@ class InstanceIO(
                 # Not an instance field - treat as source property
                 source_properties[key] = value
 
+        # Table formats store a missing reference, for example an untyped node, as null columns.
+        nested_fields = {
+            prefix: values for prefix, values in nested_fields.items() if any(v is not None for v in values.values())
+        }
+
         # Determine instance type: if we have startNode/endNode, it's an edge
         instance_type: Literal["node", "edge"] = "edge" if "startNode" in nested_fields else "node"
 
@@ -647,7 +652,7 @@ class InstanceIO(
         spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
         if not spaces:
             return
-        space_crud = SpaceIO.create_io(self.client)
+        space_crud = SpaceIO(self.client)
         retrieved_spaces = space_crud.retrieve([SpaceId(space=space) for space in spaces])
         retrieved_spaces = [space for space in retrieved_spaces if not space.is_global]
         if not retrieved_spaces:
@@ -679,7 +684,7 @@ class InstanceIO(
         container_ids = list({container for view in views for container in view.mapped_containers})
         if not container_ids:
             return
-        container_crud = ContainerIO.create_io(self.client)
+        container_crud = ContainerIO(self.client)
         containers = container_crud.retrieve(container_ids)
         containers = [container for container in containers if not container.is_global]
         if not containers:

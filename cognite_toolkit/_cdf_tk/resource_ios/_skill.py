@@ -16,7 +16,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest, SkillResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ReadExtra,
+    ResourceIO,
+    SuccessExtra,
+    WarningHandler,
+)
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
     humanize_collection,
@@ -40,8 +46,8 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Skills/operation/skill_create_ai_skills_post/"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._source_file_by_external_id: dict[str, Path] = {}
 
     @property
@@ -150,11 +156,13 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        resources = load_yaml_inject_variables(
+        resources, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         raw_list = resources if isinstance(resources, list) else [resources]
         for item in raw_list:
             external_id = self.get_id(item).external_id

@@ -2,10 +2,9 @@
 
 import contextlib
 import os
-import sys
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, TypeAlias
 
@@ -18,14 +17,17 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
-    BuildV2Command,
+    BuildDeployValidateCommand,
     DeployOptions,
     DeployV2Command,
+    ValidationCommand,
 )
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import PostBuildParameters
 from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
@@ -33,20 +35,31 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 from cognite_toolkit._version import __version__ as current_version
 
+from ._helpers import warn_if_missing_credentials
+
 
 # Common parameters handled in common callback
 @dataclass
 class Common:
     override_env: bool
+    env_file_found: bool = False
 
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
 TODAY = date.today()
 
 
-class InsightFormat(str, Enum):
+class InsightFormat(StrEnum):
     csv = "csv"
     json = "json"
+
+
+class ValidateMode(StrEnum):
+    syntax_only = "syntax-only"
+    local = "local"
+    remote = "remote"
+    capacity = "capacity"
+    auto = "auto"
 
 
 def _version_callback(value: bool) -> None:
@@ -89,12 +102,18 @@ else:
 
 
 class CoreApp(typer.Typer):
+    # Top-level commands that work without CDF credentials. A missing .env file
+    # should not trigger a warning for these.
+    COMMANDS_NOT_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"build", "modules", "repo", "init", "about"})
+
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
         self.command("build")(self.build_v2)
         self.command("deploy")(self.deploy_v2)
         self.command("clean")(self.clean_v2)
+        if Flags.CHECK.is_enabled():
+            self.command("check")(self.check)
 
     def common(
         self,
@@ -162,23 +181,16 @@ class CoreApp(typer.Typer):
                     env_path = candidate
                     break
             else:
-                # Did not find .env file
-                try:
-                    env_vars = EnvironmentVariables.create_from_environment()
-                except (ValueError, KeyError):
-                    warn = True
-                else:
-                    warn = bool(env_vars.get_missing_vars())
-                if warn:
-                    print(
-                        "[bold yellow]WARNING:[/] No .env file found and missing required environment variables. "
-                        "Searched current or parent directory.",
-                        file=sys.stderr,
-                    )
+                # Did not find .env file. Command groups that contain both commands that
+                # need credentials and commands that do not (e.g., 'modules') are listed in
+                # COMMANDS_NOT_REQUIRING_CREDENTIALS and warn in their own callback.
+                if ctx.invoked_subcommand not in self.COMMANDS_NOT_REQUIRING_CREDENTIALS:
+                    warn_if_missing_credentials(ctx)
                 return
 
         if not env_path.is_file():
             raise ToolkitFileNotFoundError(env_path)
+        ctx.obj.env_file_found = True
 
         if override_env:
             dotenv_vars = dotenv_values(env_path)
@@ -233,6 +245,14 @@ class CoreApp(typer.Typer):
                 help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        validate: Annotated[
+            ValidateMode,
+            typer.Option(
+                "--validate",
+                help="Whether to validate the built configuration files. Options: syntax-only, local, remote, capacity, auto.",
+                hidden=True,  # Not yet exposed in the CLI.
+            ),
+        ] = ValidateMode.auto,
         insight_format: Annotated[
             InsightFormat,
             typer.Option(
@@ -257,7 +277,7 @@ class CoreApp(typer.Typer):
             # This is verified in check_auth
             client = EnvironmentVariables.create_from_environment().get_client(console=console)
 
-        cmd = BuildV2Command(print_warning=True, client=client)
+        cmd = BuildDeployValidateCommand(print_warning=True, client=client)
 
         if build_env_name is not None and config_yaml is None:
             ToolkitDeprecationWarning(
@@ -286,14 +306,18 @@ class CoreApp(typer.Typer):
             config_yamls=config_yamls,
             user_selected_modules=selected,
             verbose=verbose,
+        )
+        post_parameters = PostBuildParameters(
             insight_format=insight_format.value,
             rules_ignore=set(CDF_TOML.rules.ignore),
             rules_enforce=CDF_TOML.rules.enforce,
         )
 
         cmd.run(
-            lambda: cmd.build(
+            lambda: cmd.pre_flight(
                 parameters=parameter,
+                post_build=post_parameters,
+                validation=validate.value,
                 client=client,
             )
         )
@@ -324,6 +348,7 @@ class CoreApp(typer.Typer):
                 "--drop",
                 "-d",
                 help="[Deprecated, use 'cdf clean' instead] Whether to drop existing configurations, drop per resource if present.",
+                hidden=Flags.v010.is_enabled(),
             ),
         ] = False,
         drop_data: Annotated[
@@ -331,6 +356,7 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--drop-data",
                 help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
+                hidden=Flags.v010.is_enabled(),
             ),
         ] = False,
         include: Annotated[
@@ -378,14 +404,16 @@ class CoreApp(typer.Typer):
             ToolkitDeprecationWarning(
                 feature="--drop flag in cdf deploy",
                 alternative="cdf clean",
-                removal_version="0.9",
+                removal_version="0.10",
             ).print_warning()
         if drop_data:
             ToolkitDeprecationWarning(
                 feature="--drop-data flag in cdf deploy",
                 alternative="cdf clean --drop-data",
-                removal_version="0.9",
+                removal_version="0.10",
             ).print_warning()
+        if (drop or drop_data) and Flags.v010.is_enabled():
+            raise typer.Exit(1)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(
@@ -484,5 +512,20 @@ class CoreApp(typer.Typer):
                     environment_variables=env_vars.dump(),
                     deployment_dir=clean_dir,
                 ),
+            )
+        )
+
+    @staticmethod
+    def check() -> None:
+        """Checks resources in CDF project against rules and best practices."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ValidationCommand(client=client)
+
+        cmd.run(
+            lambda: cmd.validate(
+                resource_types=None,
+                client=client,
+                display=CommandDisplay(results=True),
+                rule_context="cdf",
             )
         )

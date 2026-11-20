@@ -1,6 +1,6 @@
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,7 +71,7 @@ class TestConfirmDropData:
         monkeypatch.setattr(cmd, "_count_dms_instances_in_plan", lambda c, p, o: 0)
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-            lambda msg, client: True,
+            lambda msg, project, console: True,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
@@ -88,7 +88,7 @@ class TestConfirmDropData:
         monkeypatch.setattr(cmd, "_count_dms_instances_in_plan", lambda c, p, o: 0)
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-            lambda msg, client: False,
+            lambda msg, project, console: False,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
@@ -111,7 +111,7 @@ class TestConfirmDropData:
         )
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-            lambda msg, client: True,
+            lambda msg, project, console: True,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
@@ -259,7 +259,7 @@ class TestCheckNoOutOfScopeViewReferences:
         self,
         plan_view_ids: list[ViewId],
         hidden_view_count: int,
-        operation: str,
+        operation: Literal["deploy", "clean"],
         should_raise: bool,
         error_match: str,
         monkeypatch: pytest.MonkeyPatch,
@@ -268,12 +268,9 @@ class TestCheckNoOutOfScopeViewReferences:
         container_mock = MagicMock()
         container_mock.space = "my_space"
         container_mock.external_id = "my_container"
-        mock_container_crud = MagicMock()
-        mock_container_crud.retrieve.return_value = [container_mock]
-        mock_view_crud = MagicMock()
 
         def mock_read_files(crud, files, opts):
-            if crud is mock_container_crud:
+            if isinstance(crud, ContainerIO):
                 return {"container_key": MagicMock()}
             return {view_id: MagicMock() for view_id in plan_view_ids}
 
@@ -294,11 +291,12 @@ class TestCheckNoOutOfScopeViewReferences:
         ]
         raises_ctx = pytest.raises(ToolkitValueError, match=error_match) if should_raise else nullcontext()
         with (
-            patch.object(ContainerIO, "create_io", return_value=mock_container_crud),
-            patch.object(ViewIO, "create_io", return_value=mock_view_crud),
+            patch.object(ContainerIO, "retrieve", return_value=[container_mock]),
             raises_ctx,
         ):
-            cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
+            cmd._validate_plan_container_references(
+                client, plan, DeployOptions(drop=True, operation=operation), client.console
+            )
 
 
 class TestDeployResourcesSpecialUpsertHandling:

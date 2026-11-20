@@ -18,6 +18,8 @@ from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_role_access_filters import DataProductRoleAccessFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_roles import DataProductRolesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
@@ -25,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -37,8 +40,12 @@ from cognite_toolkit._cdf_tk.client.api.integrations import (
     IntegrationErrorsAPI,
     IntegrationTasksAPI,
 )
+from cognite_toolkit._cdf_tk.client.api.limits import LimitsAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.metering import MeteringAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
+from cognite_toolkit._cdf_tk.client.api.postgres_gateway_tables import PostgresGatewayTablesAPI
+from cognite_toolkit._cdf_tk.client.api.postgres_gateway_users import PostgresGatewayUsersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
@@ -49,10 +56,13 @@ from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCateg
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_integrations import SimulatorIntegrationsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_logs import SimulatorLogsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_runs import SimulatorRunsAPI
 from cognite_toolkit._cdf_tk.client.api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
@@ -60,26 +70,36 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDFilesAPI,
+    ThreeDJobsAPI,
     ThreeDNodesAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.units import UnitsAPI
 from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_tasks import WorkflowTasksAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    DataModelId,
     ExternalId,
     ExtractionPipelineConfigId,
     InternalId,
     InternalUnwrappedId,
+    PostgresGatewayTableId,
+    PostgresGatewayUserId,
+    RawDatabaseId,
     SpaceId,
     ThreeDModelRevisionId,
+    ViewId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
@@ -87,6 +107,9 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     EpochTimestampRange,
     FunctionCallFilter,
     SequenceRowFilter,
+    WorkflowExecutionFilter,
+    WorkflowFilter,
+    WorkflowFilterItem,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -126,8 +149,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceResponse,
+    OneLakeExternalDataSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -188,6 +211,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    PostgresGatewayColumn,
+    RawRowsTableRequest,
+    RawTableOptions,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
+    PostgresGatewayUserRequest,
+    SessionCredentials,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
@@ -245,6 +277,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    SchemaType,
     TransformationRequest,
     TransformationResponse,
 )
@@ -278,6 +311,7 @@ from tests_smoke.constants import (
     SEQUENCE_EXTERNAL_ID,
     SMOKE_SPACE,
     SMOKE_TEST_CONTAINER_EXTERNAL_ID,
+    SMOKE_TEST_STREAM,
     SMOKE_TEST_VIEW_EXTERNAL_ID,
     TIMESERIES_EXTERNAL_ID,
 )
@@ -291,6 +325,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         SimulatorRoutinesAPI,
         SimulatorModelRevisionsAPI,
         SimulatorRoutineRevisionsAPI,
+        # Runs need a routine and a connected simulator. Integrations are created by connectors, and logs are read-only.
+        SimulatorRunsAPI,
+        SimulatorIntegrationsAPI,
+        SimulatorLogsAPI,
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
@@ -306,6 +344,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         WorkflowVersionsAPI,
         WorkflowTriggersAPI,
         WorkflowExecutionsAPI,
+        # Tasks only exist inside a running workflow execution and only support update.
+        WorkflowTasksAPI,
+        # The unit catalog is read-only and global, so it has no create, update, or delete.
+        UnitsAPI,
         # 3D Models are expensive to create, and AssetMappings depend on existing models and assets/nodes.
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
@@ -313,6 +355,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicRevisionsAPI,
         # Requires special handling of list call,
         ExtractionPipelineConfigsAPI,
+        # Runs are scoped to an existing extraction pipeline and cannot be deleted.
+        ExtractionPipelineRunsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         AppsAPI,
@@ -343,17 +387,23 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
         DataProductVersionsAPI,
+        DataProductRolesAPI,
+        DataProductRoleAccessFiltersAPI,
         # Datapoints subscription has a special update method
         DatapointSubscriptionsAPI,
         # Statistics are read-only and have no items to create, update, or delete.
         StatisticsAPI,
         SpaceStatisticsAPI,
+        # Limits are read-only and have no items to create, update, or delete.
+        LimitsAPI,
         # No create methods
         PrincipalsAPI,
         # Create payload is not a response resource, and delete is revoke.
         SessionAPI,
         PrincipalLoginSessionsAPI,
         UserProfilesAPI,
+        # Metering is read-only (list/retrieve) and alpha.
+        MeteringAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
         DocumentsAPI,
         # Special handling due to need for file Id and update.
@@ -386,8 +436,17 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         FunctionCallsAPI,
         # Needs a 3D model processed
         ThreeDNodesAPI,
+        ThreeDFilesAPI,
+        # Jobs require a session nonce and 3D source data, and have no retrieve or update.
+        ThreeDJobsAPI,
         # Datapoints API requires a timeseries to exists.
         DatapointsAPI,
+        # Schema do not have a create/update/delete, and the retrieve method requires a schema type.
+        TransformationSchemaAPI,
+        # The username is generated by the API and creating a user requires a session nonce.
+        PostgresGatewayUsersAPI,
+        # Tables require a postgres gateway user and a RAW table.
+        PostgresGatewayTablesAPI,
     }
 )
 
@@ -642,9 +701,7 @@ Used by toolkit smoke tests.
         StreamlitResponse: [
             {"externalId": "smoke-test-streamlit", "name": "Smoke Test Streamlit App", "creator": "doctrino"}
         ],
-        StreamResponse: [
-            {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
-        ],
+        StreamResponse: [{"externalId": SMOKE_TEST_STREAM, "settings": {"template": {"name": "ImmutableTestStream"}}}],
         ThreeDModelClassicResponse: [{"name": "smoke-test-3d-model-classic"}],
         # ThreeDModelDMSResponse: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
         ThreeDRevisionClassicResponse: [{"fileId": -1, "modelId": -1}],
@@ -1293,7 +1350,14 @@ class TestCDFResourceAPI:
         start_time = time.monotonic()
         while (time.monotonic() - start_time) < timeout_seconds:
             running_executions = client.workflows.executions.list(
-                workflow_version_ids=[workflow_version_id], statuses=["RUNNING"]
+                filter=WorkflowExecutionFilter(
+                    workflow_filters=[
+                        WorkflowFilterItem(
+                            external_id=workflow_version_id.workflow_external_id, version=workflow_version_id.version
+                        )
+                    ],
+                    status=["RUNNING"],
+                )
             )
             if not running_executions:
                 return
@@ -1960,7 +2024,12 @@ class TestCDFResourceAPI:
             # List workflow versions
             version_list_endpoint = client.workflows.versions._method_endpoint_map["list"]
             listed_versions = list(
-                client.workflows.versions.list(workflow_external_id=workflow_request.external_id, limit=1)
+                client.workflows.versions.list(
+                    filter=WorkflowFilter(
+                        workflow_filters=[WorkflowFilterItem(external_id=workflow_request.external_id)]
+                    ),
+                    limit=1,
+                )
             )
             if len(listed_versions) == 0:
                 raise EndpointAssertionError(
@@ -2004,7 +2073,10 @@ class TestCDFResourceAPI:
             list_endpoint = client.workflows.executions._method_endpoint_map["list"]
             try:
                 listed_executions = client.workflows.executions.list(
-                    workflow_version_ids=[workflow_version_id], limit=1
+                    filter=WorkflowExecutionFilter(
+                        workflow_filters=[WorkflowFilterItem(external_id=workflow_version_id.workflow_external_id)]
+                    ),
+                    limit=1,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(list_endpoint.path, f"list method failed with error: {e!s}") from e
@@ -2683,7 +2755,7 @@ class TestCDFResourceAPI:
         client = toolkit_client
 
         data_source_example = get_examples_minimum_requests(ExternalDataSourceResponse)[0]
-        data_source_request = ExternalDataSourceRequest.model_validate(data_source_example)
+        data_source_request = OneLakeExternalDataSourceRequest.model_validate(data_source_example)
         data_source_id = data_source_request.as_id()
 
         try:
@@ -2719,6 +2791,63 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.transformations.external_data_sources.delete([data_source_id], ignore_unknown_ids=True)
+
+    @pytest.mark.parametrize("schema_type", get_args(SchemaType))
+    def test_transformation_retrieve_schema(self, toolkit_client: ToolkitClient, schema_type: SchemaType) -> None:
+        client = toolkit_client
+
+        try:
+            schema = client.transformations.schema.retrieve(schema_type)
+        except ToolkitAPIError:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieving transformation schema for {schema_type} failed.",
+            )
+        if not schema:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieved transformation schema for {schema_type} is empty.",
+            )
+
+    def test_transformation_schema_retrieve_views(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        try:
+            views = client.transformations.schema.retrieve_view_instances(
+                "upsert",
+                view=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                instance_type="nodes",
+                with_instance_space=True,
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieving transformation schema views failed: {e}",
+            )
+        if not views:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                "Retrieved transformation schema views are empty.",
+            )
+
+    def test_transformation_schema_retrieve_data_model(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        try:
+            columns = client.transformations.schema.retrieve_data_model_instances(
+                "upsert", DataModelId(space="cdf_cdm", external_id="CogniteCore", version="v1"), type="CogniteAsset"
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieving transformation schema data model instances failed: {e}",
+            )
+
+        if not columns:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                "Retrieved transformation schema data model instances are empty.",
+            )
 
     def test_datapoints_subscription_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2839,6 +2968,79 @@ class TestCDFResourceAPI:
             if session_id is not None and not revoked:
                 sessions.revoke([session_id])
 
+    def test_postgres_gateway_users_crudl(self, toolkit_client: ToolkitClient) -> None:
+        users = toolkit_client.postgres_gateway.users
+        endpoints = users._method_endpoint_map
+        sessions = toolkit_client.sessions
+        user_id: PostgresGatewayUserId | None = None
+        try:
+            request = PostgresGatewayUserRequest(
+                credentials=SessionCredentials(nonce=sessions.create_one_shot_token_exchange_session().nonce)
+            )
+            try:
+                created = users.create([request])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["create"].path, f"Creating user failed: {e!s}") from e
+            if len(created) != 1 or not created[0].password:
+                raise EndpointAssertionError(endpoints["create"].path, "Expected 1 created user with a password")
+            created_id = user_id = created[0].as_id()
+
+            self.assert_endpoint_method(
+                lambda: users.retrieve([created_id]), "retrieve", endpoints["retrieve"], created_id
+            )
+            update = PostgresGatewayUserRequest(
+                username=created_id.username,
+                credentials=SessionCredentials(nonce=sessions.create_one_shot_token_exchange_session().nonce),
+            )
+            self.assert_endpoint_method(lambda: users.update([update]), "update", endpoints["update"], created_id)
+
+            try:
+                listed = users.list(limit=None)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Listing users failed: {e!s}") from e
+            if created_id not in {user.as_id() for user in listed}:
+                raise EndpointAssertionError(endpoints["list"].path, f"Created user {created_id} was not listed")
+        finally:
+            if user_id is not None:
+                users.delete([user_id], ignore_unknown_ids=True)
+
+    def test_postgres_gateway_tables_crdl(self, toolkit_client: ToolkitClient) -> None:
+        tables = toolkit_client.postgres_gateway.tables
+        endpoints = tables._method_endpoint_map
+        db_name = "toolkit_smoke_postgres_gateway"
+        user_id: PostgresGatewayUserId | None = None
+        try:
+            toolkit_client.raw.tables.create([RAWTableRequest(db_name=db_name, name="rows")], ensure_parent=True)
+            nonce = toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
+            created_user = toolkit_client.postgres_gateway.users.create(
+                [PostgresGatewayUserRequest(credentials=SessionCredentials(nonce=nonce))]
+            )
+            user_id = created_user[0].as_id()
+            table_id = PostgresGatewayTableId(username=user_id.username, tablename="smoke_raw_rows")
+            request = RawRowsTableRequest(
+                username=table_id.username,
+                tablename=table_id.tablename,
+                options=RawTableOptions(database=db_name, table="rows", primary_key="key"),
+                columns={"key": PostgresGatewayColumn(type="TEXT"), "value": PostgresGatewayColumn(type="BIGINT")},
+            )
+
+            self.assert_endpoint_method(lambda: tables.create([request]), "create", endpoints["create"], table_id)
+            self.assert_endpoint_method(
+                lambda: tables.retrieve([table_id]), "retrieve", endpoints["retrieve"], table_id
+            )
+            self.assert_endpoint_method(lambda: tables.list(table_id.username), "list", endpoints["list"], table_id)
+
+            try:
+                tables.delete([table_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["delete"].path, f"Deleting table failed: {e!s}") from e
+            if tables.retrieve([table_id], ignore_unknown_ids=True):
+                raise EndpointAssertionError(endpoints["delete"].path, f"Table {table_id} was not deleted")
+        finally:
+            if user_id is not None:
+                toolkit_client.postgres_gateway.users.delete([user_id], ignore_unknown_ids=True)
+            toolkit_client.raw.databases.delete([RawDatabaseId(name=db_name)], recursive=True)
+
     def test_principals_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
@@ -2925,6 +3127,31 @@ class TestCDFResourceAPI:
             ) from None
         # We only care about a 200 response, not whether we got a hit.
 
+    def test_metering_list_retrieve(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        endpoints = client.metering._method_endpoint_map
+        try:
+            listed = client.metering.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing meters failed: {e!s}") from None
+        if not listed:
+            pytest.skip("No meters available in the project")
+
+        meter_id = listed[0].as_id()
+        now = int(time.time() * 1000)
+        try:
+            retrieved = client.metering.retrieve(
+                [meter_id], start=now - 7 * 24 * 60 * 60 * 1000, end=now, number_of_datapoints=7
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                endpoints["retrieve"].path, f"Retrieving meter {meter_id} failed: {e!s}"
+            ) from None
+        if len(retrieved) != 1 or retrieved[0].as_id() != meter_id:
+            raise EndpointAssertionError(
+                endpoints["retrieve"].path, f"Expected to retrieve meter {meter_id}, got {len(retrieved)} items"
+            )
+
     def test_statistics(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test project and space statistics endpoints (read-only)."""
         client = toolkit_client
@@ -2961,6 +3188,35 @@ class TestCDFResourceAPI:
                 retrieve_endpoint.path,
                 f"Expected statistics for space {SMOKE_SPACE}, got {[item.space for item in retrieved]}.",
             )
+
+    def test_limits_list_retrieve(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test the read-only Limits API (alpha)."""
+        client = toolkit_client
+        endpoints = client.limits._method_endpoint_map
+        try:
+            listed = client.limits.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing limits failed: {e!s}") from e
+        if not listed:
+            raise EndpointAssertionError(endpoints["list"].path, "Expected at least 1 listed limit, got 0")
+        limit_id = listed[0].as_id()
+
+        service_prefix = limit_id.limit_id.split(".", maxsplit=1)[0] + "."
+        try:
+            filtered = client.limits.list(prefix=service_prefix, limit=10)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing limits by prefix failed: {e!s}") from e
+        if not filtered or not all(item.limit_id.startswith(service_prefix) for item in filtered):
+            raise EndpointAssertionError(
+                endpoints["list"].path, f"Expected only limits with prefix {service_prefix!r}, got {filtered}"
+            )
+
+        try:
+            retrieved = client.limits.retrieve([limit_id])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["retrieve"].path, f"Retrieving limit failed: {e!s}") from e
+        if len(retrieved) != 1 or retrieved[0].as_id() != limit_id:
+            raise EndpointAssertionError(endpoints["retrieve"].path, f"Expected {limit_id}, got {retrieved}")
 
     def test_documents_list_search_aggregate(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test Documents API list, search, and aggregate helpers (read-only)."""

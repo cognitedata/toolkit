@@ -5,8 +5,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InternalValidatorException
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
+from cognite_toolkit._cdf_tk.data_classes._insights import InternalValidatorException
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ResourceType, TimeSeriesIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
@@ -41,7 +41,7 @@ class TestDependencyRuleSetCdfApiError:
 
         client = MagicMock()
         client.datasets.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
-        rule = DependencyRuleSet(modules=[module], client=client)
+        rule = DependencyRuleSet(resources=module.resources, client=client)
 
         results = list(rule.validate())
         assert len(results) == 1

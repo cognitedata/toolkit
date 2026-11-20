@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx2
@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     LatestDatapointRequest,
     NumericDatapointsResponse,
     StringDatapointsResponse,
+    SyntheticQueryRequest,
     parse_datapoints_series,
 )
 
@@ -155,7 +156,7 @@ class TestDatapointsAPI:
         )
         retrieved = api.retrieve(
             [DatapointsQueryRequest(external_id="ts_001", cursor="cursor-1")],
-            start=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            start=datetime(2020, 1, 1, tzinfo=UTC),
             aggregates=["average", "max", "maxDatapoint", "count"],
             granularity="1h",
             time_zone="Europe/Oslo",
@@ -358,7 +359,7 @@ class TestDatapointsAPI:
             )
         )
         retrieved = api.latest(
-            [LatestDatapointRequest(id=7, before=datetime(2020, 1, 2, tzinfo=timezone.utc))],
+            [LatestDatapointRequest(id=7, before=datetime(2020, 1, 2, tzinfo=UTC))],
             ignore_unknown_ids=True,
         )
 
@@ -397,6 +398,57 @@ class TestDatapointsAPI:
             "accept": "application/json",
             "body": {"items": [{"externalId": "ts_001", "inclusiveBegin": 10, "exclusiveEnd": 20}]},
         }
+
+    def test_synthetic_query_posts_json(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter, disable_gzip: None
+    ) -> None:
+        api = DatapointsAPI(HTTPClient(toolkit_config))
+        respx_mock.post(api._make_url("/timeseries/synthetic/query")).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "isString": False,
+                            "datapoints": [{"timestamp": 10, "value": 3}, {"timestamp": 20, "error": "Division by 0"}],
+                        }
+                    ]
+                },
+            )
+        )
+        retrieved = api.synthetic_query(
+            [SyntheticQueryRequest(expression="ts{externalId='a'} * 2", start=0, end=20, limit=10)]
+        )
+
+        assert {
+            "request": _request_payload(respx_mock.calls[0]),
+            "datapoints": [datapoint.dump() for datapoint in retrieved[0].datapoints],
+        } == {
+            "request": {
+                "url": api._make_url("/timeseries/synthetic/query"),
+                "content_type": "application/json",
+                "accept": "application/json",
+                "body": {"items": [{"expression": "ts{externalId='a'} * 2", "start": 0, "end": 20, "limit": 10}]},
+            },
+            "datapoints": [{"timestamp": 10, "value": 3}, {"timestamp": 20, "error": "Division by 0"}],
+        }
+
+    def test_synthetic_query_splits_above_item_limit(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter, disable_gzip: None
+    ) -> None:
+        api = DatapointsAPI(HTTPClient(toolkit_config))
+        respx_mock.post(api._make_url("/timeseries/synthetic/query")).mock(
+            side_effect=lambda request: httpx2.Response(
+                status_code=200,
+                json={"items": [{"datapoints": []} for _ in json.loads(request.content)["items"]]},
+            )
+        )
+        retrieved = api.synthetic_query([SyntheticQueryRequest(expression=f"ts{{id={i}}}") for i in range(11)])
+
+        assert {
+            "chunks": [len(json.loads(call.request.content)["items"]) for call in respx_mock.calls],
+            "results": len(retrieved),
+        } == {"chunks": [10, 1], "results": 11}
 
     @pytest.mark.parametrize(
         "retrieve_kwargs, item_kwargs",
@@ -471,8 +523,8 @@ class TestDatapointsAPI:
 class TestTimestamp:
     def test_parses_epoch_and_string_formats(self) -> None:
         adapter = TypeAdapter(Timestamp)
-        epoch = datetime(2020, 1, 1, tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+        epoch = datetime(2020, 1, 1, tzinfo=UTC)
+        now = datetime.now(UTC)
         parsed = {
             key: adapter.validate_python(value)
             for key, value in {
@@ -502,7 +554,7 @@ class TestTimestamp:
         } == {
             "parsed": {
                 "epoch": epoch,
-                "negative": datetime(1969, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+                "negative": datetime(1969, 12, 31, 23, 59, 59, tzinfo=UTC),
                 "float": epoch,
                 "digit_string": epoch,
                 "iso_z": epoch,

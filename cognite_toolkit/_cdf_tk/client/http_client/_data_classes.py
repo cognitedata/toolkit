@@ -165,7 +165,7 @@ class BaseRequestMessage(HTTPBaseModel, ABC):
         "This overrides the HTTPClient configuration",
     )
 
-    parameters: dict[str, PrimitiveType] | None = None
+    parameters: dict[str, PrimitiveType | list[PrimitiveType]] | None = None
 
     @property
     def total_attempts(self) -> int:

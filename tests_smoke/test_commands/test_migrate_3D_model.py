@@ -24,10 +24,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequestId,
+    ThreeDInstanceReference,
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
+    ThreeDModelRevertMigrationRequest,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
+    ThreeDRevisionRevertMigrationRequest,
 )
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
@@ -181,13 +184,21 @@ def tmp_3D_model_with_asset_mapping(
 
     yield retrieved_model, asset_node
 
-    client.three_d.models_classic.delete([model.as_request_resource().as_id()])
-    client.instances.delete(
-        [
-            NodeId(space=smoke_space.space, external_id=f"cog_3d_model_{model.id!s}"),
-            NodeId(space=smoke_space.space, external_id=f"cog_3d_revision_{revision.id!s}"),
-        ]
-    )
+    model_node = NodeId(space=smoke_space.space, external_id=f"cog_3d_model_{model.id!s}")
+    revision_node = NodeId(space=smoke_space.space, external_id=f"cog_3d_revision_{revision.id!s}")
+    # A migrated model must be reverted to classic before it can be deleted.
+    if client.three_d.models_classic.retrieve([model.as_id()])[0].space is not None:
+        model_reference = ThreeDInstanceReference(instance_id=model_node)
+        client.three_d.migration.revert_revisions(
+            [
+                ThreeDRevisionRevertMigrationRequest(
+                    type="CAD", model=model_reference, revision=ThreeDInstanceReference(instance_id=revision_node)
+                )
+            ]
+        )
+        client.three_d.migration.revert_models([ThreeDModelRevertMigrationRequest(type="CAD", model=model_reference)])
+    client.three_d.models_classic.delete([model.as_id()])
+    client.instances.delete([model_node, revision_node])
 
 
 @pytest.fixture(scope="session")

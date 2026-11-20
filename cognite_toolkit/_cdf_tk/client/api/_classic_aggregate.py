@@ -83,7 +83,7 @@ def aggregate_unique(
     return ResponseItems[ClassicAggregateUniqueBucket].model_validate_json(response.body).items
 
 
-def files_aggregate_count(
+def filter_aggregate_count(
     api: _AggregatePoster,
     *,
     filter: ClassicFilter | dict[str, Any] | None = None,

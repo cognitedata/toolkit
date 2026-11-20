@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from typing import Any
 
+from rich.progress import Progress
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
@@ -55,8 +57,12 @@ class MigrationPrepareCommand(ToolkitCommand):
             DeploymentStep(ResourceViewMappingIO, [], resource_requests=create_default_mappings()),
         ]
 
-        results = deploy_cmd.apply_plan(
-            client, plan, options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose)
-        )
+        with Progress(console=client.console) as progress:
+            results = deploy_cmd.apply_plan(
+                client,
+                plan,
+                options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose),
+                progress=progress,
+            )
         deploy_cmd._display_results(results, "deploy", console=client.console, verbose=verbose)
         return results

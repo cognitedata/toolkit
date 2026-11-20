@@ -7,9 +7,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AclType,
+    AllScope,
+    DataProductScope,
+    ScopeDefinition,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import ViewIO
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from ._data_product import DataProductIO
@@ -54,11 +61,15 @@ class DataProductVersionIO(
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductVersionRequest]) -> ScopeDefinition | None:
-        return None
+        return DataProductScope(external_ids=sorted({item.data_product_external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        yield from ()
+        if isinstance(scope, AllScope | DataProductScope):
+            yield DataProductsAcl(
+                actions=as_read_create_update_delete_actions(actions),
+                scope=scope,
+            )
 
     @classmethod
     def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -79,6 +90,17 @@ class DataProductVersionIO(
         for key, value in dumped.items():
             if value == {}:
                 dumped[key] = None
+        # TODO(CDF-28953): Remove by May 2027, after verifying the API no longer returns instanceSpaces.
+        # Versions deployed before instanceSpaces was removed still have it stored, and the API still returns it
+        # as of 17.11.2026.
+        local_views = {
+            (view.get("space"), view.get("externalId"), str(view.get("version"))): view
+            for view in local.get("views") or []
+        }
+        for view in dumped.get("views") or []:
+            local_view = local_views.get((view["space"], view["externalId"], view["version"]), {})
+            if "instanceSpaces" not in local_view:
+                view.pop("instanceSpaces", None)
         defaults: dict[str, Any | None] = {
             "status": "draft",
             "description": None,
@@ -119,6 +141,8 @@ class DataProductVersionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataProductVersionResponse]:
+        if data_set_external_id or space:
+            return
         if parent_ids is not None:
             dp_ext_ids = {
                 pid.external_id if isinstance(pid, ExternalId) else pid

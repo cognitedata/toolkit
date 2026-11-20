@@ -1,13 +1,13 @@
 import re
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, TypeAlias
 
 from pydantic import BeforeValidator, PlainSerializer
 
 from cognite_toolkit._cdf_tk.utils.dms import dms_datetime_iso
 
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 _RELATIVE_TIMESTAMP = re.compile(r"^(\d+)([smhdw])-(ago|ahead)$")
 _EPOCH_MS = re.compile(r"^-?\d+$")
 _UNIT_MS = {"s": 1_000, "m": 60_000, "h": 3_600_000, "d": 86_400_000, "w": 604_800_000}
@@ -21,9 +21,9 @@ def _keys_and_values_as_string(value: Any) -> Any:
 
 def _datetime_to_epoch_ms(value: datetime) -> int:
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     else:
-        value = value.astimezone(timezone.utc)
+        value = value.astimezone(UTC)
     delta = value - _EPOCH
     return delta.days * 86_400_000 + delta.seconds * 1_000 + delta.microseconds // 1_000
 
@@ -46,8 +46,8 @@ def _parse_iso_timestamp(value: str) -> datetime:
             "or '<n>(s|m|h|d|w)-(ago|ahead)'."
         ) from exc
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _parse_timestamp_string(value: str) -> datetime:
@@ -67,8 +67,8 @@ def _parse_timestamp_string(value: str) -> datetime:
 def _parse_timestamp(value: Any) -> datetime:
     if isinstance(value, datetime):
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
     if isinstance(value, bool):
         raise ValueError(f"Invalid timestamp {value!r}.")
     if isinstance(value, int):

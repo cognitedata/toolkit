@@ -1,7 +1,8 @@
 from abc import ABC
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client import identifiers
 from cognite_toolkit._cdf_tk.constants import (
@@ -103,8 +104,20 @@ class TextProperty(ListablePropertyTypeDefinition):
     )
 
 
+class Unit(BaseModelResource):
+    external_id: str
+    space: str | None = Field(
+        default=None,
+        description="The space hosting the unit. If not set, the unit is assumed to be a global unit.",
+    )
+    source_unit: str | None = Field(
+        default=None,
+        description="The source unit of the data stored in this property. For example, 'time:sec' or 'length:m'.",
+    )
+
+
 class FloatPrimitiveProperty(ListablePropertyTypeDefinition, ABC):
-    unit: dict[Literal["externalId", "sourceUnit"], str] | None = Field(
+    unit: Unit | None = Field(
         default=None,
         description="The unit of the data stored in this property.",
     )
@@ -220,3 +233,12 @@ class ContainerPropertyDefinition(BaseModelResource):
         max_length=255,
     )
     type: PropertyType = Field(description="The type of data you can store in this property.")
+
+    @field_validator("type", mode="after")
+    @classmethod
+    def direct_relations_must_be_nullable(
+        cls, val: PropertyTypeDefinition, info: ValidationInfo
+    ) -> PropertyTypeDefinition:
+        if isinstance(val, DirectNodeRelation) and info.data.get("nullable") is False:
+            raise ValueError("Direct relations must be nullable. Set 'nullable' to true or remove it.")
+        return val

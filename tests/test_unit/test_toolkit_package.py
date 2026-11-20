@@ -1,12 +1,12 @@
 import ast
 import re
+import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
-import tomllib
 
 from tests.constants import REPO_ROOT
 
@@ -108,7 +108,7 @@ def test_no_cognite_sdk_imports() -> None:
             return imp.lineno, imp.format()
         return None
 
-    _assert_import_violations(check, "cognite.client imports", expected_total=35)
+    _assert_import_violations(check, "cognite.client imports", expected_total=34)
 
 
 def test_utils_module_independent() -> None:

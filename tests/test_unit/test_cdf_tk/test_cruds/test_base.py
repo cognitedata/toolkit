@@ -1,6 +1,7 @@
 import typing
 from collections import Counter, defaultdict
 from collections.abc import Iterable
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import get_args, get_origin
 from unittest.mock import MagicMock
@@ -16,6 +17,8 @@ from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -30,14 +33,18 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_IO_BY_FOLDER_NAME,
     RESOURCE_IO_LIST,
+    AppIO,
+    AppVersionIO,
     FunctionIO,
     FunctionScheduleIO,
     GroupResourceScopedIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
+    PostgresGatewayUserIO,
     ResourceIO,
     ResourceTypes,
+    StreamlitIO,
     TransformationIO,
     WorkflowTriggerIO,
 )
@@ -55,7 +62,7 @@ class TestFormatConsistency:
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_io(toolkit_client_cheap)
+        loader = Loader(toolkit_client_cheap)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         if get_origin(loader.resource_write_cls) is typing.Annotated:
@@ -74,7 +81,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_io(toolkit_client_cheap)
+        loader = Loader(toolkit_client_cheap)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -92,7 +99,7 @@ class TestFormatConsistency:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
-        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO]:
+        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO, HostedExtractorDestinationIO, PostgresGatewayUserIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires authentication handling")
 
         instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
@@ -119,7 +126,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_io(toolkit_client_cheap)
+        loader = Loader(toolkit_client_cheap)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -140,7 +147,7 @@ class TestFormatConsistency:
             pytest.skip(
                 f"Skipping {loader.resource_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
             )
-        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO]:
+        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO, HostedExtractorDestinationIO, PostgresGatewayUserIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires authentication handling")
 
         instances = [
@@ -163,7 +170,7 @@ class TestFormatConsistency:
 
     @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
-        loader = Loader.create_io(toolkit_client_cheap)
+        loader = Loader(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
 
     def test_all_io_suffix_io(self) -> None:
@@ -199,6 +206,16 @@ def test_resource_types_is_up_to_date() -> None:
 
 
 def sensitive_strings_test_cases() -> Iterable[tuple]:
+    yield pytest.param(
+        PostgresGatewayUserIO,
+        """username: pg_user_001
+credentials:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+""",
+        {"my_super_secret_42"},
+        id="PostgresGatewayUserIO",
+    )
     yield pytest.param(
         WorkflowTriggerIO,
         """externalId: my_trigger
@@ -370,7 +387,7 @@ class TestResourceCRUDs:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         with monkeypatch_toolkit_client() as client:
             client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
-            loader = loader_cls.create_io(client)
+            loader = loader_cls(client)
 
         file = MagicMock(spec=Path)
         file.read_text.return_value = local_file
@@ -395,7 +412,7 @@ class TestResourceCRUDs:
     def test_dump_resource_with_local_id(
         self, loader_cls: type[ResourceIO], toolkit_client_with_lookup: ToolkitClient
     ) -> None:
-        loader = loader_cls.create_io(toolkit_client_with_lookup)
+        loader = loader_cls(toolkit_client_with_lookup)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 
@@ -411,21 +428,45 @@ class TestResourceCRUDs:
 
         assert not missing, f"The following loaders are missing yaml_cls: {missing}"
 
+    def test_dependencies_are_acyclic(self) -> None:
+        dependencies = {io_cls: io_cls.dependencies for io_cls in get_concrete_subclasses(ResourceIO)}
+
+        try:
+            TopologicalSorter(dependencies).prepare()
+        except CycleError as e:
+            pytest.fail(f"Cyclic dependencies between resource IOs: {[cls.__name__ for cls in e.args[1]]}")
+
+    @pytest.mark.parametrize(
+        "loader_cls, identifier, expected",
+        [
+            pytest.param(StreamlitIO, ExternalId(external_id="../../evil"), ".._.._evil", id="StreamlitIO"),
+            pytest.param(LocationFilterIO, ExternalId(external_id="../../evil"), ".._.._evil", id="LocationFilterIO"),
+            pytest.param(AppIO, ExternalId(external_id="..\\..\\evil"), ".._.._evil", id="AppIO"),
+            pytest.param(
+                AppVersionIO,
+                AppVersionId(app_external_id="../../evil", version="1.0.0"),
+                ".._.._evil_1.0.0",
+                id="AppVersionIO",
+            ),
+        ],
+    )
+    def test_as_filename_sanitizes_identifier(
+        self, loader_cls: type[ResourceIO], identifier: Identifier, expected: str
+    ) -> None:
+        assert loader_cls.as_filename(identifier) == expected
+
 
 class TestLoaders:
     def test_unique_display_names(self, env_vars_with_client_cheap: EnvironmentVariables):
         name_by_count = Counter(
-            [
-                loader_cls.create_io(env_vars_with_client_cheap.get_client()).display_name
-                for loader_cls in RESOURCE_IO_LIST
-            ]
+            [loader_cls(env_vars_with_client_cheap.get_client()).display_name for loader_cls in RESOURCE_IO_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
         for loader in RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]:
-            duplicates.pop(loader.create_io(env_vars_with_client_cheap.get_client()).display_name, None)
+            duplicates.pop(loader(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
 
@@ -441,4 +482,6 @@ class TestConstants:
         ],
     )
     def test_resource_key_is_a_resource_type(self, folder_names: set[str]) -> None:
+        if not FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+            folder_names = folder_names - {"postgres_gateway"}
         assert folder_names <= set(get_args(ResourceTypes))

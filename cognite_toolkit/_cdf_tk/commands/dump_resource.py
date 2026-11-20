@@ -98,7 +98,12 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import (
+    safe_rmtree,
+    safe_write,
+    sanitize_filename,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
@@ -219,7 +224,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         identifier = self._selected()
         self.identifier = identifier
-        model_loader = DataModelIO.create_io(self.client)
+        model_loader = DataModelIO(self.client)
         if isinstance(identifier, tuple):
             yield list(identifier), None, model_loader, None
             is_global_model = self._is_global_model
@@ -233,14 +238,14 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             is_global_model = model_list[0].is_global
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
-            yield list(self.view_ids), None, ViewIO.create_io(self.client), "views"
-            yield list(self.container_ids), None, ContainerIO.create_io(self.client), "containers"
-            yield list(self.space_ids), None, SpaceIO.create_io(self.client), None
+            yield list(self.view_ids), None, ViewIO(self.client), "views"
+            yield list(self.container_ids), None, ContainerIO(self.client), "containers"
+            yield list(self.space_ids), None, SpaceIO(self.client), None
         else:
             view_loader = ViewIO(self.client, topological_sort_implements=True)
             views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
-            container_loader = ContainerIO.create_io(self.client)
+            container_loader = ContainerIO(self.client)
             containers = [
                 container
                 for container in container_loader.retrieve(list(self.container_ids))
@@ -248,7 +253,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             ]
             yield [], containers, container_loader, "containers"
 
-            space_loader = SpaceIO.create_io(self.client)
+            space_loader = SpaceIO(self.client)
             spaces = [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
             yield [], spaces, space_loader, None
 
@@ -274,9 +279,14 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
             raise ToolkitValueError(f"No workflows selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         self._workflows = [workflows_by_id[external_id] for external_id in selected_workflow_ids]
 
+        versions_by_workflow_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
+        parent_ids = [ExternalId(external_id=workflow_id) for workflow_id in selected_workflow_ids]
+        for version in WorkflowVersionIO(self.client).iterate(parent_ids=parent_ids):
+            versions_by_workflow_id[version.workflow_external_id].append(version)
+
         selected_versions: list[WorkflowVersionResponse] = []
         for workflow_id in selected_workflow_ids:
-            versions = self.client.workflows.versions.list(workflow_external_id=workflow_id, limit=None)
+            versions = versions_by_workflow_id[workflow_id]
             if not versions:
                 HighSeverityWarning(f"No versions found for workflow {workflow_id}. Skipping.").print_warning(
                     console=self.client.console
@@ -307,14 +317,14 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
         self.identifier = self._selected()
         workflow_ids = list(dict.fromkeys(ExternalId(external_id=id_.workflow_external_id) for id_ in self.identifier))
         if self._workflows:
-            yield [], self._workflows, WorkflowIO.create_io(self.client), None
+            yield [], self._workflows, WorkflowIO(self.client), None
         else:
-            yield workflow_ids, None, WorkflowIO.create_io(self.client), None
+            yield workflow_ids, None, WorkflowIO(self.client), None
         if self._workflow_versions:
-            yield [], self._workflow_versions, WorkflowVersionIO.create_io(self.client), None
+            yield [], self._workflow_versions, WorkflowVersionIO(self.client), None
         else:
-            yield list(self.identifier), None, WorkflowVersionIO.create_io(self.client), None
-        trigger_loader = WorkflowTriggerIO.create_io(self.client)
+            yield list(self.identifier), None, WorkflowVersionIO(self.client), None
+        trigger_loader = WorkflowTriggerIO(self.client)
         trigger_list = list(trigger_loader.iterate(parent_ids=workflow_ids))
         yield [], trigger_list, trigger_loader, None
 
@@ -358,13 +368,13 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             yield (
                 [],
                 [t for t in self.transformations if t.external_id in self.identifier],
-                TransformationIO.create_io(self.client),
+                TransformationIO(self.client),
                 None,
             )
         else:
-            yield external_ids, None, TransformationIO.create_io(self.client), None
+            yield external_ids, None, TransformationIO(self.client), None
 
-        schedule_loader = TransformationScheduleIO.create_io(self.client)
+        schedule_loader = TransformationScheduleIO(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
         transformations = (
@@ -379,12 +389,12 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             for source_id in get_ext_onelake_source_ids(transformation.query)
         }
         if source_ids:
-            external_data_loader = ExternalDataSourceIO.create_io(self.client)
+            external_data_loader = ExternalDataSourceIO(self.client)
             external_data_list = external_data_loader.retrieve(
                 [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
             )
             yield [], external_data_list, external_data_loader, None
-        notification_loader = TransformationNotificationIO.create_io(self.client)
+        notification_loader = TransformationNotificationIO(self.client)
         notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None
 
@@ -422,11 +432,11 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
             yield (
                 [],
                 [group for group in self.groups if group.name in self.identifier],
-                GroupIO.create_io(self.client),
+                GroupIO(self.client),
                 None,
             )
         else:
-            yield [NameId(name=name) for name in self.identifier], None, GroupIO.create_io(self.client), None
+            yield [NameId(name=name) for name in self.identifier], None, GroupIO(self.client), None
 
 
 class AgentFinder(ResourceFinder[tuple[str, ...]]):
@@ -460,7 +470,7 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = AgentIO.create_io(self.client)
+        loader = AgentIO(self.client)
         if self.agents:
             yield (
                 [],
@@ -566,7 +576,7 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self.identifier or self._interactive_select()
         filters = self._get_filters(self.identifier)
-        yield [], filters, LocationFilterIO.create_io(self.client), None
+        yield [], filters, LocationFilterIO(self.client), None
 
 
 class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
@@ -596,13 +606,13 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
-        pipeline_loader = ExtractionPipelineIO.create_io(self.client)
+        pipeline_loader = ExtractionPipelineIO(self.client)
         if self.extraction_pipelines:
             selected_pipelines = [p for p in self.extraction_pipelines if p.external_id in self.identifier]
             yield [], selected_pipelines, pipeline_loader, None
         else:
             yield external_ids, None, pipeline_loader, None
-        config_loader = ExtractionPipelineConfigIO.create_io(self.client)
+        config_loader = ExtractionPipelineConfigIO(self.client)
         configs = list(config_loader.iterate(parent_ids=external_ids))
         yield [], configs, config_loader, None
 
@@ -636,23 +646,27 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         source_ids = set(self.identifier)
-        source_loader = HostedExtractorSourceIO.create_io(self.client)
+        source_loader = HostedExtractorSourceIO(self.client)
         if self.sources:
             selected_sources = [source for source in self.sources if source.external_id in source_ids]
             yield [], selected_sources, source_loader, None
         else:
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, source_loader, None
 
-        jobs = [job for job in self.client.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
+        jobs = [
+            job
+            for source_id in sorted(source_ids)
+            for job in self.client.hosted_extractors.jobs.list(source=source_id, limit=None)
+        ]
         if jobs:
-            yield [], jobs, HostedExtractorJobIO.create_io(self.client), None
+            yield [], jobs, HostedExtractorJobIO(self.client), None
 
         destination_ids = sorted({job.destination_id for job in jobs if job.destination_id})
         if destination_ids:
             yield (
                 [ExternalId(external_id=external_id) for external_id in destination_ids],
                 None,
-                HostedExtractorDestinationIO.create_io(self.client),
+                HostedExtractorDestinationIO(self.client),
                 None,
             )
 
@@ -661,7 +675,7 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
             yield (
                 [ExternalId(external_id=external_id) for external_id in mapping_ids],
                 None,
-                HostedExtractorMappingIO.create_io(self.client),
+                HostedExtractorMappingIO(self.client),
                 None,
             )
 
@@ -695,7 +709,7 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = DataSetsIO.create_io(self.client)
+        loader = DataSetsIO(self.client)
         if self.datasets:
             yield (
                 [],
@@ -734,7 +748,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = FunctionIO.create_io(self.client)
+        loader = FunctionIO(self.client)
         if self.functions:
             selected_functions = [f for f in self.functions if f.external_id in self.identifier]
             yield [], selected_functions, loader, None
@@ -743,13 +757,21 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
             yield external_ids, None, loader, None
 
-        schedule_loader = FunctionScheduleIO.create_io(self.client)
+        schedule_loader = FunctionScheduleIO(self.client)
         # Pass ExternalId objects as parent_ids
         parent_external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
         schedules = schedule_loader.iterate(parent_ids=parent_external_ids)
         yield [], list(schedules), schedule_loader, None
 
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
+        external_id = function.external_id or "unknown_external_id"
+        # Separators in an external ID are filename-safe (`team/func` → `team_func`). `.` and `..` are not:
+        # they resolve to this folder or its parent, so the code would land outside the function directory.
+        safe_name = sanitize_filename(external_id)
+        base = folder.resolve()
+        function_dir = (folder / safe_name).resolve()
+        if function_dir == base or not function_dir.is_relative_to(base):
+            raise ValueError(f"Invalid identifier {external_id!r}: must not escape the function directory")
         try:
             zip_bytes = _download_file_bytes(self.client, function.file_id)
         except ToolkitAPIError as e:
@@ -760,12 +782,17 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
                 return
             raise
         try:
-            top_level = f"{sanitize_filename(function.external_id or 'unknown_external_id')}/"
+            top_level = f"{safe_name}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-                if all(name.startswith(top_level) for name in zf.namelist()):
-                    zf.extractall(folder)
-                else:
-                    zf.extractall(folder / top_level)
+                names = zf.namelist()
+                # Zips already wrapped in the function folder extract into `folder` so the name is not doubled.
+                # Every member must still stay inside that function folder.
+                extract_root = base if names and all(name.startswith(top_level) for name in names) else function_dir
+                for member in zf.infolist():
+                    target_path = Path(extract_root, member.filename).resolve()
+                    if not target_path.is_relative_to(function_dir):
+                        raise ValueError(f"Malicious zip member path detected: {member.filename}")
+                zf.extractall(extract_root)
         except zipfile.BadZipFile as e:
             HighSeverityWarning(
                 f"The function {function.external_id!r} has a corrupted code zip file. Unable to extract code: {e!s}"
@@ -812,7 +839,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         identifier = self.identifier or self._interactive_select()
-        loader = StreamlitIO.create_io(self.client)
+        loader = StreamlitIO(self.client)
         # If the user used interactive select, we have already downloaded the streamlit apps,
         # Thus, we do not need to download them again. If not pass the identifier and let the main logic
         # take care of the download.
@@ -831,6 +858,11 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             folder (Path): The directory where the app code will be saved.
             console (Console | None): Optional Rich console for printing warnings.
         """
+        # `.` and `..` pass through sanitize_filename and resolve to this folder or its parent.
+        base = folder.resolve()
+        app_path = (folder / sanitize_filename(app.external_id)).resolve()
+        if app_path == base or not app_path.is_relative_to(base):
+            raise ToolkitValueError(f"Invalid identifier {app.external_id!r}: must not escape the Streamlit directory")
         try:
             retrieved = self.client.filemetadata.retrieve(
                 [ExternalId(external_id=app.external_id)], ignore_unknown_ids=True
@@ -859,8 +891,6 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
             return
 
-        app_folder = sanitize_filename(app.external_id)
-        app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
         if isinstance(json_content.get("requirements"), list):
             requirements_txt = app_path / "requirements.txt"
@@ -877,6 +907,13 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 f"The Streamlit app {app.external_id!r} does not have any files to dump. It is likely corrupted."
             ).print_warning(console=console)
             return
+        # Every path must stay inside the app folder, and all are checked before any file is written.
+        for relative_filepath in files:
+            target_path = (app_path / relative_filepath).resolve()
+            if target_path == app_path or not target_path.is_relative_to(app_path):
+                raise ToolkitValueError(
+                    f"Malicious file path detected in Streamlit app {app.external_id!r}: {relative_filepath!r}"
+                )
         created_files: set[str] = set()
         for relative_filepath, content in files.items():
             filepath = app_path / relative_filepath
@@ -915,7 +952,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = SpaceIO.create_io(self.client)
+        loader = SpaceIO(self.client)
         yield [SpaceId(space=space) for space in self.identifier], None, loader, None
 
 
@@ -945,7 +982,7 @@ class SearchConfigFinder(ResourceFinder[tuple[ViewNoVersionId, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = SearchConfigIO.create_io(self.client)
+        loader = SearchConfigIO(self.client)
         if self.search_configs:
             yield [], [sc for sc in self.search_configs if sc.view in self.identifier], loader, None
         else:
@@ -982,7 +1019,7 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = ResourceViewMappingIO.create_io(self.client)
+        loader = ResourceViewMappingIO(self.client)
         if self.resource_view_mappings:
             selected_mappings = [m for m in self.resource_view_mappings if m.external_id in self.identifier]
             yield [], selected_mappings, loader, None
@@ -1027,7 +1064,7 @@ class SAPWritebackFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
         selected_ids = set(self.identifier)
-        endpoint_loader = SAPEndpointIO.create_io(self.client)
+        endpoint_loader = SAPEndpointIO(self.client)
         if self.endpoints:
             selected_endpoints = [endpoint for endpoint in self.endpoints if endpoint.external_id in selected_ids]
             yield [], selected_endpoints, endpoint_loader, None
@@ -1038,14 +1075,14 @@ class SAPWritebackFinder(ResourceFinder[tuple[str, ...]]):
             yield (
                 [ExternalId(external_id=external_id) for external_id in sorted(self._instance_ids)],
                 None,
-                SAPInstanceIO.create_io(self.client),
+                SAPInstanceIO(self.client),
                 None,
             )
         if self._mapping_ids:
             yield (
                 [ExternalId(external_id=external_id) for external_id in sorted(self._mapping_ids)],
                 None,
-                SchemaMappingIO.create_io(self.client),
+                SchemaMappingIO(self.client),
                 None,
             )
 

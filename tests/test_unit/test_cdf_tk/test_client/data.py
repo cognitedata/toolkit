@@ -118,6 +118,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    RawRowsTableRequest,
+    RawRowsTableResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
+    PostgresGatewayUserRequest,
+    PostgresGatewayUserResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     LoginSession,
     ServiceAccountPrincipal,
@@ -870,6 +878,17 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        PostgresGatewayUserResponse: {
+            "username": "pg_user_001",
+            "createdTime": 1622547800000,
+        },
+        RawRowsTableResponse: {
+            "username": "pg_user_001",
+            "tablename": "my_table",
+            "type": "raw_rows",
+            "columns": {"key": {"type": "TEXT"}},
+            "options": {"database": "my_db", "table": "my_table"},
+        },
     }
     try:
         return responses[resource_cls]
@@ -1416,4 +1435,23 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # The request ID is assigned by the API, and the create payload is not returned.
         ),
         id="WritebackRequest",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=PostgresGatewayUserResponse,
+            request_cls=PostgresGatewayUserRequest,
+            example_data=get_example_minimum_responses(PostgresGatewayUserResponse),
+            # No api_class: create returns the password and host, which list and retrieve do not.
+        ),
+        id="PostgresGatewayUser",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RawRowsTableResponse,
+            request_cls=RawRowsTableRequest,
+            example_data=get_example_minimum_responses(RawRowsTableResponse),
+            is_dump_equal_to_example=False,
+            # No api_class: the username is a path parameter and thus requires custom endpoint mocking.
+        ),
+        id="PostgresGatewayTable",
     )

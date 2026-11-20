@@ -17,11 +17,20 @@ infield = true
 migrate = true
 create = true
 data-products = true
-entity-matching = false
 custom-apps = true
 api = true
 catalog-dataset = true
 multi-configs = true
+git-diff-select = true
+v010 = true
+extend-download = true
+extend-upload = true
+deploy-protection = true
+config-include = true
+cdf-group-emails = false
+neat = true
+postgres-gateway = true
+check = true
 
 [plugins]
 run = true

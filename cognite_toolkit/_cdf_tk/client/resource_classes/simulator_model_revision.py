@@ -4,11 +4,24 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
+class SimulatorFileDependencyFile(BaseModelObject):
+    id: int
+
+
+class SimulatorFileDependency(BaseModelObject):
+    """A file that a multi-file simulation model depends on."""
+
+    file: SimulatorFileDependencyFile
+    # Simulator-specific arguments that link the file to an object in the model.
+    arguments: dict[str, str]
+
+
 class SimulatorModelRevision(BaseModelObject):
     external_id: str
     model_external_id: str
     description: str | None = None
     file_id: int
+    external_dependencies: list[SimulatorFileDependency] | None = None
 
 
 class SimulatorModelRevisionRequest(RequestResource, SimulatorModelRevision):

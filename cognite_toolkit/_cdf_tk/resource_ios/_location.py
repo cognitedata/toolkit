@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
+    NodeId,
     SpaceId,
     ViewId,
 )
@@ -23,16 +24,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
-from ._classic import AssetIO, SequenceIO
+from ._classic import AssetIO
 from ._data_organization import DataSetsIO
-from ._datamodel import DataModelIO, SpaceIO, ViewIO
-from ._file import FileMetadataIO
-from ._timeseries import TimeSeriesIO
+from ._datamodel import DataModelIO, NodeIO, SpaceIO, ViewIO
 
 
 @final
@@ -48,14 +47,12 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             DataModelIO,
             SpaceIO,
             ViewIO,
-            SequenceIO,
-            FileMetadataIO,
-            TimeSeriesIO,
+            NodeIO,
         }
     )
     kind = "LocationFilter"
-    _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
-    _doc_url = "Location-Filters/operation/createLocationFilter"
+    _doc_base_url = "https://handbook.cogheim.net/20230101-internal/"
+    _doc_url = "location-filters/create-location-filter"
 
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 
@@ -97,7 +94,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
 
     @classmethod
     def as_filename(cls, id: ExternalId) -> str:
-        return id.external_id
+        return sanitize_filename(id.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
         def _normalize_asset_subtree_ids(asset_filter: dict[str, Any]) -> None:
@@ -242,6 +239,11 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
 
     @classmethod
     def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        if resource.parent_external_id:
+            yield cls, ExternalId(external_id=resource.parent_external_id)
+        if resource.scene:
+            yield SpaceIO, SpaceId(space=resource.scene.space)
+            yield NodeIO, NodeId(space=resource.scene.space, external_id=resource.scene.external_id)
         if resource.asset_centric:
             yield from cls._asset_centric_deps(resource.asset_centric)
             for subfilter in [

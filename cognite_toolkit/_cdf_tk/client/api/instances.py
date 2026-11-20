@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId, T_InstanceId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceInspectResultItem,
     InstanceRequest,
     InstanceResponse,
     QueryRequest,
@@ -61,6 +62,7 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
     "search": Endpoint(method="POST", path="/models/instances/search", item_limit=1000),
     "aggregate": Endpoint(method="POST", path="/models/instances/aggregate", item_limit=1000),
+    "inspect": Endpoint(method="POST", path="/models/instances/inspect", item_limit=1000),
 }
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
 SYNC_ENDPOINT = Endpoint(method="POST", path="/models/instances/sync", item_limit=1000)
@@ -142,6 +144,38 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
+
+    def inspect(
+        self,
+        items: Sequence[InstanceDefinitionId],
+        involved_views: bool = True,
+        involved_containers: bool = True,
+        all_versions: bool = False,
+    ) -> builtins.list[InstanceInspectResultItem]:
+        """Inspect instances to discover which views and containers they have data in.
+
+        Args:
+            items: Instances to inspect.
+            involved_views: Whether to return the views the instances have data in.
+            involved_containers: Whether to return the containers the instances have data in.
+            all_versions: Whether to include all versions of the views and containers.
+
+        Returns:
+            One InstanceInspectResultItem per requested instance.
+        """
+        inspection_operations: dict[str, Any] = {}
+        if involved_views:
+            inspection_operations["involvedViews"] = {"allVersions": all_versions}
+        if involved_containers:
+            inspection_operations["involvedContainers"] = {"allVersions": all_versions}
+        if not inspection_operations:
+            raise ValueError("At least one of involved_views and involved_containers must be True.")
+        results: builtins.list[InstanceInspectResultItem] = []
+        for response in self._chunk_requests(
+            items, "inspect", self._serialize_items, extra_body={"inspectionOperations": inspection_operations}
+        ):
+            results.extend(ResponseItems[InstanceInspectResultItem].model_validate_json(response.body).items)
+        return results
 
     def paginate(
         self,

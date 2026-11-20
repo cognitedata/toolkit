@@ -64,7 +64,7 @@ workflowVersion: v1
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = WorkflowTriggerIO.create_io(client)
+            loader = WorkflowTriggerIO(client)
 
         with pytest.raises(ToolkitRequiredValueError):
             loader.load_resource_file(trigger_file, {})
@@ -346,6 +346,19 @@ class TestWorkflowVersionIO:
         assert error.args[1] == [
             WorkflowVersionId(workflow_external_id=id_, version="v1") for id_ in ["a", "c", "b", "a"]
         ]
+
+    def test_iterate_by_parent_ids_filters_on_workflows_in_chunks(self) -> None:
+        parent_ids = [ExternalId(external_id=f"wf_{no}") for no in range(101)]
+        with monkeypatch_toolkit_client() as client:
+            client.workflows.versions.iterate.return_value = []
+
+            list(WorkflowVersionIO(client).iterate(parent_ids=parent_ids))
+
+        requested_workflow_ids = [
+            [item.external_id for item in call.kwargs["filter"].workflow_filters]
+            for call in client.workflows.versions.iterate.call_args_list
+        ]
+        assert requested_workflow_ids == [[f"wf_{no}" for no in range(100)], ["wf_100"]]
 
 
 class TestWorkflowVersionLineageAnnotation:

@@ -28,8 +28,11 @@ from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
 from .api.integrations import IntegrationsAPI
 from .api.labels import LabelsAPI
+from .api.limits import LimitsAPI
 from .api.lookup import LookUpGroup
+from .api.metering import MeteringAPI
 from .api.migration import MigrationAPI
+from .api.postgres_gateway import PostgresGatewayAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
@@ -43,6 +46,7 @@ from .api.sequences import SequencesAPI
 from .api.sessions import SessionAPI
 from .api.signal_sinks import SignalSinksAPI
 from .api.signal_subscriptions import SignalSubscriptionsAPI
+from .api.signals import SignalsAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
@@ -53,6 +57,7 @@ from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.units import UnitsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
@@ -103,10 +108,12 @@ class ToolkitClient:
         self.token = ToolkitTokenAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
+        self.units = UnitsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
         self.signal_sinks = SignalSinksAPI(http_client)
         self.signal_subscriptions = SignalSubscriptionsAPI(http_client)
+        self.signals = SignalsAPI(http_client)
         self.streamlit = StreamlitAPI(http_client)
         self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
@@ -123,3 +130,6 @@ class ToolkitClient:
         self.alerts = AlertsAPI(http_client)
         self.sap_writeback = SAPWritebackAPI(http_client)
         self.integrations = IntegrationsAPI(http_client)
+        self.limits = LimitsAPI(http_client)
+        self.metering = MeteringAPI(http_client)
+        self.postgres_gateway = PostgresGatewayAPI(http_client)
