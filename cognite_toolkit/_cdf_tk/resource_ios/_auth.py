@@ -18,6 +18,7 @@ from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, final
 
+from pydantic import TypeAdapter
 from rich import print
 from rich.markup import escape
 
@@ -75,6 +76,9 @@ from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
 from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
+from cognite_toolkit._cdf_tk.yaml_classes.groups import GroupMember, UserMember
+
+_GROUP_MEMBER_ADAPTER: TypeAdapter[GroupMember] = TypeAdapter(GroupMember)
 
 
 @dataclass
@@ -342,25 +346,36 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
 
-        if Flags.CDF_GROUP_EMAILS.is_enabled():
-            member_emails = substituted.pop("memberEmails", None)
-            if substituted.get("members") == "emails":
-                missing_ids: list[str] = []
-                member_ids: list[str] = []
-                for email in member_emails or []:
-                    user_id = self.client.lookup.principals.user_id(email)
-                    if user_id:
-                        member_ids.append(user_id)
-                    else:
-                        missing_ids.append(email)
-                if missing_ids:
-                    raise ToolkitMissingResourceError(
-                        f"The following member emails could not be found in CDF: {missing_ids}."
-                        f" Please ensure that the users exist in CDF before deploying the group {self.get_id(substituted)!r}."
-                    )
-                substituted["members"] = member_ids
+        members = substituted.get("members")
+        if Flags.CDF_GROUP_EMAILS.is_enabled() and isinstance(members, list):
+            substituted["members"] = self._lookup_member_ids(members, self.get_id(substituted))
 
         return GroupRequest._load(substituted)
+
+    def _lookup_member_ids(self, members: list[Any], group_id: NameId) -> list[str]:
+        member_ids: list[str] = []
+        missing: list[str] = []
+        for raw_member in members:
+            member = _GROUP_MEMBER_ADAPTER.validate_python(raw_member)
+            if isinstance(member, str):
+                member_ids.append(member)
+                continue
+            if isinstance(member, UserMember):
+                principal_id = self.client.lookup.principals.user_id(member.email, warn=False)
+                description = f"user with email {member.email!r}"
+            else:
+                principal_id = self.client.lookup.principals.service_account_id(member.external_id, warn=False)
+                description = f"service account with external ID {member.external_id!r}"
+            if principal_id:
+                member_ids.append(principal_id)
+            else:
+                missing.append(description)
+        if missing:
+            raise ToolkitMissingResourceError(
+                f"The following members could not be found in CDF: {humanize_collection(missing, sort=False)}."
+                f" Please ensure that they exist in CDF before deploying the group {group_id!r}."
+            )
+        return member_ids
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()

@@ -1,16 +1,16 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import Discriminator, Field, Tag, field_validator, model_validator
+from pydantic import Discriminator, Field, Tag, field_validator
 from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 
-from .base import ToolkitResource
+from .base import BaseModelResource, ToolkitResource
 from .capabilities import AllScope, CapabilityType, Scope, TableScope, UnknownCapability
 
 if TYPE_CHECKING:
@@ -112,31 +112,58 @@ class ExternalGroupYAML(BaseGroupYAML):
     source_id: str
 
 
+class UserMember(BaseModelResource):
+    type: Literal["user"]
+    email: str
+
+
+class ServiceAccountMember(BaseModelResource):
+    type: Literal["service-account"]
+    external_id: str
+
+
+def _principal_id_to_str(value: Any) -> Any:
+    return str(value) if isinstance(value, int) and not isinstance(value, bool) else value
+
+
+def _discriminate_member_type(data: Any) -> str | None:
+    if isinstance(data, str | int):
+        return "principal"
+    if isinstance(data, UserMember | ServiceAccountMember):
+        return data.type
+    if isinstance(data, dict):
+        return data.get("type")
+    return None
+
+
+GroupMember = Annotated[
+    Annotated[str, BeforeValidator(_principal_id_to_str), Tag("principal")]
+    | Annotated[UserMember, Tag("user")]
+    | Annotated[ServiceAccountMember, Tag("service-account")],
+    Discriminator(
+        _discriminate_member_type,
+        custom_error_type="missing_member_type",
+        custom_error_message="A member must be a principal ID or have 'type' set to 'user' or 'service-account'",
+    ),
+]
+
+
 class CDFGroupYAML(BaseGroupYAML):
     group_type: Literal["cdf"] = Field("cdf", exclude=True)
-    members: list[str] | Literal["allUserAccounts", "emails"]
-    member_emails: list[str] | None = None
+    members: list[GroupMember] | Literal["allUserAccounts"]
 
-    @model_validator(mode="after")
-    def _validate_members_and_member_emails(self) -> Self:
-        if self.members == "emails" and not self.member_emails:
-            raise ValueError(
-                "Invalid group definition: 'members' is set to 'emails', but no 'memberEmails' are provided."
-            )
-        if self.member_emails is not None and self.members != "emails":
-            raise ValueError(
-                "Invalid group definition: 'memberEmails' can only be specified when 'members' is set to 'emails'."
-            )
-        return self
-
-    @field_validator("member_emails")
+    @field_validator("members")
     @classmethod
-    def _alpha_flag_enables(cls, v: list[str] | None) -> list[str] | None:
-        if v is not None and not Flags.CDF_GROUP_EMAILS.is_enabled():
+    def _alpha_flag_enables(cls, v: list[GroupMember] | str) -> list[GroupMember] | str:
+        if (
+            isinstance(v, list)
+            and any(isinstance(member, UserMember | ServiceAccountMember) for member in v)
+            and not Flags.CDF_GROUP_EMAILS.is_enabled()
+        ):
             raise ValueError(
-                "The 'memberEmails' field is currently behind an alpha feature flag and is not enabled. "
-                "Please enable the flag `cdf-group-emails` to use this feature, or remove the 'memberEmails' "
-                "field from the group definition."
+                "Members of type 'user' and 'service-account' are currently behind an alpha feature flag and "
+                "are not enabled. Please enable the flag `cdf-group-emails` to use this feature, or list the "
+                "members by their principal IDs."
             )
         return v
 
