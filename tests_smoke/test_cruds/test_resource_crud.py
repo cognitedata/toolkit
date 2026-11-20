@@ -44,7 +44,7 @@ class TestResourceCRUD:
                 if 200 <= response.status_code < 300:
                     return None
                 error = f"{crud.display_name} doc_url is not accessible ({url}). Status code: {response.status_code}"
-                if response.status_code < 500:
+                if response.status_code < 500 and response.status_code != 429:
                     return error
             return error
 
