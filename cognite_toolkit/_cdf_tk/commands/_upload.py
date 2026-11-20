@@ -104,6 +104,13 @@ class SQLiteTableSource:
 DataSource: TypeAlias = list[Path] | SQLiteTableSource
 
 
+@dataclass
+class FailedPageCounter:
+    """Number of pages in a row where every item failed to upload."""
+
+    count: int = 0
+
+
 class UploadCommand(ToolkitCommand):
     """Command for uploading data to CDF from files in a specified directory.
 
@@ -550,6 +557,7 @@ class UploadCommand(ToolkitCommand):
                         verbose=verbose,
                         logger=logger,
                         get_log_file=lambda: log_file.latest_file,
+                        failed_pages=FailedPageCounter(),
                     ),
                     total_item_count=item_count,
                     max_queue_size=cls._MAX_QUEUE_SIZE,
@@ -614,9 +622,11 @@ class UploadCommand(ToolkitCommand):
         verbose: bool,
         logger: DataLogger,
         get_log_file: Callable[[], Path | None],
+        failed_pages: FailedPageCounter | None = None,
     ) -> None:
         if dry_run:
             return
+        failed_pages = failed_pages or FailedPageCounter()
         results = io.upload_items(data_chunk, upload_client, selector)
         all_failed = True
         for message in results:
@@ -632,12 +642,17 @@ class UploadCommand(ToolkitCommand):
                 for id_ in message.ids:
                     logger.log(LogEntryV2(id=id_, label=label, severity=Severity.failure, message=error_description))
 
-        if all_failed and results:
-            logger.force_write()
-            log_file = get_log_file()
-            suffix = " Failed to get log file"
-            if log_file:
-                suffix = f"\nCheck the log file {cls._path_as_display_name(log_file).as_posix()}."
-            raise ToolkitRepeatedUploadFailureError(
-                f"Upload process was stopped due to repeatedly failed uploads.{suffix}"
-            )
+        if not results:
+            return
+        if not all_failed:
+            failed_pages.count = 0
+            return
+        failed_pages.count += 1
+        if failed_pages.count < io.MAX_CONSECUTIVE_FAILED_PAGES:
+            return
+        logger.force_write()
+        log_file = get_log_file()
+        suffix = " Failed to get log file"
+        if log_file:
+            suffix = f"\nCheck the log file {cls._path_as_display_name(log_file).as_posix()}."
+        raise ToolkitRepeatedUploadFailureError(f"Upload process was stopped due to repeatedly failed uploads.{suffix}")

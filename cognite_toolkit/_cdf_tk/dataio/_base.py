@@ -197,10 +197,12 @@ class UploadableDataIO(DataIO[T_Selector, T_DataResponse], Generic[T_Selector, T
         KIND: The kind of storage item (e.g., "RAW", "AssetCentric").
         UPLOAD_ENDPOINT: The API endpoint for uploading data to the storage item.
         UPLOAD_EXTRA_ARGS: Additional arguments to include in the upload request.
+        MAX_CONSECUTIVE_FAILED_PAGES: The upload is stopped after this many pages in a row where every item failed.
     """
 
     KIND: ClassVar[str]
     CHUNK_SIZE: ClassVar[int] = 1_000
+    MAX_CONSECUTIVE_FAILED_PAGES: ClassVar[int] = 1
     UPLOAD_ENDPOINT_TYPE: Literal["app", "api"] = "api"
     UPLOAD_ENDPOINT_METHOD: Literal["GET", "POST", "PATCH", "DELETE", "PUT"] = "POST"
     UPLOAD_ENDPOINT: ClassVar[str]
