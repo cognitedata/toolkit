@@ -44,6 +44,12 @@ from cognite_toolkit._cdf_tk.client.api.limits import LimitsAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.metering import MeteringAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
+from cognite_toolkit._cdf_tk.client.api.organizations import (
+    OrganizationAdminAPI,
+    OrganizationAdminProjectsAPI,
+    OrganizationProjectsAPI,
+    OrganizationsAPI,
+)
 from cognite_toolkit._cdf_tk.client.api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from cognite_toolkit._cdf_tk.client.api.postgres_gateway_users import PostgresGatewayUsersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
@@ -403,6 +409,11 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         UserProfilesAPI,
         # Metering is read-only (list/retrieve) and alpha.
         MeteringAPI,
+        # Creating and deleting organizations and projects is not safe to do in a smoke test.
+        OrganizationsAPI,
+        OrganizationProjectsAPI,
+        OrganizationAdminAPI,
+        OrganizationAdminProjectsAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
         DocumentsAPI,
         # Special handling due to need for file Id and update.
@@ -2112,6 +2123,32 @@ class TestCDFResourceAPI:
             self.cancel_running_executions(client, workflow_version_id)
             client.workflows.versions.delete([workflow_version_id])
             retry_api_call(lambda: client.workflows.delete([workflow_id]), timeout_seconds=10.0)
+
+    def test_organizations_read(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        org = client.project.get_organization_id()
+        try:
+            retrieved = client.organizations.retrieve()
+        except ToolkitAPIError as e:
+            if e.code == 403:
+                pytest.skip("The smoke test principal is not an organization admin")
+            raise
+        if retrieved.id != org:
+            raise EndpointAssertionError(
+                client.organizations._method_endpoint_map["retrieve"].path, f"Expected org {org}, got {retrieved.id}"
+            )
+        try:
+            client.organizations.list_children(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.organizations._method_endpoint_map["list"].path, f"List child orgs failed: {e!s}"
+            ) from e
+        try:
+            client.organizations.projects.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.organizations.projects._method_endpoint_map["list"].path, f"List projects failed: {e!s}"
+            ) from e
 
     def test_rulesets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

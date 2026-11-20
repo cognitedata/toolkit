@@ -88,6 +88,12 @@ from .api.migration import (
     MigrationLookupAPI,
     ResourceViewMappingsAPI,
 )
+from .api.organizations import (
+    OrganizationAdminAPI,
+    OrganizationAdminProjectsAPI,
+    OrganizationProjectsAPI,
+    OrganizationsAPI,
+)
 from .api.postgres_gateway import PostgresGatewayAPI
 from .api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from .api.postgres_gateway_users import PostgresGatewayUsersAPI
@@ -155,6 +161,7 @@ class ToolkitClientMock(ToolkitClient):
     lookup: MagicMock
     migration: MagicMock
     principals: MagicMock
+    organizations: MagicMock
     sessions: MagicMock
     agents: MagicMock
     skills: MagicMock
@@ -273,6 +280,10 @@ class ToolkitClientMock(ToolkitClient):
         self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
         self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
+        self.organizations = MagicMock(spec=OrganizationsAPI)
+        self.organizations.projects = MagicMock(spec_set=OrganizationProjectsAPI)
+        self.organizations.admin = MagicMock(spec=OrganizationAdminAPI)
+        self.organizations.admin.projects = MagicMock(spec_set=OrganizationAdminProjectsAPI)
         self.sessions = MagicMock(spec_set=SessionAPI)
 
         def create_single(item: Any) -> Any:
