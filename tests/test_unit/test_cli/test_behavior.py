@@ -1292,10 +1292,12 @@ capabilities:
 def test_build_deploy_cdf_group_with_member_emails(tmp_path: Path) -> None:
     """Test that a group with member emails can be built and deployed successfully."""
     group_yaml = """name: group_with_emails
-members: "emails"
-memberEmails:
-- bob@example.com
-- alice@example.com
+members:
+- 1230398
+- type: user
+  email: bob@example.com
+- type: service-account
+  externalId: service-account-1
 """
 
     my_org = tmp_path / "my_org"
@@ -1365,4 +1367,4 @@ memberEmails:
     assert client.groups.create.call_count == 1
     created_groups = client.groups.create.call_args.args[0]
     assert len(created_groups) == 1
-    assert created_groups[0].dump() == {"name": "group_with_emails", "members": ["123", "456"]}
+    assert created_groups[0].dump() == {"name": "group_with_emails", "members": ["1230398", "456"]}
