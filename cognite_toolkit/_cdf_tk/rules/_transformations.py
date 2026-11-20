@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import TransformationIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, ValidationInput
 
 _INVALID_SESSION_STATUSES = frozenset({"CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST"})
 _SESSIONS_ENDPOINT = "/sessions/byids"
@@ -63,7 +63,7 @@ class TransformationRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"cdf"})
     DISPLAY_NAME = "Transformations"
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if self.client is None:
             return RuleSetStatus(code="skip", message="Transformation validation requires a client to read CDF.")
         return RuleSetStatus(
@@ -71,7 +71,7 @@ class TransformationRuleSet(ToolkitRuleSet):
             message="Will validate that transformations in CDF are triggered, not blocked, and have valid credentials.",
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
             return
         try:

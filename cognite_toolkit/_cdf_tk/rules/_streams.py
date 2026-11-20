@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import StreamIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, ValidationInput
 
 _STREAMS_LIMIT_PREFIX = "streams."
 _TEMPLATE_PREFIX = "template."
@@ -68,8 +68,8 @@ class StreamRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Streams"
 
-    def get_status(self) -> RuleSetStatus:
-        if self.client is None or not self.results:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
+        if self.client is None or not data.results:
             return RuleSetStatus(
                 code="skip",
                 message=(
@@ -82,10 +82,10 @@ class StreamRuleSet(ToolkitRuleSet):
             message="Will validate that the project has capacity for the streams to be created.",
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        if self.client is None or not self.results:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
+        if self.client is None or not data.results:
             return
-        created_ids, deleted_ids = self._deployed_stream_ids(self.results)
+        created_ids, deleted_ids = self._deployed_stream_ids(data.results)
         if not created_ids:
             return
         try:
@@ -110,7 +110,7 @@ class StreamRuleSet(ToolkitRuleSet):
             endpoint_url=endpoint_url,
         )
         yield from self._check_template_capacity(
-            limits, existing, deleted_existing, self._local_templates(self.client, created_ids), endpoint_url
+            limits, existing, deleted_existing, self._local_templates(self.client, data, created_ids), endpoint_url
         )
 
     @staticmethod
@@ -124,12 +124,13 @@ class StreamRuleSet(ToolkitRuleSet):
             deleted.update(item for item in result.deleted_ids if isinstance(item, ExternalId))
         return created, deleted
 
-    def _local_templates(self, client: ToolkitClient, created_ids: Sequence[ExternalId]) -> list[str]:
+    @staticmethod
+    def _local_templates(client: ToolkitClient, data: ValidationInput, created_ids: Sequence[ExternalId]) -> list[str]:
         """The template of each stream that deploying would create, as configured locally."""
         created = set(created_ids)
         return [
             validatable.request.settings.template.name
-            for validatable in self.resources.get_resource_of_type(StreamIO(client))
+            for validatable in data.get_resource_of_type(StreamIO(client))
             if validatable.request.as_id() in created
         ]
 
