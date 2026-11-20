@@ -4,13 +4,20 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Extractors
 """
 
+from typing import Literal, TypeAlias
+
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ExtractorReleaseId
+
+Platform: TypeAlias = Literal["windows", "linux", "macos", "docs", "all"]
+
+ExtractorType: TypeAlias = Literal["global", "community", "unreleased", "hosted", "zero_copy"]
+ExtractorLinkType: TypeAlias = Literal["generic", "externalDocumentation"]
 
 
 class ExtractorLink(BaseModelObject):
     name: str
-    type: str
+    type: ExtractorLinkType | str
     url: str
 
 
@@ -23,7 +30,7 @@ class ExtractorResponse(BaseModelObject):
     external_id: str
     name: str
     description: str
-    type: str
+    type: ExtractorType | str
     documentation: str | None = None
     image_url: str | None = None
     latest_version: str | None = None
@@ -39,7 +46,7 @@ class ExtractorArtifact(BaseModelObject):
 
     name: str
     link: str
-    platform: str
+    platform: Platform | str
     display_name: str | None = None
 
 
@@ -74,7 +81,7 @@ class ExtractorSourceSystemResponse(BaseModelObject):
     external_id: str
     name: str
     description: str
-    type: str
+    type: ExtractorType | str
     documentation: str | None = None
     image_url: str | None = None
     tags: list[str] | None = None
@@ -91,7 +98,7 @@ class ExtractorSolutionResponse(BaseModelObject):
     source_system_external_id: str
     extractor_external_id: str | None = None
     documentation: str | None = None
-    type: str | None = None
+    type: ExtractorType | str | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
