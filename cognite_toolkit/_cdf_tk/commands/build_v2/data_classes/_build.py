@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.utils.file import find_variable_position
+from cognite_toolkit._cdf_tk.utils.file import find_variable_position, load_yaml_inject_variables
 
 from ._config import DeployProtection, VariableLocation, VariableSource
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
@@ -231,6 +231,24 @@ class BuiltResource(BaseModel):
             source=self.source,
             request=request,
         )
+
+    def as_yaml(self, environment_variables: dict[str, str | None] | None = None) -> dict[str, Any]:
+        """The built YAML of the resource, before it is loaded into a request object.
+
+        This includes fields that are not part of the request, such as the credentials, which are replaced
+        by a nonce when loading the request.
+
+        Args:
+            environment_variables: Environment variables to inject into the YAML, e.g., ${IDP_CLIENT_SECRET}.
+        Returns:
+            The built YAML of the resource as a dictionary.
+        """
+        raw = load_yaml_inject_variables(self.build_path, environment_variables or {}, validate=False)
+        if isinstance(raw, list):
+            if not raw:
+                raise RuntimeError(f"Bug in Toolkit, built resource {self.build_path} has no data.")
+            return raw[0]
+        return raw
 
 
 class BuiltModule(BaseModel):
