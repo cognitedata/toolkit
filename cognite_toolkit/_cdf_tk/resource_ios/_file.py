@@ -477,17 +477,22 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         return self.client.cognite_files.retrieve(ids)
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[NodeId]:
+        cdf_files_by_id: dict[NodeId, CogniteFileResponse] = {}
+        if self.support_upload and items:
+            # Read hashes before updating — the update payload overwrites them, making
+            # a post-update comparison always equal and preventing re-upload.
+            for cdf_file in self.retrieve(list({item.as_id() for item in items})):
+                cdf_files_by_id[cdf_file.as_id()] = cdf_file
         created = self.client.cognite_files.create(items)
         ids = [
             NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
         ]
         if not self.support_upload:
             return ids
-        items_by_id = {response.as_id(): response for response in self.retrieve(ids)}
         for item in items:
             if not item.filepath:
                 continue
-            existing_file = items_by_id.get(item.as_id())
+            existing_file = cdf_files_by_id.get(item.as_id())
             # Check if content hash has changed
             if existing_file and existing_file.source_context == item.source_context:
                 # Content hasn't changed, skip upload
