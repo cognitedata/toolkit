@@ -1214,7 +1214,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
         """
         local_type, cdf_type = local_property.type, cdf_property.type
         if type(local_type) is not type(cdf_type) or any(
-            field_name not in {"type", "values"} and getattr(local_type, field_name) != getattr(cdf_type, field_name)
+            field_name not in {"type", "values", "unit"}
+            and getattr(local_type, field_name) != getattr(cdf_type, field_name)
             for field_name in local_type.model_fields_set
         ):
             return True

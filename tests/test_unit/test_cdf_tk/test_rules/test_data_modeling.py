@@ -14,8 +14,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EnumProperty,
     EnumValue,
+    Float64Property,
     Int32Property,
     TextProperty,
+    Unit,
     ViewCorePropertyRequest,
     ViewCorePropertyResponse,
     ViewRequestProperty,
@@ -1071,6 +1073,12 @@ class TestIsDisallowedContainerPropertyChange:
                 ContainerPropertyDefinition(type=EnumProperty(values={"a": EnumValue()})),
                 False,
                 id="enum-value-added-is-allowed",
+            ),
+            pytest.param(
+                ContainerPropertyDefinition(type=Float64Property(unit=Unit(external_id="time:sec"))),
+                ContainerPropertyDefinition(type=Float64Property(unit=Unit(external_id="time:sec", space="cdf_cdm"))),
+                False,
+                id="default-unit-space-change-is-allowed",
             ),
         ],
     )
