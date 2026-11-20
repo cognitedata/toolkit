@@ -8,7 +8,6 @@ from cognite.client.data_classes import (
     UserProfile,
     UserProfileList,
 )
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
@@ -41,6 +40,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import SpaceStatisticsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW
@@ -74,6 +74,30 @@ def _assert_value_type(choice: Choice, expected_type: type[T]) -> T:
     value = choice.value
     assert isinstance(value, expected_type), f"Expected {expected_type.__name__}, got {type(value).__name__}"
     return value
+
+
+def _space_stats(
+    space: str,
+    containers: int,
+    views: int,
+    data_models: int,
+    edges: int,
+    soft_deleted_edges: int,
+    nodes: int,
+    soft_deleted_nodes: int,
+    records_only_containers: int = 0,
+) -> SpaceStatisticsResponse:
+    return SpaceStatisticsResponse(
+        space=space,
+        containers=containers,
+        views=views,
+        data_models=data_models,
+        edges=edges,
+        soft_deleted_edges=soft_deleted_edges,
+        nodes=nodes,
+        soft_deleted_nodes=soft_deleted_nodes,
+        records_only_containers=records_only_containers,
+    )
 
 
 class TestInteractiveSelect:
@@ -692,7 +716,7 @@ class TestDataModelingInteractiveSelect:
             ViewResponse(space="space1", external_id="view3", version="1", **self.DEFAULT_VIEW_ARGS),
             ViewResponse(space="space1", external_id="view4", version="1", **self.DEFAULT_VIEW_ARGS),
         ]
-        space_stats = SpaceStatisticsList([SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces])
+        space_stats = [_space_stats(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces]
         answers: list[Any] = []
         if space is None:
             answers.append(spaces[0])
@@ -739,7 +763,7 @@ class TestDataModelingInteractiveSelect:
             ViewResponse(space="space1", external_id="view1", version="1", **self.DEFAULT_VIEW_ARGS),
             ViewResponse(space="space1", external_id="view2", version="1", **default_view_args),
         ]
-        space_stats = SpaceStatisticsList([SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0)])
+        space_stats = [_space_stats(space.space, 0, 1, 0, 0, 0, 0, 0)]
 
         def select_view(choices: list[Choice]) -> ViewResponse:
             assert len(choices) == 1, "Expected one view to be filtered out."
@@ -761,14 +785,14 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_no_schema_space_found(self, monkeypatch) -> None:
         space = SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS)
-        space_stats = [SpaceStatistics(space.space, 0, 0, 0, 0, 0, 0, 0)]
+        space_stats = [_space_stats(space.space, 0, 0, 0, 0, 0, 0, 0)]
         answers = [space]  # Direct string answer
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, answers),
         ):
             client.spaces.list.return_value = [space]
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
             client.views.list.return_value = []
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
@@ -809,7 +833,7 @@ class TestDataModelingInteractiveSelect:
             SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
             SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
         ]
-        stats = [SpaceStatistics(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces]
+        stats = [_space_stats(space.space, 0, 1, 0, 0, 0, 0, 0) for space in spaces]
         answers = [spaces[1]]
 
         with (
@@ -817,7 +841,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, answers),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(stats)
+            client.statistics.spaces.list.return_value = stats
             selector = DataModelingSelect(client, "test_operation")
             selected_space = selector.select_schema_space(include_global=True)
 
@@ -911,13 +935,15 @@ class TestDataModelingInteractiveSelect:
             SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
             SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
             SpaceResponse(space="space3", **self.DEFAULT_SPACE_ARGS),
+            SpaceResponse(space="space4", **self.DEFAULT_SPACE_ARGS),
         ]
 
         # Set up space statistics to make spaces 1 and 3 empty
         space_stats = [
-            SpaceStatistics("space1", 0, 0, 0, 0, 0, 0, 0),  # Empty space
-            SpaceStatistics("space2", 5, 2, 1, 0, 0, 0, 0),  # Non-empty space
-            SpaceStatistics("space3", 0, 0, 0, 0, 0, 0, 0),  # Empty space
+            _space_stats("space1", 0, 0, 0, 0, 0, 0, 0),  # Empty space
+            _space_stats("space2", 5, 2, 1, 0, 0, 0, 0),  # Non-empty space
+            _space_stats("space3", 0, 0, 0, 0, 0, 0, 0),  # Empty space
+            _space_stats("space4", 0, 0, 0, 0, 0, 0, 0, records_only_containers=1),  # Only records container
         ]
 
         def select_spaces(choices: list[Choice]) -> list[str]:
@@ -931,7 +957,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, answers),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_empty_spaces()
@@ -946,8 +972,8 @@ class TestDataModelingInteractiveSelect:
 
         # Only space1 is empty
         space_stats = [
-            SpaceStatistics("space1", 0, 0, 0, 0, 0, 0, 0),  # Empty space
-            SpaceStatistics("space2", 5, 2, 1, 0, 0, 0, 0),  # Non-empty space
+            _space_stats("space1", 0, 0, 0, 0, 0, 0, 0),  # Empty space
+            _space_stats("space2", 5, 2, 1, 0, 0, 0, 0),  # Non-empty space
         ]
 
         def select_space(choices: list[Choice]) -> list[str]:
@@ -959,7 +985,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, [select_space]),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_empty_spaces()
@@ -974,8 +1000,8 @@ class TestDataModelingInteractiveSelect:
 
         # No empty spaces
         space_stats = [
-            SpaceStatistics("space1", 5, 0, 0, 0, 0, 0, 0),
-            SpaceStatistics("space2", 0, 2, 1, 0, 0, 0, 0),
+            _space_stats("space1", 5, 0, 0, 0, 0, 0, 0),
+            _space_stats("space2", 0, 2, 1, 0, 0, 0, 0),
         ]
 
         with (
@@ -983,7 +1009,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, []),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
@@ -1000,9 +1026,9 @@ class TestDataModelingInteractiveSelect:
 
         # Set up space statistics with different instance counts
         space_stats = [
-            SpaceStatistics("space1", 0, 0, 0, 0, 0, 10, 0),  # 10 nodes
-            SpaceStatistics("space2", 0, 0, 0, 0, 0, 0, 0),  # No instances
-            SpaceStatistics("space3", 0, 0, 0, 5, 0, 5, 0),  # 5 nodes, 5 edges
+            _space_stats("space1", 0, 0, 0, 0, 0, 10, 0),  # 10 nodes
+            _space_stats("space2", 0, 0, 0, 0, 0, 0, 0),  # No instances
+            _space_stats("space3", 0, 0, 0, 5, 0, 5, 0),  # 5 nodes, 5 edges
         ]
 
         def select_spaces(choices: list[Choice]) -> list[str]:
@@ -1016,7 +1042,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, answers),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space()
@@ -1031,8 +1057,8 @@ class TestDataModelingInteractiveSelect:
 
         # Only space1 has instances
         space_stats = [
-            SpaceStatistics("space1", 0, 0, 0, 5, 0, 2, 0),  # Has instances
-            SpaceStatistics("space2", 0, 0, 0, 0, 0, 0, 0),  # No instances
+            _space_stats("space1", 0, 0, 0, 5, 0, 2, 0),  # Has instances
+            _space_stats("space2", 0, 0, 0, 0, 0, 0, 0),  # No instances
         ]
 
         def select_space(choices: list[Choice]) -> list[str]:
@@ -1044,7 +1070,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, [select_space]),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space()
@@ -1059,8 +1085,8 @@ class TestDataModelingInteractiveSelect:
 
         # No spaces have instances
         space_stats = [
-            SpaceStatistics("space1", 0, 0, 1, 0, 0, 0, 0),  # Only has containers
-            SpaceStatistics("space2", 0, 2, 0, 0, 0, 0, 0),  # Only has views
+            _space_stats("space1", 0, 0, 1, 0, 0, 0, 0),  # Only has containers
+            _space_stats("space2", 0, 2, 0, 0, 0, 0, 0),  # Only has views
         ]
 
         with (
@@ -1068,7 +1094,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, []),
         ):
             client.spaces.list.return_value = spaces
-            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:

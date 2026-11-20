@@ -755,7 +755,7 @@ class DataModelingSelect:
         schema_spaces = {
             space
             for space, stats in self.stats_by_space.items()
-            if (stats.containers + stats.views + stats.data_models) > 0
+            if (stats.total_containers + stats.views + stats.data_models) > 0
         }
         spaces = [space for space in spaces if space.space in schema_spaces or space.is_global]
         if not spaces:
@@ -857,7 +857,7 @@ class DataModelingSelect:
                 if (stats.nodes + stats.edges) > 0
                 or (
                     include_empty
-                    and (stats.nodes + stats.edges + stats.containers + stats.views + stats.data_models) == 0
+                    and (stats.nodes + stats.edges + stats.total_containers + stats.views + stats.data_models) == 0
                 )
             }
 
@@ -896,7 +896,7 @@ class DataModelingSelect:
         empty_spaces = [
             space
             for space, stats in self.stats_by_space.items()
-            if (stats.nodes + stats.edges + stats.containers + stats.views + stats.data_models) == 0
+            if (stats.nodes + stats.edges + stats.total_containers + stats.views + stats.data_models) == 0
         ]
         if not empty_spaces:
             raise ToolkitMissingResourceError("No empty spaces found.")
@@ -1167,7 +1167,7 @@ class RecordInteractiveSelect:
         return selected_stream
 
     def select_containers(self) -> list[ContainerResponse]:
-        record_containers = self.client.containers.list(filter=ContainerFilter(used_for="record"))
+        record_containers = self.client.containers.list(filter=ContainerFilter(used_for=["record"]))
         if not record_containers:
             raise ToolkitValueError("No record containers found in the project.")
         selected_containers = questionary.checkbox(
