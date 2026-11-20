@@ -1,11 +1,14 @@
-from collections.abc import Sequence
+import json
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any, Literal
 from unittest.mock import MagicMock
 
+import httpx2
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+import respx
 from cognite.client._proto.data_point_insertion_request_pb2 import DataPointInsertionItem, DataPointInsertionRequest
 from cognite.client._proto.data_point_list_response_pb2 import DataPointListItem, DataPointListResponse
 from cognite.client._proto.data_points_pb2 import (
@@ -21,7 +24,8 @@ from cognite.client._proto.data_points_pb2 import (
     StringDatapoints,
 )
 
-from cognite_toolkit._cdf_tk.client.http_client import ErrorDetails, FailedResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.dataio import DatapointsIO
 from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
@@ -53,9 +57,9 @@ class RecordingLogger(DataLogger):
         self.entries.extend([entry] if isinstance(entry, LogEntryV2) else entry)
 
 
-def success(response: DataPointListResponse | None = None) -> SuccessResponse:
+def success(response: DataPointListResponse | None = None) -> httpx2.Response:
     content = response.SerializeToString() if response is not None else b""
-    return SuccessResponse(status_code=200, body="", content=content)
+    return httpx2.Response(200, content=content, headers={"Content-Type": "application/protobuf"})
 
 
 def count_response(counts: dict[int, int]) -> DataPointListResponse:
@@ -80,18 +84,26 @@ def numeric_item(ts_id: int, n_datapoints: int, next_cursor: str = "") -> DataPo
     )
 
 
-def create_io(client: Any, responses: list[Any]) -> tuple[DatapointsIO, RecordingLogger]:
-    client.config = MagicMock(create_api_url=MagicMock(return_value="https://example.com/timeseries/data/list"))
-    client.http_client = MagicMock()
-    client.http_client.request_single_retries.side_effect = responses
-    io = DatapointsIO(client)
-    logger = RecordingLogger()
-    io.logger = logger
-    return io, logger
+@pytest.fixture
+def datapoints_route(toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> respx.Route:
+    return respx_mock.post(toolkit_config.create_api_url("/timeseries/data/list"))
 
 
-def request_bodies(client: Any) -> list[Any]:
-    return [call.args[0].body_content for call in client.http_client.request_single_retries.call_args_list]
+@pytest.fixture
+def datapoints_io(
+    toolkit_config: ToolkitClientConfig, disable_gzip: None
+) -> Iterator[tuple[DatapointsIO, RecordingLogger]]:
+    with monkeypatch_toolkit_client() as client, HTTPClient(toolkit_config) as http_client:
+        client.config = toolkit_config
+        client.http_client = http_client
+        io = DatapointsIO(client)
+        logger = RecordingLogger()
+        io.logger = logger
+        yield io, logger
+
+
+def request_bodies(route: respx.Route) -> list[Any]:
+    return [json.loads(call.request.content) for call in route.calls]
 
 
 def log_summary(logger: RecordingLogger) -> list[tuple[str, str, Severity]]:
@@ -245,25 +257,27 @@ class TestDatapointsUploadConversion:
 
 
 class TestDatapointsDownload:
-    def test_stream_timeseries_datapoints_continues_with_cursor(self) -> None:
+    def test_stream_timeseries_datapoints_continues_with_cursor(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
+    ) -> None:
         responses = [
             count_response({1: 80_000, 2: 50_000}),
             DataPointListResponse(items=[DataPointListItem(id=1), DataPointListItem(id=2, nextCursor="cursor-2")]),
             DataPointListResponse(items=[DataPointListItem(id=2)]),
         ]
-        with monkeypatch_toolkit_client() as client:
-            io, _ = create_io(client, [success(response) for response in responses])
-            pages = list(
-                io._stream_timeseries_datapoints(
-                    [
-                        {"instanceId": {"space": "my_space", "externalId": "a"}},
-                        {"instanceId": {"space": "my_space", "externalId": "b"}},
-                    ],
-                    TIME_RANGE,
-                    limit_per_timeseries=100_000,
-                )
+        datapoints_route.side_effect = [success(response) for response in responses]
+        io, _ = datapoints_io
+        pages = list(
+            io._stream_timeseries_datapoints(
+                [
+                    {"instanceId": {"space": "my_space", "externalId": "a"}},
+                    {"instanceId": {"space": "my_space", "externalId": "b"}},
+                ],
+                TIME_RANGE,
+                limit_per_timeseries=100_000,
             )
-            data_requests = request_bodies(client)[1:]
+        )
+        data_requests = request_bodies(datapoints_route)[1:]
 
         data_args = {**STATUS_ARGS, "includeStatus": True}
         assert {
@@ -286,12 +300,14 @@ class TestDatapointsDownload:
             ],
         }
 
-    def test_count_request_includes_bad_datapoints_and_ignores_unknown_ids(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            io, _ = create_io(client, [success(DataPointListResponse())])
-            list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, limit_per_timeseries=10))
+    def test_count_request_includes_bad_datapoints_and_ignores_unknown_ids(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
+    ) -> None:
+        datapoints_route.side_effect = [success(DataPointListResponse())]
+        io, _ = datapoints_io
+        list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, limit_per_timeseries=10))
 
-        assert request_bodies(client) == [
+        assert request_bodies(datapoints_route) == [
             {
                 "items": [
                     {
@@ -307,12 +323,14 @@ class TestDatapointsDownload:
             }
         ]
 
-    def test_failed_requests_are_logged(self) -> None:
-        failed = FailedResponse(status_code=500, body="", error=ErrorDetails(code=500, message="Internal error"))
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [failed, success(count_response({1: 5})), failed])
-            first = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
-            second = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
+    def test_failed_requests_are_logged(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
+    ) -> None:
+        failed = httpx2.Response(500, json={"error": {"code": 500, "message": "Internal error"}})
+        datapoints_route.side_effect = [failed, success(count_response({1: 5})), failed]
+        io, logger = datapoints_io
+        first = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
+        second = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
 
         assert {"pages": first + second, "registered": logger.registered, "log": log_summary(logger)} == {
             "pages": [],
@@ -323,43 +341,49 @@ class TestDatapointsDownload:
             ],
         }
 
-    def test_truncation_at_limit_per_timeseries_is_logged(self) -> None:
+    def test_truncation_at_limit_per_timeseries_is_logged(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
+    ) -> None:
         responses = [count_response({1: 50}), DataPointListResponse(items=[numeric_item(1, 10, next_cursor="more")])]
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [success(response) for response in responses])
-            pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
+        datapoints_route.side_effect = [success(response) for response in responses]
+        io, logger = datapoints_io
+        pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
 
-        assert {"pages": len(pages), "requests": len(request_bodies(client)), "log": log_summary(logger)} == {
+        assert {"pages": len(pages), "requests": datapoints_route.call_count, "log": log_summary(logger)} == {
             "pages": 1,
             "requests": 2,
             "log": [("datapoints batch 1", "Datapoints limit per time series reached", Severity.warning)],
         }
 
-    def test_datapoints_missing_from_count_are_still_downloaded(self) -> None:
+    def test_datapoints_missing_from_count_are_still_downloaded(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
+    ) -> None:
         responses = [
             # The count aggregate is eventually consistent, and can lag behind the datapoints.
             count_response({1: 0}),
             DataPointListResponse(items=[numeric_item(1, 1, next_cursor="more")]),
             DataPointListResponse(items=[numeric_item(1, 3)]),
         ]
-        with monkeypatch_toolkit_client() as client:
-            io, _ = create_io(client, [success(response) for response in responses])
-            pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 100))
-            limits = [body["items"][0]["limit"] for body in request_bodies(client)[1:]]
+        datapoints_route.side_effect = [success(response) for response in responses]
+        io, _ = datapoints_io
+        pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 100))
+        limits = [body["items"][0]["limit"] for body in request_bodies(datapoints_route)[1:]]
 
         assert {"pages": len(pages), "limits": limits} == {"pages": 2, "limits": [1, 99]}
 
-    def test_timeseries_missing_from_response_are_not_requested_again(self) -> None:
+    def test_timeseries_missing_from_response_are_not_requested_again(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
+    ) -> None:
         responses = [
             count_response({1: 5, 2: 5}),
             # Time series 2 was deleted after the count request.
             DataPointListResponse(items=[numeric_item(1, 5)]),
         ]
-        with monkeypatch_toolkit_client() as client:
-            io, _ = create_io(client, [success(response) for response in responses])
-            pages = list(io._stream_timeseries_datapoints([{"id": 1}, {"id": 2}], TIME_RANGE, 10))
+        datapoints_route.side_effect = [success(response) for response in responses]
+        io, _ = datapoints_io
+        pages = list(io._stream_timeseries_datapoints([{"id": 1}, {"id": 2}], TIME_RANGE, 10))
 
-        assert {"pages": len(pages), "requests": len(request_bodies(client))} == {
+        assert {"pages": len(pages), "requests": datapoints_route.call_count} == {
             "pages": 1,
             "requests": 2,
         }
