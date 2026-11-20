@@ -596,7 +596,12 @@ class TestDatapointsDownload:
 
 
 class TestDatapointsUpload:
-    def test_upload_retries_without_missing_timeseries(self) -> None:
+    def test_upload_retries_without_missing_timeseries(
+        self,
+        datapoints_io: tuple[DatapointsIO, RecordingLogger],
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
         request = DataPointInsertionRequest(
             items=[
                 DataPointInsertionItem(
@@ -606,23 +611,18 @@ class TestDatapointsUpload:
                 for external_id in ["exists", "missing"]
             ]
         )
-        missing = FailedResponse(
-            status_code=400,
-            body="",
-            error=ErrorDetails(code=400, message="Time series not found", missing=[{"externalId": "missing"}]),
+        missing = httpx2.Response(
+            400,
+            json={"error": {"code": 400, "message": "Time series not found", "missing": [{"externalId": "missing"}]}},
         )
-        http_client = MagicMock()
-        http_client.config.create_api_url.return_value = "https://example.com/timeseries/data"
-        http_client.request_single_retries.side_effect = [missing, success()]
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [])
-            results = io.upload_items(
-                Page("main", [DataItem(tracking_id="rows 1 to 2", item=DatapointsRequestAdapter(datapoints=request))]),
-                http_client,
-            )
-        retried = DataPointInsertionRequest.FromString(
-            http_client.request_single_retries.call_args.args[0].data_content
+        route = respx_mock.post(toolkit_config.create_api_url(DatapointsIO.UPLOAD_ENDPOINT))
+        route.side_effect = [missing, httpx2.Response(200, json={})]
+        io, logger = datapoints_io
+        results = io.upload_items(
+            Page("main", [DataItem(tracking_id="rows 1 to 2", item=DatapointsRequestAdapter(datapoints=request))]),
+            io.client.http_client,
         )
+        retried = DataPointInsertionRequest.FromString(route.calls.last.request.content)
 
         assert {
             "results": [type(result).__name__ for result in results],
