@@ -270,8 +270,11 @@ class TestUserLookup:
         assert users.user_id("missing@example.com") is None
         assert users.user_id(("user1@example.com", "missing@example.com")) == ["user-1"]
 
-    def test_fallback_to_user_profiles(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
-        rsps.get(self._principals_url(toolkit_config)).respond(status_code=401)
+    @pytest.mark.parametrize("status_code", [401, 403])
+    def test_fallback_to_user_profiles(
+        self, status_code: int, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter
+    ) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(status_code=status_code)
         rsps.get(toolkit_config.create_api_url("/profiles")).respond(
             status_code=200,
             json={

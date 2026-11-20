@@ -415,8 +415,9 @@ class PrincipalLookUpAPI:
                 types=["USER", "SERVICE_ACCOUNT"], limit=None
             )
         except ToolkitAPIError as e:
-            if e.code == 401:
-                # Requires to be authenticated by CogIdp, falling back to deprecated API.
+            if e.code in (401, 403):
+                # Requires to be authenticated by CogIdp with access to list principals,
+                # falling back to deprecated API.
                 # Note that this API does not include service accounts.
                 principals = self._list_user_profiles()
             else:
