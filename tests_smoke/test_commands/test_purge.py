@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.data_classes import ResourceDeployResult
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_unit.utils import MockQuestionary
+from tests_smoke.constants import SMOKE_TEST_STREAM
 
 T = TypeVar("T")
 
@@ -296,7 +297,7 @@ def space_with_records_view(toolkit_client: ToolkitClient) -> Iterable[str]:
         space=space_name,
         external_id="ToBePurged_record_view",
         version="v1",
-        stream_id=["my-stream2"],
+        stream_id=[SMOKE_TEST_STREAM],
         properties={
             "name": ViewCorePropertyRequest(container=container_request.as_id(), container_property_identifier="name")
         },
