@@ -36,17 +36,11 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     SelectedView,
     Selector,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.fileio import SQLiteReader
 
 SQLITE_RAW_DB = "toolkit_smoke_sqlite_db"
 SQLITE_RAW_TABLE = "sqlite_round_trip"
 SQLITE_PREFIX = "toolkit_test_sqlite_round_trip"
-
-
-@pytest.fixture
-def enable_extend_download(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.EXTEND_DOWNLOAD)
 
 
 @pytest.fixture
