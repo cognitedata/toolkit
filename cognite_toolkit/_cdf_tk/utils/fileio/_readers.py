@@ -120,7 +120,7 @@ class MultiFileReader(FileReader):
         reader_cls = self.reader_class
         if issubclass(reader_cls, SQLiteReader):
             return reader_cls(input_file, table=self.table, schema=self.schema)
-        if self.schema is not None and issubclass(reader_cls, TableReader) and reader_cls is not ParquetReader:
+        if self.schema is not None and issubclass(reader_cls, TableReader):
             return reader_cls(input_file, schema=self.schema)
         return reader_cls(input_file)
 
@@ -365,9 +365,13 @@ class CSVReader(TableReader):
 class ParquetReader(TableReader):
     FORMAT = ".parquet"
 
-    def __init__(self, input_file: Path) -> None:
-        # Parquet files have their own schema, so we don't need to sniff or provide one.
+    def __init__(self, input_file: Path, schema: Sequence[SchemaColumn] | None = None) -> None:
+        # Parquet files have their own value types. The optional schema is only used to keep
+        # string columns as strings, instead of parsing them as JSON.
         super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=False)
+        self._string_columns: frozenset[str] = frozenset(
+            column.name for column in schema or [] if column.type == "string" and not column.is_array
+        )
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         import pyarrow.parquet as pq
@@ -375,7 +379,10 @@ class ParquetReader(TableReader):
         with pq.ParquetFile(self.input_file) as parquet_file:
             for batch in parquet_file.iter_batches():
                 for chunk in batch.to_pylist():
-                    yield {key: self._parse_value(value) for key, value in chunk.items()}
+                    yield {
+                        key: value if key in self._string_columns else self._parse_value(value)
+                        for key, value in chunk.items()
+                    }
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         raise NotImplementedError(

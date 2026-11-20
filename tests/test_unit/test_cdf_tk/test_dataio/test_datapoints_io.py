@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.http_client import SuccessResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.dataio import DatapointsIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
+    DataPointsDataSetSelector,
     DataPointsFileSelector,
     DataPointsInstanceSpaceSelector,
     ExternalIdColumn,
@@ -210,3 +211,19 @@ class TestDataPointsIO:
                 {"items": [{"id": 2, "start": 0, "end": 10, "limit": 30_000, "cursor": "cursor-2"}]},
             ],
         }
+
+
+class TestDatapointsUploadConversion:
+    def test_parquet_string_values_are_not_parsed_as_json(self, tmp_path: Path) -> None:
+        parquet_file = tmp_path / "long.Datapoints.parquet"
+        pq.write_table(
+            pa.Table.from_pydict({"externalId": ["ts_a", "ts_a"], "timestamp": [1, 2], "value": ["007", "[1, 2]"]}),
+            parquet_file,
+        )
+        selector = DataPointsDataSetSelector(data_set_external_id="my_data_set", data_type="string")
+        with monkeypatch_toolkit_client() as client:
+            io = DatapointsIO(client)
+            reader = MultiFileReader([parquet_file], schema=io.get_schema(selector))
+            rows = [item.item for page in io.read_chunks(reader, selector) for item in page.items]
+
+        assert rows == [{"externalId": ["ts_a", "ts_a"], "timestamp": [1, 2], "value": ["007", "[1, 2]"]}]
