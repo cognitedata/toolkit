@@ -112,7 +112,7 @@ class HTTPClient:
             headers[auth_name] = auth_value
         return headers
 
-    def _create_headers(
+    def create_headers(
         self,
         api_version: str | None = None,
         content_type: str = "application/json",
@@ -185,7 +185,7 @@ class HTTPClient:
                 raise TypeError(f"Unexpected result type: {type(result)}")
 
     def _make_request(self, message: BaseRequestMessage) -> httpx2.Response:
-        headers = self._create_headers(
+        headers = self.create_headers(
             message.api_version,
             message.content_type,
             message.accept,
