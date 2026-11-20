@@ -88,6 +88,7 @@ from .api.migration import (
     MigrationLookupAPI,
     ResourceViewMappingsAPI,
 )
+from .api.organization_users import OrganizationUsersAPI
 from .api.postgres_gateway import PostgresGatewayAPI
 from .api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from .api.postgres_gateway_users import PostgresGatewayUsersAPI
@@ -152,6 +153,7 @@ class ToolkitClientMock(ToolkitClient):
     charts: MagicMock
     infield: MagicMock
     project: MagicMock
+    organization_users: MagicMock
     lookup: MagicMock
     migration: MagicMock
     principals: MagicMock
@@ -250,6 +252,7 @@ class ToolkitClientMock(ToolkitClient):
         self.infield.cdm_config = MagicMock(spec_set=InFieldCDMConfigAPI)
 
         self.project = MagicMock(spec_set=ProjectAPI)
+        self.organization_users = MagicMock(spec_set=OrganizationUsersAPI)
 
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
