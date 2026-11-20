@@ -111,6 +111,9 @@ class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
 
     Attributes
         CHUNK_SIZE: The size of the data chunks to be processed during download and upload operations.
+        COUNT_NAME: What the count method counts, shown in the download plan.
+        COUNT_IS_PROGRESS_TOTAL: Whether the count matches the number of rows the download produces, such that
+            it can be used as the total of the download progress bar.
 
     Args:
         client: An instance of ToolkitClient to interact with the CDF API.
@@ -121,6 +124,8 @@ class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
 
     CHUNK_SIZE: ClassVar[int]
     BASE_SELECTOR: ClassVar[type[DataSelector]]
+    COUNT_NAME: ClassVar[str] = "Item Count"
+    COUNT_IS_PROGRESS_TOTAL: ClassVar[bool] = True
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         self.client = client

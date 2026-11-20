@@ -1,10 +1,17 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import click
 import pytest
 from typer.testing import CliRunner
 
-from cognite_toolkit._cdf_tk.apps._download_app import AssetCentricFormats, DownloadApp, _prompt_file_format
+from cognite_toolkit._cdf_tk.apps._download_app import (
+    AssetCentricFormats,
+    DatapointFormats,
+    DatapointsDataTypes,
+    DownloadApp,
+    _prompt_file_format,
+)
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 MODULE = "cognite_toolkit._cdf_tk.apps._download_app"
@@ -53,3 +60,35 @@ class TestDownloadAppSQLite:
 
         choices = [choice.value for choice in select.call_args.kwargs["choices"]]
         assert (AssetCentricFormats.sqlite in choices) is enabled
+
+
+class TestDownloadDatapointsApp:
+    def test_api_format_is_hidden_and_not_prompted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _enable_extend_download(monkeypatch, enabled=False)
+        command = MagicMock()
+        command.run.side_effect = lambda callback: callback()
+        questionary = MagicMock()
+        questionary.select.return_value.unsafe_ask.return_value = DatapointsDataTypes.numeric
+        questionary.text.return_value.unsafe_ask.return_value = ""
+
+        with (
+            patch(f"{MODULE}.EnvironmentVariables"),
+            patch(f"{MODULE}.DownloadCommand", return_value=command),
+            patch(f"{MODULE}.questionary", questionary),
+            patch(f"{MODULE}.TimeSeriesInteractiveSelect") as select,
+            patch(f"{MODULE}._prompt_file_format", return_value=DatapointFormats.csv),
+            patch(f"{MODULE}._prompt_output_dir", return_value=Path("out")),
+            patch(f"{MODULE}._prompt_limit", return_value=10),
+            patch(f"{MODULE}._prompt_verbose", return_value=False),
+            patch(f"{MODULE}._prompt_api_format") as prompt_api_format,
+        ):
+            select.return_value.select_data_set.return_value = "my_data_set"
+            interactive = CliRunner().invoke(DownloadApp(), ["datapoints"])
+            help_result = CliRunner().invoke(DownloadApp(), ["datapoints", "--help"], env={"COLUMNS": "200"})
+
+        # Datapoints are always downloaded in the same format, so the option has no effect.
+        assert {
+            "exit_code": interactive.exit_code,
+            "prompted_api_format": prompt_api_format.called,
+            "help_shows_api_format": "--api-format" in click.unstyle(help_result.output),
+        } == {"exit_code": 0, "prompted_api_format": False, "help_shows_api_format": False}
