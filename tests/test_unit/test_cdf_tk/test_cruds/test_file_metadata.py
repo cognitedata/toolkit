@@ -6,8 +6,10 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO
+from cognite_toolkit._cdf_tk.resource_ios import CogniteFileIO, FileMetadataIO
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
@@ -145,6 +147,53 @@ class TestFileMetadataCRUDUpdate:
             external_id="f",
             name="f.txt",
             metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: local_hash},
+            filepath=MagicMock(spec=Path),
+        )
+        fileio.update([item])
+
+        assert mock_client.filemetadata.upload_file.called == expect_upload
+
+
+class TestCogniteFileIOUpdate:
+    @pytest.mark.parametrize(
+        "cdf_source_context, local_source_context, expect_upload",
+        [
+            pytest.param("cognite-toolkit-hash: old", "cognite-toolkit-hash: new", True, id="hash_changed_reuploads"),
+            pytest.param("cognite-toolkit-hash: same", "cognite-toolkit-hash: same", False, id="hash_unchanged_skips"),
+        ],
+    )
+    def test_reupload_based_on_hash(
+        self, cdf_source_context: str, local_source_context: str, expect_upload: bool
+    ) -> None:
+        mock_client = MagicMock()
+        fileio = CogniteFileIO(mock_client, support_upload=True)
+        # Simulates CDF: create (upsert) overwrites the stored source context, retrieve returns the current state.
+        cdf_state: dict[NodeId, str | None] = {NodeId(space="sp", external_id="f"): cdf_source_context}
+
+        def _response(node_id: NodeId) -> CogniteFileResponse:
+            return CogniteFileResponse(
+                space=node_id.space,
+                external_id=node_id.external_id,
+                version=1,
+                created_time=0,
+                last_updated_time=0,
+                source_context=cdf_state[node_id],
+            )
+
+        def _create(items: list[CogniteFileRequest]) -> list[CogniteFileResponse]:
+            for item in items:
+                cdf_state[item.as_id()] = item.source_context
+            return [_response(item.as_id()) for item in items]
+
+        mock_client.cognite_files.create.side_effect = _create
+        mock_client.cognite_files.retrieve.side_effect = lambda ids: [_response(id_) for id_ in ids]
+        mock_client.filemetadata.get_upload_url.return_value = [MagicMock(upload_url="https://upload.example.com")]
+
+        item = CogniteFileRequest(
+            space="sp",
+            external_id="f",
+            name="f.txt",
+            source_context=local_source_context,
             filepath=MagicMock(spec=Path),
         )
         fileio.update([item])
