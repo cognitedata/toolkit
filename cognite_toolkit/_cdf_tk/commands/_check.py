@@ -3,6 +3,8 @@ from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
 
+from rich.markup import escape
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
@@ -33,6 +35,14 @@ class CheckCommand(ValidationCommand):
         """
         plan = self._create_check_plan(set(checks), client, lookback_period)
         validation_results = self.validate(client=client, display=CommandDisplay(results=False), plan=plan)
+        validation_errors = [error for result in validation_results for error in result.errors]
+        if validation_errors:
+            client.console.print(
+                f"[bold red]Error:[/] Found {len(validation_errors)} internal validator exception(s):"
+            )
+            for result in validation_results:
+                for error in result.errors:
+                    client.console.print(f"  - {result.name}: [red]{escape(error.message)}[/]")
         BuildV2Command.display_insights(
             insights=InsightList([insight for result in validation_results for insight in result.insights]),
             insight_path=Path("dummy"),
