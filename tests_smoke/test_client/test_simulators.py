@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
 )
 from tests_smoke.exceptions import EndpointAssertionError
+from tests_smoke.utils import best_effort_cleanup
 
 SIMULATOR_EXTERNAL_ID = "smoke_test_simulator"
 SIMULATOR_INTEGRATION_ID = "smoke_test_simulator_integration"
@@ -208,6 +209,13 @@ class TestSimulatorsAPI:
             ),
             script=[ScriptStage(order=1, steps=[])],
         )
+
+        def delete_model_if_exists() -> None:
+            if toolkit_client.simulators.models.retrieve([model.as_id()], ignore_unknown_ids=True):
+                toolkit_client.simulators.models.delete([model.as_id()])
+
+        # A previous run that failed before its cleanup leaves the model behind, which makes create fail.
+        best_effort_cleanup(delete_model_if_exists)
         try:
             ## Simulator Model CRUDL operations ##
             model_endpoints = toolkit_client.simulators.models._method_endpoint_map
@@ -356,8 +364,10 @@ class TestSimulatorsAPI:
                     f"Expected 1 listed simulator routine revision, got {len(listed_routine_revisions)}",
                 )
         finally:
-            toolkit_client.simulators.routines.delete([routine.as_id()])
-            toolkit_client.simulators.models.delete([model.as_id()])
+            best_effort_cleanup(
+                lambda: toolkit_client.simulators.routines.delete([routine.as_id()]),
+                delete_model_if_exists,
+            )
 
 
 SIMULATOR: dict[str, JsonValue] = {

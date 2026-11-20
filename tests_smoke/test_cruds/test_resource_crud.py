@@ -20,6 +20,7 @@ INTERNAL_DOCS = {
     AppIO,
     AppVersionIO,
 }
+DOC_URL_ATTEMPTS = 3
 
 
 class TestResourceCRUD:
@@ -31,16 +32,24 @@ class TestResourceCRUD:
         async def check_url(crud_cls: type[ResourceIO], client: httpx2.AsyncClient) -> str | None:
             crud = crud_cls(toolkit_client)
             url = crud.doc_url()
-            try:
-                response = await client.get(url, follow_redirects=True)
-                if response.status_code < 200 or response.status_code >= 300:
-                    return f"{crud.display_name} doc_url is not accessible ({url}). Status code: {response.status_code}"
-            except httpx2.RequestError as e:
-                return f"{crud.display_name} doc_url request failed ({url}). Error: {e}"
-            return None
+            error: str | None = None
+            for attempt in range(DOC_URL_ATTEMPTS):
+                if attempt:
+                    await asyncio.sleep(2**attempt)
+                try:
+                    response = await client.get(url, follow_redirects=True)
+                except httpx2.RequestError as e:
+                    error = f"{crud.display_name} doc_url request failed ({url}). Error: {type(e).__name__} {e}"
+                    continue
+                if 200 <= response.status_code < 300:
+                    return None
+                error = f"{crud.display_name} doc_url is not accessible ({url}). Status code: {response.status_code}"
+                if response.status_code < 500:
+                    return error
+            return error
 
         async def check_all_urls() -> list[str]:
-            async with httpx2.AsyncClient() as client:
+            async with httpx2.AsyncClient(timeout=30.0) as client:
                 results = await asyncio.gather(*[check_url(crud_cls, client) for crud_cls in crud_classes])
             return [error for error in results if error is not None]
 
