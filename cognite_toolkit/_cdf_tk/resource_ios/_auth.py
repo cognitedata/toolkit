@@ -343,11 +343,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
         members = substituted.get("members")
         if Flags.CDF_GROUP_EMAILS.is_enabled() and isinstance(members, list):
-            substituted["members"] = self._lookup_member_ids(members, self.get_id(substituted))
+            substituted["members"] = self._lookup_member_ids(members, self.get_id(substituted), is_dry_run)
 
         return GroupRequest._load(substituted)
 
-    def _lookup_member_ids(self, members: list[Any], group_id: NameId) -> list[str]:
+    def _lookup_member_ids(self, members: list[Any], group_id: NameId, is_dry_run: bool = False) -> list[str]:
         member_ids: list[str] = []
         missing: list[str] = []
         for raw_member in members:
@@ -358,11 +358,15 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             if isinstance(member, UserMember):
                 principal_id = self.client.lookup.principals.user_id(member.email, warn=False)
                 description = f"user with email {member.email!r}"
+                placeholder = f"dry-run-user-id-for-{member.email}"
             else:
                 principal_id = self.client.lookup.principals.service_account_id(member.external_id, warn=False)
                 description = f"service account with external ID {member.external_id!r}"
+                placeholder = f"dry-run-service-account-id-for-{member.external_id}"
             if principal_id:
                 member_ids.append(principal_id)
+            elif is_dry_run:
+                member_ids.append(placeholder)
             else:
                 missing.append(description)
         if missing:
