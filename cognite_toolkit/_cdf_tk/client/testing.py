@@ -86,6 +86,7 @@ from .api.migration import (
     MigrationLookupAPI,
     ResourceViewMappingsAPI,
 )
+from .api.openai import OpenAIAPI
 from .api.postgres_gateway import PostgresGatewayAPI
 from .api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from .api.postgres_gateway_users import PostgresGatewayUsersAPI
@@ -192,6 +193,7 @@ class ToolkitClientMock(ToolkitClient):
     sap_writeback: MagicMock
     integrations: MagicMock
     metering: MagicMock
+    openai: MagicMock
     user_profiles: MagicMock
     postgres_gateway: MagicMock
     units: MagicMock
@@ -363,6 +365,7 @@ class ToolkitClientMock(ToolkitClient):
         self.integrations.configuration = MagicMock(spec_set=IntegrationConfigurationAPI)
         self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
         self.metering = MagicMock(spec_set=MeteringAPI)
+        self.openai = MagicMock(spec_set=OpenAIAPI)
         self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
 
         self.postgres_gateway = MagicMock(spec=PostgresGatewayAPI)

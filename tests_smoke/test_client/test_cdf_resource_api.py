@@ -3137,6 +3137,16 @@ class TestCDFResourceAPI:
                 endpoints["retrieve"].path, f"Expected to retrieve meter {meter_id}, got {len(retrieved)} items"
             )
 
+    def test_openai_list_models(self, toolkit_client: ToolkitClient) -> None:
+        try:
+            models = toolkit_client.openai.list_models()
+        except ToolkitAPIError as e:
+            if e.code in (403, 404):
+                pytest.skip(f"OpenAI-compatible models API is not available in this project: {e!s}")
+            raise EndpointAssertionError("/ai/openai/models", f"Listing models failed: {e!s}") from None
+        if not models:
+            raise EndpointAssertionError("/ai/openai/models", "Expected at least one model")
+
     def test_statistics(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test project and space statistics endpoints (read-only)."""
         client = toolkit_client

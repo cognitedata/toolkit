@@ -32,6 +32,7 @@ from .api.limits import LimitsAPI
 from .api.lookup import LookUpGroup
 from .api.metering import MeteringAPI
 from .api.migration import MigrationAPI
+from .api.openai import OpenAIAPI
 from .api.postgres_gateway import PostgresGatewayAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
@@ -130,4 +131,5 @@ class ToolkitClient:
         self.integrations = IntegrationsAPI(http_client)
         self.limits = LimitsAPI(http_client)
         self.metering = MeteringAPI(http_client)
+        self.openai = OpenAIAPI(http_client)
         self.postgres_gateway = PostgresGatewayAPI(http_client)
