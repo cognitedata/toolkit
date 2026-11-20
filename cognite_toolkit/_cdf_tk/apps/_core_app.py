@@ -250,7 +250,7 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--validate",
                 help="Whether to validate the built configuration files. Options: syntax-only, local, remote, capacity, auto.",
-                hidden=True,  # Not yet exposed in the CLI.
+                hidden=not Flags.BUILD_VALIDATE.is_enabled(),
             ),
         ] = ValidateMode.auto,
         insight_format: Annotated[
