@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.alert_channels import AlertChannelsAPI
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.applications import ApplicationsAPI
 from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
@@ -403,6 +404,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         UserProfilesAPI,
         # Metering is read-only (list/retrieve) and alpha.
         MeteringAPI,
+        # Alpha and org-scoped on auth.cognite.com. Creating one registers a real application for the organization.
+        ApplicationsAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
         DocumentsAPI,
         # Special handling due to need for file Id and update.
