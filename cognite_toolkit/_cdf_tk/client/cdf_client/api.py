@@ -105,6 +105,10 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
         """Create the full URL for this resource endpoint."""
         return self._http_client.config.create_api_url(path)
 
+    def endpoint_url(self, method: APIMethod) -> str:
+        """The full URL of the endpoint registered for the given method."""
+        return self._make_url(self._method_endpoint_map[method].path)
+
     def _post_aggregate(self, body: dict[str, Any]) -> SuccessResponse:
         """POST the endpoint registered as ``aggregate``.
 

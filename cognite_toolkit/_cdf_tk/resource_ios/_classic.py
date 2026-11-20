@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
@@ -409,7 +408,11 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
             if len(cdf) == len(local_by_cdf) + len(added):
                 return local_by_cdf, added
             else:
-                self.on_warning(LowSeverityWarning("Number of rows in does not match the number of columns"))
+                self._warn(
+                    "INVALID-VALUE",
+                    "Number of rows in does not match the number of columns",
+                    source_url=self.client.sequences.rows.endpoint_url("list"),
+                )
                 # Just assume that the rows are in the correct order
                 return {no: no for no in range(len(cdf))}, []
         return super().diff_list(local, cdf, json_path)

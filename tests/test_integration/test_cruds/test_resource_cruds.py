@@ -81,6 +81,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
+from cognite_toolkit._cdf_tk.data_classes._insights import DeployWarning
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     CogniteFileIO,
@@ -103,7 +104,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
 from tests.utils import to_deploy_status
@@ -721,7 +721,7 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            warning_list: list[ToolkitWarning] = []
+            warning_list: list[DeployWarning] = []
             loader = WorkflowVersionIO(client, on_warning=warning_list.append)
 
             loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
@@ -895,12 +895,14 @@ ignoreNullFields: true
         ],
     )
     def test_unchanged_transformation_not_redeployed(
-        self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
+        self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch, tmp_path: Path
     ) -> None:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         crud = TransformationIO(toolkit_client)
+        filepath = tmp_path / "transformation.Transformation.yaml"
+        filepath.write_text(transformation_yaml)
 
-        assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(filepath, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestNodeLoader:

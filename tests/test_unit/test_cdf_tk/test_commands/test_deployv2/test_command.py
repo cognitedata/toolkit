@@ -63,7 +63,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     Skipped,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, URL
-from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InsightList
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, DeployWarning, InsightList
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -89,7 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -458,9 +458,11 @@ class TestApplyPlan:
                             is_missing_write_acl=False,
                             created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
                             warnings=[
-                                LowSeverityWarning(
-                                    "FunctionId will be ignored in the schedule "
-                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')"
+                                DeployWarning(
+                                    code="REDUNDANT-PROPERTY",
+                                    message="FunctionId will be ignored in the schedule "
+                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')",
+                                    source_file=Path("functions/my.Schedule.yaml"),
                                 )
                             ],
                         )
@@ -633,6 +635,16 @@ class TestApplyPlan:
                 skipped.source_file = skipped.source_file.relative_to(tmp_path)
                 for full_path, rel_path in to_replace.items():
                     skipped.reason = skipped.reason.replace(full_path, rel_path)
+            # Warnings resolve relative source files against the working directory, so the expected
+            # warnings do as well.
+            item.warnings = [
+                warning.model_copy(
+                    update={"source_file": warning.source_file.relative_to(tmp_path.resolve()).resolve()}
+                )
+                if warning.source_file
+                else warning
+                for warning in item.warnings
+            ]
 
     def _set_up_mock_client(self, case: ApplyPlanTestCase, client: ToolkitClientMock):
         if case.acls_missing:
