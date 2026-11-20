@@ -1,5 +1,5 @@
 from ._agents import AgentRuleSet
-from ._base import ToolkitRuleSet, get_global_rules_registry
+from ._base import ToolkitRuleSet, ValidationInput, get_global_rules_registry
 from ._classic import ClassicDeprecationRuleSet
 from ._data_modeling import DataModelingRuleSet
 from ._dependencies import DependencyRuleSet
@@ -24,5 +24,6 @@ __all__ = [
     "StreamRuleSet",
     "ToolkitRuleSet",
     "TransformationRuleSet",
+    "ValidationInput",
     "get_global_rules_registry",
 ]

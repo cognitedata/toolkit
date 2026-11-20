@@ -1,8 +1,8 @@
 import builtins
 import re
 from abc import ABC, abstractmethod
-from collections import UserList
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar, Literal, Protocol, cast
@@ -131,7 +131,19 @@ class ResourceRef(Protocol):
         raise NotImplementedError()
 
 
-class ResourceRefList(UserList[ResourceRef]):
+@dataclass(frozen=True)
+class ValidationInput:
+    """The data validated by the rule sets.
+
+    Args:
+        resources: The local resources to validate. Rules in the 'cdf' context, which validate the resources
+            in CDF, do not need them.
+        results: The deployment results, used by rules that validate the changes a deployment would make.
+    """
+
+    resources: Sequence[ResourceRef] = ()
+    results: Sequence[DeploymentResult] = ()
+
     def get_resource_of_type(
         self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
     ) -> Iterable[ValidatableResource[T_RequestResource]]:
@@ -144,7 +156,7 @@ class ResourceRefList(UserList[ResourceRef]):
     ) -> Iterable[tuple[ResourceRef, ValidatableResource[T_RequestResource]]]:
         """Get the resources of the type handled by the given CRUD, together with their reference."""
         resource_type = crud.as_resource_type()
-        for resource in self.data:
+        for resource in self.resources:
             if resource.type != resource_type or not resource.has_valid_syntax:
                 continue
             yield resource, resource.as_request(crud, is_dry_run=True)
@@ -153,10 +165,11 @@ class ResourceRefList(UserList[ResourceRef]):
 class ToolkitRuleSet(ABC):
     """Validation rules for a specific type of resources, e.g., streams or functions.
 
+    The rule set only holds its configuration. The data to validate is passed to get_status and validate, and
+    anything derived from it, or retrieved from CDF, is kept local to the call, such that a rule set can be
+    created before the data is available and be reused.
+
     Args:
-        resources: The local resources to validate. Rules in the 'cdf' context, which validate the resources
-            in CDF, do not need them.
-        results: The deployment results, used by rules that validate the changes a deployment would make.
         client: The ToolkitClient to use. This is required by some rules.
     """
 
@@ -164,14 +177,7 @@ class ToolkitRuleSet(ABC):
     CONTEXT: ClassVar[frozenset[Literal["local", "cdf"]]] = frozenset()
     DISPLAY_NAME: ClassVar[str]
 
-    def __init__(
-        self,
-        resources: Sequence[ResourceRef] | None = None,
-        results: Sequence[DeploymentResult] | None = None,
-        client: ToolkitClient | None = None,
-    ) -> None:
-        self.resources = ResourceRefList(resources or [])
-        self.results = results
+    def __init__(self, client: ToolkitClient | None = None) -> None:
         self.client = client
 
     def _load_client(self) -> ToolkitClient:
@@ -181,11 +187,11 @@ class ToolkitRuleSet(ABC):
         return cast(ToolkitClient, SimpleNamespace(console=None))
 
     @abstractmethod
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         raise NotImplementedError()
 
     @abstractmethod
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         raise NotImplementedError()
 
 

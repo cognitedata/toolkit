@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from functools import cached_property
 from pathlib import Path
 from typing import NamedTuple
 
@@ -14,6 +13,7 @@ from cognite_toolkit._cdf_tk.rules._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     quote_identifier,
     with_position,
 )
@@ -43,7 +43,7 @@ class AgentRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Agents"
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if not self.client:
             return RuleSetStatus(
                 code="reduced",
@@ -57,29 +57,41 @@ class AgentRuleSet(ToolkitRuleSet):
             message="Will validate Atlas AI agent configuration.",
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        for resource in self.resources:
-            if not resource.has_valid_syntax or resource.type != AgentIO.as_resource_type():
-                # We do not do further validation if there are syntax errors.
-                continue
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
+        # We do not do further validation if there are syntax errors.
+        agents = [
+            resource
+            for resource in data.resources
+            if resource.has_valid_syntax and resource.type == AgentIO.as_resource_type()
+        ]
+        if not agents:
+            return
+        try:
+            availability = self._retrieve_service_availability()
+        except Exception as e:
+            yield InternalValidatorException(
+                message=f"Failed to retrieve the AI service availability: {e}", source=self.DISPLAY_NAME
+            )
+            return
+        for resource in agents:
             try:
-                yield from self._validate_agent(resource)
+                yield from self._validate_agent(resource, availability)
             except Exception as e:
                 yield InternalValidatorException(
                     message=f"Agent validation failed for agent definition {quote_identifier(resource.identifier)}: {e}",
                     source=str(resource.identifier),
                 )
 
-    def _validate_agent(self, resource: ResourceRef) -> Iterable[Insight]:
+    def _validate_agent(self, resource: ResourceRef, availability: ServicesAvailability | None) -> Iterable[Insight]:
         """Validate an agent definition against the CDF project's AI service availability.
 
         Args:
             resource: The agent resource to validate.
+            availability: The AI service availability of the CDF project. Nothing is validated without it.
 
         Yields:
             Errors for any violations found.
         """
-        availability = self.service_availability
         if availability is None or not isinstance(resource.source, Path):
             return
         source_file = resource.source
@@ -163,8 +175,7 @@ class AgentRuleSet(ToolkitRuleSet):
                 keys=["tools"],
             )
 
-    @cached_property
-    def service_availability(self) -> ServicesAvailability | None:
+    def _retrieve_service_availability(self) -> ServicesAvailability | None:
         if not self.client:
             return None
         return self.client.agents.service_availability()

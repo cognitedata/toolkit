@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.rules._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     identifier_values,
     quote_identifier,
     with_position,
@@ -124,7 +125,7 @@ class ClassicDeprecationRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Classic deprecations"
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():
             return RuleSetStatus(
                 code="skip",
@@ -135,12 +136,12 @@ class ClassicDeprecationRuleSet(ToolkitRuleSet):
             )
         return RuleSetStatus(code="ready", message="Will check for classic resources that use deprecated APIs.")
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if not Flags.ALPHA_RULES.is_enabled():
             return
         first_by_type: dict[ResourceType, tuple[ResourceRef, Path]] = {}
         count_by_type: Counter[ResourceType] = Counter()
-        for resource in self.resources:
+        for resource in data.resources:
             if resource.type not in DEPRECATION_BY_RESOURCE_TYPE or not isinstance(resource.source, Path):
                 continue
             count_by_type[resource.type] += 1

@@ -18,6 +18,7 @@ from ._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     identifier_values,
     quote_identifier,
     with_position,
@@ -34,7 +35,7 @@ class DuplicateRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Duplicates"
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():
             return RuleSetStatus(
                 code="skip",
@@ -42,11 +43,11 @@ class DuplicateRuleSet(ToolkitRuleSet):
             )
         return RuleSetStatus(code="ready", message="Will check for resources with duplicated identifiers.")
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if not Flags.ALPHA_RULES.is_enabled():
             return
         definitions_by_id: dict[tuple[ResourceType, Identifier], list[tuple[ResourceRef, Path]]] = defaultdict(list)
-        for resource in self.resources:
+        for resource in data.resources:
             if not resource.has_valid_syntax:
                 continue
             # Unresolved variables are reported on their own.
