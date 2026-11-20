@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, with_position
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, ValidationInput, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
@@ -42,7 +42,7 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Infield config"
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if not self.client:
             return RuleSetStatus(
                 code="reduced",
@@ -56,7 +56,7 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
             message="Will validate InField CDM location configurations.",
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
             return
         card_view_refs: list[_CardViewRef] = []
@@ -64,7 +64,7 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
         app_instance_space_refs: list[tuple[Path, str]] = []
 
         crud = InFieldCDMLocationConfigIO(self.client)
-        for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
+        for resource, validatable in data.get_refs_and_resource_of_type(crud):
             if not isinstance(resource.source, Path):
                 continue
             card_refs, field_refs = self._collect_refs(resource.source, validatable.request)

@@ -52,6 +52,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     SpaceIO,
     ViewIO,
 )
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingLimits, DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -266,7 +267,7 @@ def _view_property(container_property_identifier: str, direct: bool) -> ViewCore
 
 class TestDataModelingRuleSetStatus:
     def test_get_status_reduced_without_client(self) -> None:
-        status = DataModelingRuleSet(resources=[]).get_status()
+        status = DataModelingRuleSet().get_status(ValidationInput())
         assert (status.code, "within the provided modules" in (status.message or "")) == ("reduced", True)
 
     @pytest.mark.parametrize(
@@ -277,8 +278,8 @@ class TestDataModelingRuleSetStatus:
         ],
     )
     def test_get_status_ready_with_client(self, with_results: bool, fragment: str) -> None:
-        results = [_deployment("spaces")] if with_results else None
-        status = DataModelingRuleSet(resources=[], results=results, client=MagicMock()).get_status()
+        results = [_deployment("spaces")] if with_results else []
+        status = DataModelingRuleSet(client=MagicMock()).get_status(ValidationInput(results=results))
         assert (status.code, fragment in (status.message or "")) == ("ready", True)
 
 
@@ -286,7 +287,8 @@ class TestContainerPropertyReferences:
     def test_local_container_property_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_YAML)
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet()
+        data = ValidationInput(
             resources=_resources(
                 [
                     (container_file, ContainerIO, CONTAINER_ID),
@@ -295,13 +297,14 @@ class TestContainerPropertyReferences:
             )
         )
 
-        assert list(rule.validate()) == []
+        assert list(rule.validate(data)) == []
 
     def test_missing_local_property_without_client_is_unverified(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
-        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]))
+        rule = DataModelingRuleSet()
+        data = ValidationInput(resources=_resources([(view_file, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
             ("UNVERIFIED-REFERENCED-PROPERTY", True)
         ]
@@ -309,16 +312,18 @@ class TestContainerPropertyReferences:
     def test_property_found_in_cdf_is_accepted(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client(containers=[_cdf_container({"name": ContainerPropertyDefinition(type=TextProperty())})])
-        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(view_file, ViewIO, VIEW_ID)]))
 
-        assert list(rule.validate()) == []
+        assert list(rule.validate(data)) == []
 
     def test_property_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client(containers=[_cdf_container({})])
-        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(view_file, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
             ("MISSING-REFERENCED-PROPERTY", True)
         ]
@@ -327,9 +332,10 @@ class TestContainerPropertyReferences:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client()
         client.containers.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
-        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(view_file, ViewIO, VIEW_ID)]))
 
-        results = list(rule.validate())
+        results = list(rule.validate(data))
         assert [(type(result), getattr(result, "source", None)) for result in results] == [
             (InternalValidatorException, "Container")
         ]
@@ -340,7 +346,8 @@ class TestReverseDirectRelations:
         container_file = _write(tmp_path, "MyContainer.container.yaml", DIRECT_CONTAINER_YAML)
         mapped_view = _write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML)
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet()
+        data = ValidationInput(
             resources=_resources(
                 [
                     (container_file, ContainerIO, CONTAINER_ID),
@@ -350,13 +357,14 @@ class TestReverseDirectRelations:
             )
         )
 
-        assert list(rule.validate()) == []
+        assert list(rule.validate(data)) == []
 
     def test_local_property_that_is_not_direct_is_rejected(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", TEXT_CONTAINER_YAML)
         mapped_view = _write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML)
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet()
+        data = ValidationInput(
             resources=_resources(
                 [
                     (container_file, ContainerIO, CONTAINER_ID),
@@ -366,16 +374,17 @@ class TestReverseDirectRelations:
             )
         )
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "not a direct relation" in insight.message) for insight in insights] == [
             ("INVALID-REFERENCED-PROPERTY", True)
         ]
 
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
-        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
+        rule = DataModelingRuleSet()
+        data = ValidationInput(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "direct relation" in insight.message) for insight in insights] == [
             ("UNVERIFIED-REFERENCED-PROPERTY", True)
         ]
@@ -383,24 +392,27 @@ class TestReverseDirectRelations:
     def test_direct_relation_found_on_cdf_view_is_accepted(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=True)})])
-        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
 
-        assert list(rule.validate()) == []
+        assert list(rule.validate(data)) == []
 
     def test_cdf_view_property_that_is_not_direct_is_rejected(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=False)})])
-        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == ["INVALID-REFERENCED-PROPERTY"]
 
     def test_reverse_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {})])
-        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == ["MISSING-REFERENCED-PROPERTY"]
 
     @pytest.mark.parametrize(
@@ -492,9 +504,10 @@ class TestReverseDirectRelations:
             _cdf_view(view_id, {"related": _view_property("related", direct=is_direct)})
             for view_id, is_direct in cdf_view_is_direct.items()
         ]
-        rule = DataModelingRuleSet(resources=module, client=_client(views=cdf_views))
+        rule = DataModelingRuleSet(client=_client(views=cdf_views))
+        data = ValidationInput(resources=module)
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
 
     @pytest.mark.usefixtures("alpha_rules")
@@ -517,7 +530,8 @@ class TestReverseDirectRelations:
         container_yaml = UNINDEXED_DIRECT_CONTAINER_YAML + index_yaml
         if is_list:
             container_yaml = container_yaml.replace("type: direct", "type: direct\n      list: true")
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet()
+        data = ValidationInput(
             resources=_resources(
                 [
                     (_write(tmp_path, "MyContainer.container.yaml", container_yaml), ContainerIO, CONTAINER_ID),
@@ -527,7 +541,7 @@ class TestReverseDirectRelations:
             )
         )
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
 
     @pytest.mark.usefixtures("alpha_rules")
@@ -537,9 +551,10 @@ class TestReverseDirectRelations:
             containers=[_cdf_container({"related": ContainerPropertyDefinition(type=DirectNodeRelation())})],
             views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=True)})],
         )
-        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.related" in insight.message) for insight in insights] == [
             ("DEGRADED-PERFORMANCE", True)
         ]
@@ -619,7 +634,7 @@ class TestImplementsCycles:
             tmp_path, {name: (parents, ()) for name, parents in implements_by_view.items()}, {}
         )
 
-        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        insights = [insight for insight in DataModelingRuleSet().validate(ValidationInput(resources=resources))]
         expected_messages = [
             "Detected a cycle of view implements: "
             + " -> ".join(str(ViewId(space="my_space", external_id=name, version="v1")) for name in cycle)
@@ -635,9 +650,10 @@ class TestImplementsCycles:
         cdf_id = ViewId(space="my_space", external_id="B", version="v1")
         cdf_view = _cdf_view(cdf_id, {}).model_copy(update={"implements": [local_id]})
         resources = _schema_resources(tmp_path, {"A": (("B",), ())}, {})
-        rule = DataModelingRuleSet(resources=resources, client=_client(views=[cdf_view]))
+        rule = DataModelingRuleSet(client=_client(views=[cdf_view]))
+        data = ValidationInput(resources=resources)
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [(insight.code, insight.message) for insight in insights] == [
             ("INVALID-VALUE", f"Detected a cycle of view implements: {local_id} -> {cdf_id} -> {local_id}.")
         ]
@@ -696,9 +712,10 @@ class TestMissingRequiresConstraints:
         expected_fix: str | None,
         tmp_path: Path,
     ) -> None:
-        rule = DataModelingRuleSet(resources=_schema_resources(tmp_path, views, containers))
+        rule = DataModelingRuleSet()
+        data = ValidationInput(resources=_schema_resources(tmp_path, views, containers))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         expected = [] if expected_fix is None else [("DEGRADED-PERFORMANCE", True)]
         assert [(insight.code, (insight.fix or "").startswith(expected_fix or "")) for insight in insights] == expected
 
@@ -721,7 +738,7 @@ class TestMissingRequiresConstraints:
             ]
         )
 
-        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        insights = [insight for insight in DataModelingRuleSet().validate(ValidationInput(resources=resources))]
         assert insights == []
 
     def test_views_in_implements_cycle_are_skipped(self, tmp_path: Path) -> None:
@@ -731,7 +748,7 @@ class TestMissingRequiresConstraints:
             {"Pump": (), "Equipment": ()},
         )
 
-        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        insights = [insight for insight in DataModelingRuleSet().validate(ValidationInput(resources=resources))]
         assert [insight.code for insight in insights] == ["INVALID-VALUE"]
 
     @pytest.mark.parametrize("with_client, expected_codes", [(True, ["DEGRADED-PERFORMANCE"]), (False, [])])
@@ -763,9 +780,10 @@ class TestMissingRequiresConstraints:
             ]
         )
         client = _client(views=[cdf_parent]) if with_client else None
-        rule = DataModelingRuleSet(resources=resources, client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=resources)
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
 
 
@@ -805,7 +823,7 @@ class TestMissingParentViews:
         )
         resources += _resources([(model_file, DataModelIO, DATA_MODEL_ID)])
 
-        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        insights = [insight for insight in DataModelingRuleSet().validate(ValidationInput(resources=resources))]
         expected_fixes = (
             [
                 "Add "
@@ -824,11 +842,14 @@ class TestMissingParentViews:
         cdf_view_id = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
         cdf_view = _cdf_view(cdf_view_id, {}).model_copy(update={"implements": [cdf_parent_id]})
         model_file = _write(tmp_path, "MyModel.DataModel.yaml", _schema_data_model_yaml(cdf_view_id))
-        rule = DataModelingRuleSet(
-            resources=_resources([(model_file, DataModelIO, DATA_MODEL_ID)]), client=_client(views=[cdf_view])
-        )
+        rule = DataModelingRuleSet(client=_client(views=[cdf_view]))
+        data = ValidationInput(resources=_resources([(model_file, DataModelIO, DATA_MODEL_ID)]))
 
-        insights = [insight for insight in rule._check_schema_design() if isinstance(insight, InsightDefinition)]
+        insights = [
+            insight
+            for insight in rule._check_schema_design(rule._load_inventory(data))
+            if isinstance(insight, InsightDefinition)
+        ]
         assert [(insight.code, insight.line) for insight in insights] == [("MISSING-VALUE", 4)]
 
 
@@ -846,10 +867,10 @@ class TestDataModelingChangesMove:
 
         data_modeling = [
             insight
-            for insight in DataModelingRuleSet(resources=resources, client=client).validate()
+            for insight in DataModelingRuleSet(client=client).validate(ValidationInput(resources=resources))
             if isinstance(insight, InsightDefinition)
         ]
-        dependencies = list(DependencyRuleSet(resources=resources, client=client).validate())
+        dependencies = list(DependencyRuleSet(client=client).validate(ValidationInput(resources=resources)))
 
         assert (
             [insight.code for insight in data_modeling],
@@ -1232,9 +1253,10 @@ class TestDataModelingStateChanges:
         client = _client(
             containers=[_cdf_container(cdf_properties, description=cdf_description, used_for=cdf_used_for)]
         )
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert (
             [insight.code for insight in insights],
             expected_message_fragment is None or expected_message_fragment in insights[0].message,
@@ -1261,9 +1283,10 @@ class TestDataModelingStateChanges:
     ) -> None:
         yaml_file = _write(tmp_path, "MyContainer.container.yaml", CHANGE_CONTAINER_YAML)
         client = _client(containers=[_cdf_container(cdf_properties, used_for=cdf_used_for)])
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert [type(insight) for insight in insights] == [expected_insight_type]
 
     @pytest.mark.parametrize(
@@ -1345,9 +1368,10 @@ class TestDataModelingStateChanges:
             containers=[_referenced_container()],
             views=[_deployed_view(cdf_properties, cdf_description, cdf_implements)],
         )
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ViewIO, VIEW_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, ViewIO, VIEW_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert (
             [insight.code for insight in insights],
             expected_message_fragment is None or expected_message_fragment in insights[0].message,
@@ -1380,9 +1404,10 @@ class TestDataModelingStateChanges:
     ) -> None:
         yaml_file = _write(tmp_path, "MyModel.datamodel.yaml", DATA_MODEL_YAML)
         client = _client(data_models=[_cdf_data_model(cdf_views)])
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, DataModelIO, DATA_MODEL_ID)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, DataModelIO, DATA_MODEL_ID)]))
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        insights = [insight for insight in rule.validate(data) if isinstance(insight, InsightDefinition)]
         assert (
             [insight.code for insight in insights],
             expected_message_fragment is None or expected_message_fragment in insights[0].message,
@@ -1390,8 +1415,9 @@ class TestDataModelingStateChanges:
 
     def test_state_changes_are_skipped_without_client(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "MyContainer.container.yaml", CHANGE_CONTAINER_YAML)
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]))
-        assert list(rule.validate()) == []
+        rule = DataModelingRuleSet()
+        data = ValidationInput(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]))
+        assert list(rule.validate(data)) == []
 
 
 _LIMIT_VALUES: dict[str, float] = {
@@ -1517,12 +1543,15 @@ class TestDataModelingLimits:
             max_views_per_data_model=100,
         )
 
-    @pytest.mark.parametrize("results", [None, []])
-    def test_limits_are_skipped_without_deployment_results(self, results: list[DeploymentResult] | None) -> None:
+    def test_limits_are_skipped_without_deployment_results(self) -> None:
         client = MagicMock()
-        rule = DataModelingRuleSet(resources=[], results=results, client=client)
+        rule = DataModelingRuleSet(client=client)
 
-        assert (list(rule.validate()), client.limits.list.called, client.statistics.retrieve.called) == (
+        assert (
+            list(rule.validate(ValidationInput())),
+            client.limits.list.called,
+            client.statistics.retrieve.called,
+        ) == (
             [],
             False,
             False,
@@ -1559,12 +1588,13 @@ class TestDataModelingLimits:
             statistics=_project_statistics(**{field_name: 2}),
         )
         results = [_deployment(resource_name, created=[identifier])]
-        rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, crud, identifier)]), results=results, client=client
-        )
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, crud, identifier)]), results=results)
 
         insights = [
-            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, InsightDefinition)
+            item
+            for item in rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results)
+            if isinstance(item, InsightDefinition)
         ]
         assert [
             (
@@ -1578,13 +1608,13 @@ class TestDataModelingLimits:
     def test_validate_reports_a_space_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
         client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(
             resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]),
             results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
-            client=client,
         )
 
-        insights = [item for item in rule.validate() if isinstance(item, InsightDefinition)]
+        insights = [item for item in rule.validate(data) if isinstance(item, InsightDefinition)]
         assert (
             [insight.code for insight in insights],
             "increasing the total number of spaces from 2 to 3" in insights[0].message,
@@ -1604,11 +1634,10 @@ class TestDataModelingLimits:
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
         client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=current))
         results = [_deployment("spaces", created=[space_id], deleted=deleted)]
-        rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, SpaceIO, space_id)]), results=results, client=client
-        )
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, SpaceIO, space_id)]), results=results)
 
-        assert list(rule._check_data_modeling_capacity(client, results)) == []
+        assert list(rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results)) == []
 
     def test_one_error_per_exceeded_endpoint(self, tmp_path: Path) -> None:
         kept = SpaceId(space="space_a")
@@ -1619,16 +1648,18 @@ class TestDataModelingLimits:
         other_file = _write(tmp_path, "space_c.Space.yaml", "space: space_c\n")
         client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
         results = [_deployment("spaces", created=[kept, added, other], deleted=[kept])]
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(
             resources=_resources(
                 [(kept_file, SpaceIO, kept), (added_file, SpaceIO, added), (other_file, SpaceIO, other)]
             ),
             results=results,
-            client=client,
         )
 
         insights = [
-            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
+            item
+            for item in rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results)
+            if isinstance(item, BuildError)
         ]
         assert [
             (insight.source_url, "create 3 spaces and delete 1 space" in insight.message) for insight in insights
@@ -1638,10 +1669,13 @@ class TestDataModelingLimits:
         yaml_file = _write(tmp_path, "my_node.Node.yaml", NODE_YAML)
         client = _client(limits=_limit_responses(max_instances=5), statistics=_project_statistics(instances=5))
         results = [_deployment("nodes", created=[NODE_ID])]
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, NodeIO, NODE_ID)]), results=results, client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, NodeIO, NODE_ID)]), results=results)
 
         insights = [
-            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
+            item
+            for item in rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results)
+            if isinstance(item, BuildError)
         ]
         assert (
             [insight.code for insight in insights],
@@ -1655,10 +1689,13 @@ class TestDataModelingLimits:
             statistics=_project_statistics(instances=10, soft_deleted_instances=5),
         )
         results = [_deployment("nodes", deleted=[NODE_ID])]
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, NodeIO, NODE_ID)]), results=results, client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, NodeIO, NODE_ID)]), results=results)
 
         insights = [
-            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
+            item
+            for item in rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results)
+            if isinstance(item, BuildError)
         ]
         assert (
             [insight.code for insight in insights],
@@ -1737,9 +1774,14 @@ class TestDataModelingLimits:
     ) -> None:
         yaml_file = _write(tmp_path, "resource.yaml", yaml)
         client = _client(limits=_limit_responses(**overrides))
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, crud, identifier)]), client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, crud, identifier)]))
 
-        insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, BuildError)]
+        insights = [
+            item
+            for item in rule._check_data_modeling_limits(client, rule._load_inventory(data))
+            if isinstance(item, BuildError)
+        ]
         assert client.statistics.retrieve.called is False
         if fragment is None:
             assert insights == []
@@ -1770,26 +1812,27 @@ class TestDataModelingLimits:
         monkeypatch.setattr(ViewIO, "load_resource_file", counting(ViewIO.load_resource_file))
         monkeypatch.setattr(DataModelIO, "load_resource_file", counting(DataModelIO.load_resource_file))
         client = _client()
-        rule = DataModelingRuleSet(
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(
             resources=_resources(
                 [
                     (container_file, ContainerIO, CONTAINER_ID),
                     (view_file, ViewIO, VIEW_ID),
                     (model_file, DataModelIO, DATA_MODEL_ID),
                 ]
-            ),
-            client=client,
+            )
         )
 
-        assert (list(rule.validate()), reads) == ([], ["ContainerIO", "ViewIO", "DataModelIO"])
+        assert (list(rule.validate(data)), reads) == ([], ["ContainerIO", "ViewIO", "DataModelIO"])
 
     def test_limits_api_failure_is_reported(self) -> None:
         client = _client()
         client.limits.list.side_effect = ToolkitAPIError("limits unavailable")
         results = [_deployment("spaces", created=[SpaceId(space="my_space")])]
-        rule = DataModelingRuleSet(resources=[], results=results, client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(results=results)
 
-        items = list(rule._check_data_modeling_capacity(client, results))
+        items = list(rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results))
         assert (
             len(items) == 1
             and isinstance(items[0], InternalValidatorException)
@@ -1802,13 +1845,10 @@ class TestDataModelingLimits:
         client = _client()
         client.statistics.retrieve.side_effect = ToolkitAPIError("statistics unavailable")
         results = [_deployment("spaces", created=[SpaceId(space="my_space")])]
-        rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]),
-            results=results,
-            client=client,
-        )
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]), results=results)
 
-        items = list(rule._check_data_modeling_capacity(client, results))
+        items = list(rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results))
         assert (
             [type(item) for item in items],
             "statistics unavailable" in items[0].message,
@@ -1817,9 +1857,10 @@ class TestDataModelingLimits:
     def test_unparseable_limits_are_reported(self) -> None:
         client = _client(limits=[LimitValueResponse(limit_id="data_modeling.max_spaces", value=1)])
         results = [_deployment("spaces", created=[SpaceId(space="my_space")])]
-        rule = DataModelingRuleSet(resources=[], results=results, client=client)
+        rule = DataModelingRuleSet(client=client)
+        data = ValidationInput(results=results)
 
-        items = list(rule._check_data_modeling_capacity(client, results))
+        items = list(rule._check_data_modeling_capacity(client, rule._load_inventory(data), data.results))
         assert (
             [type(item) for item in items],
             client.statistics.retrieve.called,
