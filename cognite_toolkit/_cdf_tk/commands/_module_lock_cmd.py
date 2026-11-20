@@ -119,7 +119,7 @@ class ModuleLockCommand(ToolkitCommand):
         email_by_user_id: dict[str, str] = {}
         for user_id in dict.fromkeys(lock.user_id for lock in locks):
             try:
-                email = client.lookup.users.email(user_id, warn=False)
+                email = client.lookup.principals.email(user_id, warn=False)
             except (ToolkitAPIError, ToolkitError):
                 # Typically missing access to list users; fall back to showing the user ID.
                 break
