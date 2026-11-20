@@ -123,7 +123,10 @@ class ResourceRef(Protocol):
     def variables(self) -> list[BuildVariable]: ...
 
     def as_request(
-        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any], is_dry_run: bool = False
+        self,
+        crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any],
+        is_dry_run: bool = False,
+        environment_variables: dict[str, str | None] | None = None,
     ) -> ValidatableResource[T_RequestResource]:
         raise NotImplementedError()
 
