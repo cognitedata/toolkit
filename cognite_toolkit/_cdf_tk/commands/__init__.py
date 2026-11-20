@@ -1,4 +1,5 @@
 from ._build_deploy_validate import BuildDeployValidateCommand
+from ._check import CheckCommand, CheckType
 from ._download import DownloadCommand
 from ._migrate import (
     MigrationCommand,
@@ -34,6 +35,8 @@ __all__ = [
     "AuthCommand",
     "BuildDeployValidateCommand",
     "BuildV2Command",
+    "CheckCommand",
+    "CheckType",
     "DeployOptions",
     "DeployV2Command",
     "DeploymentStep",

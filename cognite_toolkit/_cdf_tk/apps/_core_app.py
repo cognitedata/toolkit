@@ -18,16 +18,16 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
     BuildDeployValidateCommand,
+    CheckCommand,
+    CheckType,
     DeployOptions,
     DeployV2Command,
-    ValidationCommand,
 )
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import PostBuildParameters
 from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
-from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
@@ -516,16 +516,26 @@ class CoreApp(typer.Typer):
         )
 
     @staticmethod
-    def check() -> None:
+    def check(
+        checks: Annotated[
+            list[CheckType],
+            typer.Argument(
+                help="The checks to run against the CDF project. Use 'all' to run all checks.",
+                show_default=False,
+            ),
+        ],
+        lookback_period: Annotated[
+            int,
+            typer.Option(
+                "--lookback-period",
+                "-l",
+                min=1,
+                help="The number of days back in time to look for failing jobs.",
+            ),
+        ] = 3,
+    ) -> None:
         """Checks resources in CDF project against rules and best practices."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ValidationCommand(client=client)
+        cmd = CheckCommand(client=client)
 
-        cmd.run(
-            lambda: cmd.validate(
-                resource_types=None,
-                client=client,
-                display=CommandDisplay(results=True),
-                rule_context="cdf",
-            )
-        )
+        cmd.run(lambda: cmd.check(checks, client, lookback_period))
