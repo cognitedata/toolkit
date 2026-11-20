@@ -241,16 +241,17 @@ class TestDataPointsIO:
 
 
 class TestDatapointsUploadConversion:
-    def test_invalid_value_does_not_shift_following_values(self) -> None:
+    def test_invalid_value_does_not_shift_following_values(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger]
+    ) -> None:
         selector = DataPointsDataSetSelector(data_set_external_id="my_data_set")
         rows: dict[str, JsonVal] = {
             "externalId": ["ts_a"] * 3,
             "timestamp": [1, 2, 3],
             "value": ["1.0", "not a number", "3.0"],
         }
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [])
-            resource = io.row_to_resource("file.csv rows 1 to 3", rows, selector)
+        io, logger = datapoints_io
+        resource = io.row_to_resource("file.csv rows 1 to 3", rows, selector)
 
         assert {"datapoints": resource.datapoints, "log": log_summary(logger)} == {
             "datapoints": DataPointInsertionRequest(
@@ -269,7 +270,9 @@ class TestDatapointsUploadConversion:
             "log": [("file.csv rows 1 to 3", "Skipped rows that could not be converted", Severity.warning)],
         }
 
-    def test_empty_cells_are_skipped_and_status_codes_are_uploaded(self) -> None:
+    def test_empty_cells_are_skipped_and_status_codes_are_uploaded(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger]
+    ) -> None:
         selector = DataPointsDataSetSelector(data_set_external_id="my_data_set")
         rows: dict[str, JsonVal] = {
             "externalId": ["ts_a", "ts_a", "ts_a", None, "ts_a"],
@@ -277,9 +280,8 @@ class TestDatapointsUploadConversion:
             "value": [None, 2.0, None, 4.0, 5.0],
             "statusCode": [None, None, BAD, None, BAD],
         }
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [])
-            resource = io.row_to_resource("rows", rows, selector)
+        io, logger = datapoints_io
+        resource = io.row_to_resource("rows", rows, selector)
 
         assert {"datapoints": resource.datapoints, "log": sorted(entry.label for entry in logger.entries)} == {
             "datapoints": DataPointInsertionRequest(
@@ -302,7 +304,9 @@ class TestDatapointsUploadConversion:
             ],
         }
 
-    def test_state_rows_without_value_or_identifier_are_skipped(self) -> None:
+    def test_state_rows_without_value_or_identifier_are_skipped(
+        self, datapoints_io: tuple[DatapointsIO, RecordingLogger]
+    ) -> None:
         selector = DataPointsInstanceSpaceSelector(instance_space="my_space", data_type="state")
         rows: dict[str, JsonVal] = {
             "space": ["my_space", "my_space", None, "my_space"],
@@ -312,9 +316,8 @@ class TestDatapointsUploadConversion:
             "stringValue": [None, None, None, None],
             "statusCode": [None, None, None, BAD],
         }
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [])
-            resource = io.row_to_resource("rows", rows, selector)
+        io, logger = datapoints_io
+        resource = io.row_to_resource("rows", rows, selector)
 
         assert {"datapoints": resource.datapoints, "log": sorted(entry.label for entry in logger.entries)} == {
             "datapoints": DataPointInsertionRequest(
@@ -333,7 +336,9 @@ class TestDatapointsUploadConversion:
             "log": ["Skipped rows without a time series identifier", "Skipped rows without a value"],
         }
 
-    def test_file_selector_keeps_strings_and_reads_naive_timestamps_as_utc(self, tmp_path: Path) -> None:
+    def test_file_selector_keeps_strings_and_reads_naive_timestamps_as_utc(
+        self, tmp_path: Path, datapoints_io: tuple[DatapointsIO, RecordingLogger]
+    ) -> None:
         csv_file = tmp_path / "wide.Datapoints.csv"
         csv_file.write_text("time,code,temperature,unknown\n2024-01-01T00:00:00,007,,1\n2024-01-01T01:00:00,,21.5,2\n")
         selector = DataPointsFileSelector(
@@ -343,13 +348,10 @@ class TestDatapointsUploadConversion:
                 ExternalIdColumn(dtype="numeric", column="temperature", external_id="ts_temperature"),
             ),
         )
-        with monkeypatch_toolkit_client() as client:
-            io, logger = create_io(client, [])
-            reader = MultiFileReader([csv_file], schema=io.get_schema(selector))
-            pages = list(io.read_chunks(reader, selector))
-            resources = [
-                io.row_to_resource(item.tracking_id, item.item, selector) for page in pages for item in page.items
-            ]
+        io, logger = datapoints_io
+        reader = MultiFileReader([csv_file], schema=io.get_schema(selector))
+        pages = list(io.read_chunks(reader, selector))
+        resources = [io.row_to_resource(item.tracking_id, item.item, selector) for page in pages for item in page.items]
 
         assert {
             "datapoints": [resource.datapoints for resource in resources],
