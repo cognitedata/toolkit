@@ -37,9 +37,7 @@ class CheckCommand(ValidationCommand):
         validation_results = self.validate(client=client, display=CommandDisplay(results=False), plan=plan)
         validation_errors = [error for result in validation_results for error in result.errors]
         if validation_errors:
-            client.console.print(
-                f"[bold red]Error:[/] Found {len(validation_errors)} internal validator exception(s):"
-            )
+            client.console.print(f"[bold red]Error:[/] Found {len(validation_errors)} internal validator exception(s):")
             for result in validation_results:
                 for error in result.errors:
                     client.console.print(f"  - {result.name}: [red]{escape(error.message)}[/]")
