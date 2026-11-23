@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import ValidationResultList
 from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightList
-from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, ToolkitRuleSet
+from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, ToolkitRuleSet, UnusedRuleSet
 
 
 class CheckType(StrEnum):
@@ -57,4 +57,6 @@ class CheckCommand(ValidationCommand):
         plan: list[ToolkitRuleSet] = []
         if checks & {CheckType.failing, CheckType.all}:
             plan.append(FailingJobRuleSet(client=client, lookback_period=timedelta(days=lookback_period)))
+        if checks & {CheckType.all}:
+            plan.append(UnusedRuleSet(client=client))
         return plan

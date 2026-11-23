@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import CountAggregate
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import CustomFormat
-from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InternalValidatorException
+from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InternalValidatorException, Recommendation
 from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     ExtractionPipelineIO,
@@ -49,6 +49,7 @@ class _UnusedResourceTypes:
     type: ResourceType
     identifiers: Sequence[Identifier]
     message: str
+    url: str
 
 
 class UnusedRuleSet(ToolkitRuleSet):
@@ -127,7 +128,14 @@ class UnusedRuleSet(ToolkitRuleSet):
                     yield unused
 
     def _report_unused(self, unused_resources: list[_UnusedResourceTypes]) -> Iterable[Insight]:
-        raise NotImplementedError()
+        for unused in unused_resources:
+            identifiers_str = "\n - ".join(str(identifier) for identifier in unused.identifiers)
+            yield Recommendation(
+                code="EMPTY-RESOURCE",
+                message=f"{len(unused.identifiers)} unused {unused.type.kind.lower()}(s) found in CDF: {unused.message}",
+                source_url=unused.url,
+                fix=f"Delete the unused:\n{identifiers_str}.",
+            )
 
     @property
     def _never_run_message(self) -> str:
@@ -145,6 +153,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=SpaceIO.as_resource_type(),
             identifiers=[SpaceId(space=space) for space in unused_spaces],
             message="There are no instances, views, containers, or other resources in this space",
+            url="/models/spaces",
         )
 
     def _unused_workflows(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
@@ -163,6 +172,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=WorkflowIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._never_run_message}. There are no executions of this workflow",
+            url="/workflows",
         )
 
     def _unused_transformations(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
@@ -178,6 +188,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=TransformationIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._never_run_message}. There are no jobs of this transformation",
+            url="/transformations",
         )
 
     def _unused_functions(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
@@ -190,6 +201,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=FunctionIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._never_run_message}. This function has never been called",
+            url="/functions",
         )
 
     def _unused_hosted_extractors(self, client: ToolkitClient, created_before_epoch: int) -> list[_UnusedResourceTypes]:
@@ -211,6 +223,7 @@ class UnusedRuleSet(ToolkitRuleSet):
                 type=HostedExtractorJobIO.as_resource_type(),
                 identifiers=unused_jobs,
                 message=f"{self._never_run_message}. There are no logs of this hosted extractor job",
+                url="/hostedextractors/jobs",
             ),
             _UnusedResourceTypes(
                 type=HostedExtractorSourceIO.as_resource_type(),
@@ -220,6 +233,7 @@ class UnusedRuleSet(ToolkitRuleSet):
                     if source.created_time < created_before_epoch and source.external_id not in used_sources
                 ],
                 message=not_used_by_job,
+                url="/hostedextractors/sources",
             ),
             _UnusedResourceTypes(
                 type=HostedExtractorDestinationIO.as_resource_type(),
@@ -230,6 +244,7 @@ class UnusedRuleSet(ToolkitRuleSet):
                     and destination.external_id not in used_destinations
                 ],
                 message=not_used_by_job,
+                url="/hostedextractors/destinations",
             ),
             _UnusedResourceTypes(
                 type=HostedExtractorMappingIO.as_resource_type(),
@@ -239,6 +254,7 @@ class UnusedRuleSet(ToolkitRuleSet):
                     if mapping.created_time < created_before_epoch and mapping.external_id not in used_mappings
                 ],
                 message=not_used_by_job,
+                url="/hostedextractors/mappings",
             ),
         ]
 
@@ -256,6 +272,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=ViewIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._created_before_message} and has no instances",
+            url="/models/views",
         )
 
     @staticmethod
@@ -279,6 +296,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=DataModelIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._created_before_message} and has no views",
+            url="/models/datamodels",
         )
 
     def _unused_extraction_pipelines(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
@@ -291,6 +309,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=ExtractionPipelineIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._never_run_message}. No extractor has reported a run to this extraction pipeline",
+            url="/extpipes",
         )
 
     def _unused_raw_databases(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
@@ -303,4 +322,5 @@ class UnusedRuleSet(ToolkitRuleSet):
             type=RawDatabaseIO.as_resource_type(),
             identifiers=unused,
             message=f"{self._created_before_message} and has no tables",
+            url="/raw/dbs",
         )
