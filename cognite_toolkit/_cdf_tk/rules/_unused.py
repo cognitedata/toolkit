@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     HostedExtractorMappingIO,
     HostedExtractorSourceIO,
     RawDatabaseIO,
+    RawTableIO,
     ResourceType,
     SpaceIO,
     TransformationIO,
@@ -105,7 +106,7 @@ class UnusedRuleSet(ToolkitRuleSet):
         self, client: ToolkitClient, created_before_epoch: int
     ) -> Iterable[_UnusedResourceTypes | InternalValidatorException]:
         checks: list[tuple[str, Callable[[], _UnusedResourceTypes | list[_UnusedResourceTypes]]]] = [
-            (SpaceIO.kind, lambda: self._unused_spaces(client)),
+            (SpaceIO.kind, lambda: self._unused_spaces(client, created_before_epoch)),
             (WorkflowIO.kind, lambda: self._unused_workflows(client, created_before_epoch)),
             (TransformationIO.kind, lambda: self._unused_transformations(client, created_before_epoch)),
             (FunctionIO.kind, lambda: self._unused_functions(client, created_before_epoch)),
@@ -114,6 +115,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             (DataModelIO.kind, lambda: self._unused_data_models(client, created_before_epoch)),
             (ExtractionPipelineIO.kind, lambda: self._unused_extraction_pipelines(client, created_before_epoch)),
             (RawDatabaseIO.kind, lambda: self._unused_raw_databases(client, created_before_epoch)),
+            # (RawTableIO.kind, lambda: self._unused_tables(client, created_before_epoch)),
         ]
         for kind, check in checks:
             try:
@@ -146,13 +148,14 @@ class UnusedRuleSet(ToolkitRuleSet):
         return f"Created more than {self.created_before.days} days ago"
 
     @classmethod
-    def _unused_spaces(cls, client: ToolkitClient) -> _UnusedResourceTypes:
+    def _unused_spaces(cls, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
         results = client.statistics.spaces.list()
-        unused_spaces = [space.space for space in results if space.is_empty]
+        unused_space_ids = [space.space for space in results if space.is_empty]
+        unused_spaces = client.spaces.retrieve([SpaceId(space=space) for space in unused_space_ids])
         return _UnusedResourceTypes(
             type=SpaceIO.as_resource_type(),
-            identifiers=[SpaceId(space=space) for space in unused_spaces],
-            message="There are no instances, views, containers, or other resources in this space",
+            identifiers=[space.as_id() for space in unused_spaces if space.created_time < created_before_epoch],
+            message=f"{cls._created_before_message} and is empty",
             url="/models/spaces",
         )
 
@@ -323,4 +326,19 @@ class UnusedRuleSet(ToolkitRuleSet):
             identifiers=unused,
             message=f"{self._created_before_message} and has no tables",
             url="/raw/dbs",
+        )
+
+    def _unused_tables(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
+        unused = [
+            table.as_id()
+            for database in client.raw.databases.list(limit=None)
+            for table in client.raw.tables.list(database.name, limit=None)
+            if table.created_time < created_before_epoch
+            and not client.raw.tables.rows.list(database.name, table.name, limit=1)
+        ]
+        return _UnusedResourceTypes(
+            type=RawTableIO.as_resource_type(),
+            identifiers=unused,
+            message=f"{self._created_before_message} and has no rows",
+            url="/raw/tables",
         )
