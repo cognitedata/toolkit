@@ -582,7 +582,12 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ContainerResponse]:
-        for batch in self.client.containers.iterate(filter=ContainerFilter(space=space) if space else None, limit=None):
+        # By default, only node and edge containers are returned,
+        # but we want all containers. Note that `all` means `node` and `edge` in the API.
+        filter_ = ContainerFilter(used_for=["node", "edge", "all", "record"])
+        if space:
+            filter_.space = space
+        for batch in self.client.containers.iterate(filter=filter_, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[ContainerId]) -> int:
@@ -973,7 +978,10 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
+        # By default, only node and edge views are returned,
+        # but we want all views. Note that 'all' means 'node' and 'edge' in the API.
+        filter_ = ViewFilter(space=space, all_versions=True, used_for=["node", "edge", "all", "record"])
+        for batch in self.client.views.iterate(filter=filter_, limit=None):
             yield from batch
 
     @classmethod

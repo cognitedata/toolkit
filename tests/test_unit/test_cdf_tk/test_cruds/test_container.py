@@ -1,7 +1,11 @@
 import pytest
+import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerRequest,
@@ -104,6 +108,18 @@ indexes: {}
         dumped = crud.dump_resource(cdf_container, local_absent)
         assert "constraints" not in dumped
         assert "indexes" not in dumped
+
+
+class TestContainersAPI:
+    def test_list_sends_used_for_as_repeated_query_parameter(
+        self, toolkit_config, respx_mock: respx.MockRouter
+    ) -> None:
+        api = ContainersAPI(HTTPClient(toolkit_config))
+        respx_mock.get(toolkit_config.create_api_url("/models/containers")).respond(status_code=200, json={"items": []})
+
+        api.list(filter=ContainerFilter(used_for=["node", "record"]))
+
+        assert respx_mock.calls[-1].request.url.params.get_list("usedFor") == ["node", "record"]
 
 
 class TestContainerDeployTopologicalSort:

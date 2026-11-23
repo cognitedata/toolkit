@@ -1,4 +1,5 @@
 import builtins
+import os
 import re
 from collections import UserList
 from dataclasses import dataclass
@@ -200,13 +201,18 @@ class BuiltResource(BaseModel):
         return not self.has_syntax_error and not self.failed_extra
 
     def as_request(
-        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any], is_dry_run: bool = False
+        self,
+        crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any],
+        is_dry_run: bool = False,
+        environment_variables: dict[str, str | None] | None = None,
     ) -> ValidatableResource[T_RequestResource]:
         """Convert the built resource to a ValidatableResource for the given CRUD.
 
         Args:
             crud: The CRUD class to use for converting the built resource to a request object.
             is_dry_run: Whether to load the resource in dry-run mode, i.e., without requiring lookups in CDF to succeed.
+            environment_variables: Environment variables to inject into the resource file. Defaults to the
+                environment variables of the current process.
         Returns:
             A ValidatableResource containing the identifier, type, source, and request object for the built
             resource.
@@ -217,7 +223,9 @@ class BuiltResource(BaseModel):
                 f"Bug in Toolkit, cannot convert built resource of type {self.crud_cls} to request for CRUD {crud}. "
                 f"Expected a subclass of {self.crud_cls}."
             )
-        raw_list = crud.load_resource_file(self.build_path)
+        if environment_variables is None:
+            environment_variables = dict(os.environ)
+        raw_list = crud.load_resource_file(self.build_path, environment_variables)
         if not raw_list:
             raise RuntimeError(
                 f"Bug in Toolkit, built resource {self.build_path} has no data to convert to request for CRUD {crud}."
