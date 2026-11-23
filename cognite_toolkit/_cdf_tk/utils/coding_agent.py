@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.utils.cicd import get_cicd_environment
 
 InvocationSource = Literal["cicd", "agent", "human"]
 AI_AGENT_ENV_VAR = "AI_AGENT"
+COGNITE_SANDBOX_ENV_VAR = "COGNITE_SANDBOX"
 
 
 def _env_set(env: Mapping[str, str], name: str) -> bool:
@@ -88,6 +89,12 @@ def detect_coding_agent(env: Mapping[str, str] | None = None) -> str | None:
             return agent_id
 
     return None
+
+
+def is_cognite_sandbox(env: Mapping[str, str] | None = None) -> bool:
+    """Return True when running inside a Cognite sandbox (``COGNITE_SANDBOX`` is ``1`` or ``true``)."""
+    environment = os.environ if env is None else env
+    return environment.get(COGNITE_SANDBOX_ENV_VAR, "").strip().lower() in {"1", "true"}
 
 
 class InvocationInfo(BaseModel):

@@ -1,5 +1,5 @@
 from .cicd import get_cicd_environment
-from .coding_agent import detect_coding_agent, get_invocation_info
+from .coding_agent import detect_coding_agent, get_invocation_info, is_cognite_sandbox
 from .collection import flatten_dict, humanize_collection, in_dict, to_diff
 from .file import (
     YAMLComment,
@@ -37,6 +37,7 @@ __all__ = [
     "get_invocation_info",
     "humanize_collection",
     "in_dict",
+    "is_cognite_sandbox",
     "load_yaml_inject_variables",
     "quote_int_value_by_key_in_yaml",
     "read_yaml_content",

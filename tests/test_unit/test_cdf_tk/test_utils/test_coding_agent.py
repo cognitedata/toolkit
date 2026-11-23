@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.coding_agent import detect_coding_agent, get_invocation_info
+from cognite_toolkit._cdf_tk.utils.coding_agent import detect_coding_agent, get_invocation_info, is_cognite_sandbox
 
 
 class TestDetectCodingAgent:
@@ -37,6 +37,23 @@ class TestDetectCodingAgent:
     )
     def test_detect_coding_agent(self, env: dict[str, str], expected: str | None) -> None:
         assert detect_coding_agent(env) == expected
+
+
+class TestIsCogniteSandbox:
+    @pytest.mark.parametrize(
+        ("env", "expected"),
+        [
+            ({"COGNITE_SANDBOX": "1"}, True),
+            ({"COGNITE_SANDBOX": "true"}, True),
+            ({"COGNITE_SANDBOX": "TRUE"}, True),
+            ({"COGNITE_SANDBOX": "0"}, False),
+            ({"COGNITE_SANDBOX": "false"}, False),
+            ({"COGNITE_SANDBOX": ""}, False),
+            ({}, False),
+        ],
+    )
+    def test_is_cognite_sandbox(self, env: dict[str, str], expected: bool) -> None:
+        assert is_cognite_sandbox(env) is expected
 
 
 class TestGetInvocationInfo:
