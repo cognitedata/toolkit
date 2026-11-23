@@ -67,7 +67,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, is_cognite_sandbox
 
 from .data_classes import EnvironmentVariables
 from .data_classes._constants import parse_login_flow
@@ -83,6 +83,10 @@ class VerifyAuthResult:
 
 class AuthCommand(ToolkitCommand):
     def init(self, reset: bool = False) -> None:
+        if is_cognite_sandbox():
+            self._print_nothing_to_configure_in_sandbox()
+            return
+
         env_vars: EnvironmentVariables | None = None
         try:
             env_vars = EnvironmentVariables.create_from_environment()
@@ -120,6 +124,10 @@ class AuthCommand(ToolkitCommand):
         port: int | None = None,
         project: str | None = None,
     ) -> None:
+        if is_cognite_sandbox():
+            self._print_nothing_to_configure_in_sandbox()
+            return
+
         login_flow = parse_login_flow(flow)
         if not confirm_login_flow_overrides_env(login_flow):
             print("[yellow]Aborted.[/yellow]")
@@ -518,6 +526,12 @@ class AuthCommand(ToolkitCommand):
         )
         required_acls = list(FlatCapabilities.merge_acls(required_acls))
         return required_acls, io_name_by_acl_type
+
+    @staticmethod
+    def _print_nothing_to_configure_in_sandbox() -> None:
+        print(
+            "[yellow]Authentication is handled automatically in a Cognite sandbox; there is nothing to configure.[/yellow]"
+        )
 
     @staticmethod
     def _print_skipped_in_sandbox(check: str) -> None:

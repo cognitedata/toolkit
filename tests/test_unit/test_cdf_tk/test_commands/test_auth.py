@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.commands.auth import command as auth_command_module
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -147,6 +148,24 @@ class TestAuthCommand:
             assert not client.token.inspect.called
             assert not client.project.organization.called
             assert not client.project.status.called
+
+    def test_auth_init_sandbox_returns_immediately(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("COGNITE_SANDBOX", "1")
+        environment_variables = MagicMock()
+        monkeypatch.setattr(auth_command_module, "EnvironmentVariables", environment_variables)
+
+        AuthCommand(print_warning=False).init()
+
+        environment_variables.create_from_environment.assert_not_called()
+
+    def test_auth_login_sandbox_returns_immediately(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("COGNITE_SANDBOX", "1")
+        parse_login_flow = MagicMock()
+        monkeypatch.setattr(auth_command_module, "parse_login_flow", parse_login_flow)
+
+        AuthCommand(print_warning=False).login()
+
+        parse_login_flow.assert_not_called()
 
     def test_auth_verify_wrong_capabilities(self) -> None:
         with monkeypatch_toolkit_client() as client:
