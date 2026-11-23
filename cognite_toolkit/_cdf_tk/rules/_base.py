@@ -130,6 +130,9 @@ class ResourceRef(Protocol):
     ) -> ValidatableResource[T_RequestResource]:
         raise NotImplementedError()
 
+    def as_yaml(self, environment_variables: dict[str, str | None] | None = None) -> dict[str, Any]:
+        raise NotImplementedError()
+
 
 class ResourceRefList(UserList[ResourceRef]):
     def get_resource_of_type(
