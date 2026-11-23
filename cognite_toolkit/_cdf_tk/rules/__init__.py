@@ -10,6 +10,7 @@ from ._groups import GroupRuleSet
 from ._infield import InFieldCDMRuleSet
 from ._streams import StreamRuleSet
 from ._transformations import TransformationRuleSet
+from ._unused import UnusedRuleSet
 
 __all__ = [
     "AgentRuleSet",
@@ -24,6 +25,7 @@ __all__ = [
     "StreamRuleSet",
     "ToolkitRuleSet",
     "TransformationRuleSet",
+    "UnusedRuleSet",
     "ValidationInput",
     "get_global_rules_registry",
 ]
