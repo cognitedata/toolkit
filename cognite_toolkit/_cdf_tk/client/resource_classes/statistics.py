@@ -72,5 +72,5 @@ class SpaceStatisticsResponse(BaseModelObject):
             and self.data_models == 0
             and self.edges == 0
             and self.nodes == 0
-            and self.records_only_containers == 0
+            and (self.records_only_containers or 0) == 0
         )

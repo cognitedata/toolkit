@@ -188,6 +188,13 @@ class UnusedRuleSet(ToolkitRuleSet):
     def _unused_spaces(self, client: ToolkitClient, created_before_epoch: int) -> _UnusedResourceTypes:
         results = self._request(client.statistics.spaces.list)
         unused_space_ids = [space.space for space in results if space.is_empty]
+        if not unused_space_ids:
+            return _UnusedResourceTypes(
+                type=SpaceIO.as_resource_type(),
+                identifiers=[],
+                message=f"{self._created_before_message} and is empty",
+                url="/models/spaces",
+            )
         unused_spaces = self._request(client.spaces.retrieve, [SpaceId(space=space) for space in unused_space_ids])
         return _UnusedResourceTypes(
             type=SpaceIO.as_resource_type(),
