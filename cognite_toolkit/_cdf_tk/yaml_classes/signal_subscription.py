@@ -32,11 +32,14 @@ SinkRefYAML = Annotated[
 ]
 
 
-class IntegrationsFilterYAML(BaseModelResource):
-    topic: Literal["cognite_integrations"]
+class SignalSubscriptionFilterBase(BaseModelResource):
     resource: str | None = Field(default=None, min_length=1, max_length=512)
     category: list[str] | None = None
     severity: Literal["info", "warning", "error"] | None = None
+
+
+class IntegrationsFilterYAML(SignalSubscriptionFilterBase):
+    topic: Literal["cognite_integrations"]
     extractor_external_id: str | None = Field(default=None, min_length=1, max_length=255)
     extractor_version: str | None = Field(default=None, min_length=1, max_length=32)
     task_name: str | None = Field(
@@ -54,36 +57,24 @@ class IntegrationsFilterYAML(BaseModelResource):
         return val
 
 
-class WorkflowsFilterYAML(BaseModelResource):
+class WorkflowsFilterYAML(SignalSubscriptionFilterBase):
     topic: Literal["cognite_workflows"]
-    resource: str | None = Field(default=None, min_length=1, max_length=512)
-    category: list[str] | None = None
-    severity: Literal["info", "warning", "error"] | None = None
 
 
-class HostedExtractorsFilterYAML(BaseModelResource):
+class HostedExtractorsFilterYAML(SignalSubscriptionFilterBase):
     topic: Literal["cognite_hosted_extractors"]
-    resource: str | None = Field(default=None, min_length=1, max_length=512)
-    category: list[str] | None = None
-    severity: Literal["info", "warning", "error"] | None = None
     source_type: str | None = None
     source_external_id: str | None = Field(default=None, min_length=1, max_length=255)
     destination_external_id: str | None = Field(default=None, min_length=1, max_length=255)
 
 
-class SandboxFilterYAML(BaseModelResource):
+class SandboxFilterYAML(SignalSubscriptionFilterBase):
     topic: Literal["cognite_sandbox"]
-    resource: str | None = Field(default=None, min_length=1, max_length=512)
-    category: list[str] | None = None
-    severity: Literal["info", "warning", "error"] | None = None
     tag: str | None = None
 
 
-class CommentNotificationsFilterYAML(BaseModelResource):
+class CommentNotificationsFilterYAML(SignalSubscriptionFilterBase):
     topic: Literal["cognite_comment_notifications"]
-    resource: str | None = Field(default=None, min_length=1, max_length=512)
-    category: list[str] | None = None
-    severity: Literal["info", "warning", "error"] | None = None
 
 
 SubscriptionFilterYAML = Annotated[
