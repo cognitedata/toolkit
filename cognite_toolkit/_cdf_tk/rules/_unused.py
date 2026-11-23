@@ -124,7 +124,7 @@ class UnusedRuleSet(ToolkitRuleSet):
             (DataModelIO.kind, lambda: self._unused_data_models(client, created_before_epoch)),
             (ExtractionPipelineIO.kind, lambda: self._unused_extraction_pipelines(client, created_before_epoch)),
             (RawDatabaseIO.kind, lambda: self._unused_raw_databases(client, created_before_epoch)),
-            # (RawTableIO.kind, lambda: self._unused_tables(client, created_before_epoch)),
+            (RawTableIO.kind, lambda: self._unused_tables(client, created_before_epoch)),
         ]
         # The checks only orchestrate; the requests themselves run in the request executor. Using a separate
         # pool for the checks avoids deadlocks when a check waits for its own requests to complete.
