@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT, TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, is_cognite_sandbox
 
 from ._constants import CLIENT_NAME, PROVIDERS, parse_login_flow
@@ -240,7 +241,9 @@ class EnvironmentVariables:
         if missing:
             raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
         if is_cognite_sandbox() and os.environ.get("LOGIN_FLOW", "no_auth") != "no_auth":
-            Console().print("COGNITE_SANDBOX is set: ignoring LOGIN_FLOW and credentials, using no authentication.")
+            MediumSeverityWarning(
+                "COGNITE_SANDBOX is set: ignoring LOGIN_FLOW and credentials, using no authentication."
+            ).print_warning()
         args: dict[str, Any] = {
             field_.name: field_.type(os.environ[field_.name]) if field_.type is int else os.environ[field_.name]
             for field_ in cls._fields()
