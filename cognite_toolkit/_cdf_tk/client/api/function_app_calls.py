@@ -53,23 +53,20 @@ class FunctionAppCallsAPI(CDFResourceAPI[FunctionCallResponse]):
         request = RequestMessage(endpoint_url=self._make_url(path), method="GET", api_version=self._api_version)
         return self._http_client.request_single_retries(request).get_success_or_raise(request)
 
-    def create(
-        self, function_external_id: str, data: FunctionAppCallPayload, nonce: str
-    ) -> FunctionAppCallRuntimeResponse:
+    def create(self, data: FunctionAppCallPayload, nonce: str) -> FunctionAppCallRuntimeResponse:
         """Call a function app endpoint synchronously.
 
         The nonce binds a session. Its access token is passed to the function. Do not put secrets in ``data``.
 
         Args:
-            function_external_id: External ID of the function app.
-            data: The path, HTTP method, and body forwarded to the function app.
+            data: The function app external ID, and the path, HTTP method, and body forwarded to the function app.
             nonce: Nonce from the Sessions API.
 
         Returns:
             The runtime status, and the response envelope of the function app if the call completed.
         """
         request = RequestMessage(
-            endpoint_url=self._make_url(self._calls_path(function_external_id)),
+            endpoint_url=self._make_url(self._calls_path(data.function_external_id)),
             method="POST",
             body_content={"data": data.dump(), "nonce": nonce},
             api_version=self._api_version,

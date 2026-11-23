@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101-beta/tag/Function-Apps
 
 from typing import Literal, TypeAlias
 
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
@@ -22,8 +22,12 @@ class FunctionAppResponse(FunctionResponse):
 
 
 class FunctionAppCallPayload(BaseModelObject):
-    """The HTTP request forwarded to the function app."""
+    """The HTTP request forwarded to the function app.
 
+    ``function_external_id`` selects the function app and is not part of the request body.
+    """
+
+    function_external_id: str = Field(exclude=True)
     path: str
     method: str
     body: dict[str, JsonValue] | None = None

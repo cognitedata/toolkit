@@ -65,7 +65,8 @@ class TestFunctionAppCallsAPI:
         )
 
         toolkit_client.functions.apps.calls.create(
-            "my/app", FunctionAppCallPayload(path="/items/1", method="POST", body={"a": 1}), nonce="abc"
+            FunctionAppCallPayload(function_external_id="my/app", path="/items/1", method="POST", body={"a": 1}),
+            nonce="abc",
         )
 
         assert json.loads(route.calls[0].request.content) == {
