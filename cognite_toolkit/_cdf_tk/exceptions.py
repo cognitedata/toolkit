@@ -216,6 +216,10 @@ class AuthorizationError(ToolkitError):
     pass
 
 
+class SandboxUnavailableError(AuthorizationError):
+    """Raised when calling an endpoint that is blocked in a Cognite sandbox."""
+
+
 class GraphQLParseError(ToolkitError): ...
 
 

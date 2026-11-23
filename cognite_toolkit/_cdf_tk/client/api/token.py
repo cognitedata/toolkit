@@ -2,10 +2,10 @@ from collections.abc import Sequence
 from functools import cache, cached_property
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AclType, Scope
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AclType, AllScope, Scope
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
 from cognite_toolkit._cdf_tk.constants import URL
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
@@ -17,6 +17,8 @@ class ToolkitTokenAPI:
     def inspect(self) -> InspectResponse:
         """Inspect the current token and return its capabilities and scopes."""
         config = self._http_client.config
+        if config.is_sandbox:
+            raise SandboxUnavailableError("Token inspection is not available in a Cognite sandbox.")
         url = f"{config.base_url}/api/v1/token/inspect"
         request = RequestMessage(
             endpoint_url=url,
@@ -34,6 +36,8 @@ class ToolkitTokenAPI:
 
     def verify_acls(self, required_acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
+        if self._http_client.config.is_sandbox:
+            return []
         try:
             capabilities = self.project_capabilities
         except AuthorizationError as e:
@@ -44,6 +48,8 @@ class ToolkitTokenAPI:
 
     def check_available_scopes(self, acl_cls: type[Acl], actions: Sequence[str]) -> list[Scope]:
         """Check the available scopes for the given ACL class and actions. Returns a list of scopes that are available for all actions."""
+        if self._http_client.config.is_sandbox:
+            return [AllScope()]
         return self.project_capabilities.get_available_scopes(acl_cls, actions)
 
     def create_error(self, missing_capabilities: Sequence[Acl], action: str | None = None) -> AuthorizationError:
