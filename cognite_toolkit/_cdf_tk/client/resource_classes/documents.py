@@ -311,10 +311,40 @@ class DocumentAnswer(BaseModelObject):
         return "".join(part.text for part in self.content)
 
 
-class DocumentSummary(BaseModelObject):
+class DocumentSummaryBase(BaseModelObject):
     """A summary of a document, from ``POST /ai/tools/documents/summarize``."""
 
-    id: int | None = None
-    external_id: str | None = None
-    instance_id: NodeUntypedId | None = None
     summary: str
+
+
+class DocumentSummaryById(DocumentSummaryBase):
+    id: int
+
+
+class DocumentSummaryByExternalId(DocumentSummaryBase):
+    external_id: str
+
+
+class DocumentSummaryByInstanceId(DocumentSummaryBase):
+    instance_id: NodeUntypedId
+
+
+def _summary_tag(value: Any) -> str:
+    if isinstance(value, DocumentSummaryByInstanceId):
+        return "instance_id"
+    if isinstance(value, DocumentSummaryByExternalId):
+        return "external_id"
+    if isinstance(value, dict):
+        if "instanceId" in value or "instance_id" in value:
+            return "instance_id"
+        if "externalId" in value or "external_id" in value:
+            return "external_id"
+    return "id"
+
+
+DocumentSummary: TypeAlias = Annotated[
+    Annotated[DocumentSummaryById, Tag("id")]
+    | Annotated[DocumentSummaryByExternalId, Tag("external_id")]
+    | Annotated[DocumentSummaryByInstanceId, Tag("instance_id")],
+    Discriminator(_summary_tag),
+]

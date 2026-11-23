@@ -7,7 +7,8 @@ import respx
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
-    DocumentSummary,
+    DocumentSummaryByExternalId,
+    DocumentSummaryById,
     DocumentTableElement,
     DocumentTextElement,
     DocumentUnknownElement,
@@ -115,7 +116,7 @@ class TestDocumentsAPI:
                 {"items": [{"externalId": "manual"}], "ignoreUnknownIds": False},
             ],
             [
-                DocumentSummary(id=1, summary="About pumps."),
-                DocumentSummary(external_id="manual", summary="About valves."),
+                DocumentSummaryById(id=1, summary="About pumps."),
+                DocumentSummaryByExternalId(external_id="manual", summary="About valves."),
             ],
         )

@@ -298,7 +298,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         self,
         question: str,
         items: Sequence[InternalId | ExternalId | InstanceId],
-        language: DocumentAILanguage | None = None,
+        language: DocumentAILanguage | str | None = None,
         additional_context: str | None = None,
         ignore_unknown_ids: bool = False,
     ) -> DocumentAnswer:
@@ -334,7 +334,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     def summarize(
         self,
         items: Sequence[InternalId | ExternalId | InstanceId],
-        language: DocumentAILanguage | None = None,
+        language: DocumentAILanguage | str | None = None,
         ignore_unknown_ids: bool = False,
     ) -> builtins.list[DocumentSummary]:
         """Summarize documents using a language model. The API takes one document per request.
