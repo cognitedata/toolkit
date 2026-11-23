@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, ToolkitRuleSet, Unu
 
 class CheckType(StrEnum):
     failing = "failing"
+    unused = "unused"
     all = "all"
 
 
@@ -57,6 +58,6 @@ class CheckCommand(ValidationCommand):
         plan: list[ToolkitRuleSet] = []
         if checks & {CheckType.failing, CheckType.all}:
             plan.append(FailingJobRuleSet(client=client, lookback_period=timedelta(days=lookback_period)))
-        if checks & {CheckType.all}:
+        if checks & {CheckType.all, CheckType.unused}:
             plan.append(UnusedRuleSet(client=client))
         return plan

@@ -134,7 +134,7 @@ class UnusedRuleSet(ToolkitRuleSet):
                 code="EMPTY-RESOURCE",
                 message=f"{len(unused.identifiers)} unused {unused.type.kind.lower()}(s) found in CDF: {unused.message}",
                 source_url=unused.url,
-                fix=f"Delete the unused:\n{identifiers_str}.",
+                fix=f"Delete the unused:\n - {identifiers_str}",
             )
 
     @property
