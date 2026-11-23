@@ -211,7 +211,9 @@ class TestFailingJobRuleSet:
             for failure in failures
         ] == [
             ("Workflow", "workflowExternalId='my_workflow', version='v1'", "Function task failed", 3),
+            ("Function", "externalId='fn_in_workflow'", "Function timed out", 2),
             ("Function", "externalId='fn_failing'", "Function timed out", 2),
+            ("Transformation", "externalId='tr_in_workflow'", "Column not found", 2),
             ("Transformation", "externalId='tr_failed'", "Column not found", 2),
             ("Transformation", "externalId='tr_blocked'", "Blocked: Too many failures", None),
             ("Hosted Extractor", "externalId='job_write_error'", "cdf_write_error", None),
@@ -228,7 +230,7 @@ class TestFailingJobRuleSet:
             "transformation_jobs": [
                 call.kwargs["transformation_id"] for call in client.transformations.jobs.iterate.call_args_list
             ],
-        } == {"function_calls": [4], "transformation_jobs": [2]}
+        } == {"function_calls": [1, 4], "transformation_jobs": [1, 2]}
 
     def test_no_failed_workflow_executions_skips_retrieving_versions(self) -> None:
         client = _client()
@@ -260,7 +262,7 @@ class TestFailingJobRuleSet:
         ]
         rule = FailingJobRuleSet(client=client)
 
-        assert rule._load_failing_functions(client, skip=set()) == []
+        assert rule._load_failing_functions(client) == []
 
     def test_count_failed_jobs_stops_paging_at_lookback_period(self) -> None:
         client = MagicMock()
@@ -310,7 +312,9 @@ class TestFailingJobRuleSet:
             for failure in failures
             if failure.job_type != "Workflow"
         } == {
+            "externalId='fn_in_workflow'": (set(), {300}),
             "externalId='fn_failing'": (set(), {300}),
+            "externalId='tr_in_workflow'": (set(), set()),
             "externalId='tr_failed'": (
                 {("RawDatabaseIO", "name='my_db'"), ("RawTableIO", "my_db.my_table")},
                 {100, 101},
