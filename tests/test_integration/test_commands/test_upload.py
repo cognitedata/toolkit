@@ -190,4 +190,5 @@ class TestUploadCommand:
         )
         assert download_file.exists(), f"Downloaded file {download_file} does not exist"
         actual_output = download_file.read_text(encoding="utf-8-sig")
-        assert actual_output.removesuffix("\n") == csv_content, "Downloaded content does not match uploaded content"
+        expected_output = "externalId,timestamp,value,statusCode\n" + "\n".join(f"{row}," for row in rows)
+        assert actual_output.removesuffix("\n") == expected_output, "Downloaded content does not match uploaded content"

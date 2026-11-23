@@ -9,14 +9,19 @@ from cognite.client.data_classes.raw import RowWrite
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsFailedRequest,
+    ItemsResultList,
+    ItemsSuccessResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.commands._upload import InstanceColumnMatch, SQLiteTableSource
+from cognite_toolkit._cdf_tk.commands._upload import FailedPageCounter, InstanceColumnMatch, SQLiteTableSource
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import RawIO
 from cognite_toolkit._cdf_tk.dataio._asset_centric import AssetDataIO
@@ -308,6 +313,34 @@ class TestUploadCommand:
                 logger=NoOpLogger(),
                 get_log_file=MagicMock(),
             )
+
+    def test_stops_after_max_consecutive_failed_pages(self) -> None:
+        failed = ItemsResultList([ItemsFailedRequest(ids=["rows 1 to 2"], error_message="Time series not found")])
+        succeeded = ItemsResultList([ItemsSuccessResponse(ids=["rows 1 to 2"], status_code=200, body="", content=b"")])
+        io = MagicMock(MAX_CONSECUTIVE_FAILED_PAGES=2)
+        io.upload_items.side_effect = [failed, succeeded, failed, failed]
+        failed_pages = FailedPageCounter()
+        stopped: list[bool] = []
+        for _ in range(4):
+            try:
+                UploadCommand._upload_items(
+                    data_chunk=Page(worker_id="main", items=[]),
+                    upload_client=MagicMock(),
+                    io=io,
+                    selector=MagicMock(),
+                    dry_run=False,
+                    console=MagicMock(spec=Console),
+                    verbose=False,
+                    logger=NoOpLogger(),
+                    get_log_file=MagicMock(return_value=None),
+                    failed_pages=failed_pages,
+                )
+                stopped.append(False)
+            except ToolkitRepeatedUploadFailureError:
+                stopped.append(True)
+
+        # A successful page resets the count, so only two failed pages in a row stop the upload.
+        assert stopped == [False, False, False, True]
 
 
 class TestUploadInstances:
