@@ -51,8 +51,9 @@ def _group_resource(tmp_path: Path, name: str, content: str) -> BuiltResource:
     )
 
 
-def _client(data_modeling_status: str) -> MagicMock:
+def _client(data_modeling_status: str, is_sandbox: bool = False) -> MagicMock:
     client = MagicMock()
+    client.config.is_sandbox = is_sandbox
     client.project.status.return_value.this_project.data_modeling_status = data_modeling_status
     client.lookup.data_sets.id.return_value = 789
     return client
@@ -94,6 +95,15 @@ class TestGroupRuleSet:
             (expected_type, "DEPRECATED-FEATURE", resources[0].source_path, 8, True),
             (expected_type, "DEPRECATED-FEATURE", resources[1].source_path, 4, True),
         ]
+
+    @pytest.mark.usefixtures("alpha_rules")
+    def test_sandbox_skips_project_status(self, tmp_path: Path) -> None:
+        client = _client("DATA_MODELING_ONLY", is_sandbox=True)
+        rule = GroupRuleSet(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)], client=client)
+
+        insights = [item for item in rule.validate() if isinstance(item, InsightDefinition)]
+
+        assert ([item.insight_type for item in insights], client.project.status.called) == (["Recommendation"], False)
 
     @pytest.mark.usefixtures("alpha_rules")
     def test_no_project_status_call_without_deprecated_acls(self, tmp_path: Path) -> None:

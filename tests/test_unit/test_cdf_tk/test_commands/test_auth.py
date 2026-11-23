@@ -81,11 +81,14 @@ def _setup_verify_mocks(
     user_groups: list[GroupResponse],
     all_cdf_groups: list[GroupResponse] | None = None,
     data_modeling_status: str = "HYBRID",
+    is_sandbox: bool = False,
 ) -> None:
     if all_cdf_groups is None:
         all_cdf_groups = list(user_groups)
 
-    client.config = MagicMock(spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False)
+    client.config = MagicMock(
+        spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False, is_sandbox=is_sandbox
+    )
 
     client.token.inspect.return_value = _create_inspect_response()
     client.token.verify_acls.return_value = []
@@ -126,6 +129,24 @@ class TestAuthCommand:
             cmd.verify(client, False, no_prompt=True)
 
             assert list(cmd.warning_list) == []
+
+    def test_auth_verify_sandbox_skips_blocked_calls(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            required_acls, _ = AuthCommand._get_required_acls(client, "HYBRID")
+            group = GroupResponse(
+                id=123,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls],
+            )
+            _setup_verify_mocks(client, user_groups=[group], is_sandbox=True)
+
+            AuthCommand(print_warning=False).verify(client, False, no_prompt=True)
+
+            assert not client.token.inspect.called
+            assert not client.project.organization.called
+            assert not client.project.status.called
 
     def test_auth_verify_wrong_capabilities(self) -> None:
         with monkeypatch_toolkit_client() as client:
