@@ -181,9 +181,8 @@ class FailingJobRuleSet(ToolkitRuleSet):
         is reported through the workflow.
         """
         failures = self._load_failing_workflows(client)
-        used_by_failing_workflows: Dependencies = set().union(*(failure.dependencies for failure in failures))
-        failures.extend(self._load_failing_functions(client, used_by_failing_workflows))
-        failures.extend(self._load_failing_transformations(client, used_by_failing_workflows))
+        failures.extend(self._load_failing_functions(client))
+        failures.extend(self._load_failing_transformations(client))
         failures.extend(self._load_failing_hosted_extractor_jobs(client))
         return failures
 
@@ -234,12 +233,10 @@ class FailingJobRuleSet(ToolkitRuleSet):
             return set()
         return set(io.get_dependencies(resource_yaml))
 
-    def _load_failing_functions(self, client: ToolkitClient, skip: Dependencies) -> list[FailingJob]:
+    def _load_failing_functions(self, client: ToolkitClient) -> list[FailingJob]:
         failed_calls_by_function: list[tuple[FunctionResponse, list[FunctionCallResponse]]] = []
         for function in client.functions.list(limit=None):
             if function.last_called is None or function.last_called < self.from_time_epoch:
-                continue
-            if (FunctionIO, function.as_id()) in skip:
                 continue
             calls = client.functions.calls.list(
                 function_id=function.id,
@@ -289,12 +286,10 @@ class FailingJobRuleSet(ToolkitRuleSet):
         )
         return {schedule.id: schedule.session_id for schedule in schedules if schedule.session_id is not None}
 
-    def _load_failing_transformations(self, client: ToolkitClient, skip: Dependencies) -> list[FailingJob]:
+    def _load_failing_transformations(self, client: ToolkitClient) -> list[FailingJob]:
         io = TransformationIO(client)
         failures: list[FailingJob] = []
         for transformation in client.transformations.list(limit=None):
-            if (TransformationIO, transformation.as_id()) in skip:
-                continue
             last_job = transformation.last_finished_job
             if last_job and last_job.status.casefold() == "failed" and last_job.created_time >= self.from_time_epoch:
                 reason = last_job.error
