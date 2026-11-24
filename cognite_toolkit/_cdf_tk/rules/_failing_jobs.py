@@ -53,7 +53,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
 )
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
@@ -541,6 +541,9 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     can_verify_sessions = False
                 else:
                     invalid_status_by_session_id = self._invalid_sessions(client, session_ids)
+            except SandboxUnavailableError:
+                # Permissions cannot be inspected in a sandbox, so session status is not verified.
+                can_verify_sessions = False
             except (ToolkitAPIError, AuthorizationError) as e:
                 yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
 

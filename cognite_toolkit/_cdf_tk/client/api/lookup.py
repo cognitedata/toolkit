@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from contextlib import suppress
 from typing import TYPE_CHECKING, overload
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -23,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.principal import Principal, UserPrincipal
 from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
+from cognite_toolkit._cdf_tk.exceptions import SandboxUnavailableError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -87,12 +89,14 @@ class LookUpAPI(ABC):
             ids_by_external_id = self._id(external_ids)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.token.verify_acls([self._read_acl(None)])
-                if missing_capabilities:
-                    raise self._client.token.create_error(
-                        missing_capabilities,
-                        f"lookup {self.resource_name} with external_id {external_ids}",
-                    )
+                # Permissions cannot be inspected in a sandbox, so we keep the original error.
+                with suppress(SandboxUnavailableError):
+                    missing_capabilities = self._client.token.verify_acls([self._read_acl(None)])
+                    if missing_capabilities:
+                        raise self._client.token.create_error(
+                            missing_capabilities,
+                            f"lookup {self.resource_name} with external_id {external_ids}",
+                        )
             # Raise the original error if it's not a 400 or the user has access to read the resource.from
             raise
         self._cache.update(ids_by_external_id)
@@ -150,11 +154,12 @@ class LookUpAPI(ABC):
             found_by_id = self._external_id(ids)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.token.verify_acls([self._read_acl(ids)])
-                if missing_capabilities:
-                    raise self._client.token.create_error(
-                        missing_capabilities, f"lookup {self.resource_name} with id {ids}"
-                    )
+                with suppress(SandboxUnavailableError):
+                    missing_capabilities = self._client.token.verify_acls([self._read_acl(ids)])
+                    if missing_capabilities:
+                        raise self._client.token.create_error(
+                            missing_capabilities, f"lookup {self.resource_name} with id {ids}"
+                        )
             # Raise the original error if it's not a 400 or the user has access to read the resource.from
             raise
         self._reverse_cache.update(found_by_id)
@@ -431,9 +436,10 @@ class UserLookUpAPI:
             return self._client.user_profiles.list(identity_type="USER", limit=None)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.token.verify_acls([self._read_acl()])
-                if missing_capabilities:
-                    raise self._client.token.create_error(missing_capabilities, "lookup users")
+                with suppress(SandboxUnavailableError):
+                    missing_capabilities = self._client.token.verify_acls([self._read_acl()])
+                    if missing_capabilities:
+                        raise self._client.token.create_error(missing_capabilities, "lookup users")
             raise
 
     @overload

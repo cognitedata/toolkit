@@ -20,13 +20,15 @@ def sandbox_config(toolkit_config: ToolkitClientConfig) -> ToolkitClientConfig:
 
 
 class TestToolkitTokenAPISandbox:
-    def test_verify_acls_and_scopes_skip_inspect(
+    def test_verify_acls_and_scopes_raise_without_http_call(
         self, sandbox_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
         token_api = ToolkitTokenAPI(HTTPClient(sandbox_config))
 
-        assert token_api.verify_acls([AssetsAcl(actions=["READ"], scope=AllScope())]) == []
-        assert token_api.check_available_scopes(AssetsAcl, ["READ"]) == [AllScope()]
+        with pytest.raises(SandboxUnavailableError):
+            token_api.verify_acls([AssetsAcl(actions=["READ"], scope=AllScope())])
+        with pytest.raises(SandboxUnavailableError):
+            token_api.check_available_scopes(AssetsAcl, ["READ"])
         assert len(respx_mock.calls) == 0
 
     def test_inspect_raises(self, sandbox_config: ToolkitClientConfig) -> None:

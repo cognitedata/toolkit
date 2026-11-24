@@ -63,6 +63,12 @@ class TestTrackerSandbox:
         client.project.organization.assert_not_called()
         assert properties["organization"] == "unknown"
         assert properties["project"] == client.config.project
+        assert properties["sandbox"] is True
+
+    def test_sandbox_property_false_when_offline(self) -> None:
+        properties = Tracker(skip_tracking=True)._get_all_event_properties(None)
+
+        assert properties["sandbox"] is False
 
 
 class TestParseSystemArgs:

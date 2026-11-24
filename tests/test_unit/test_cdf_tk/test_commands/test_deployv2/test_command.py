@@ -67,6 +67,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InsightLi
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
+    SandboxUnavailableError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitValueError,
@@ -986,6 +987,21 @@ class TestDryRunDataSetPlaceholders:
         assert is_missing_read is False
         assert is_missing_write is False
         assert is_write_acl_unknown is True
+
+    @pytest.mark.parametrize("is_dry_run", [True, False])
+    def test_validate_access_sandbox_continues(self, is_dry_run: bool) -> None:
+        client = MagicMock()
+        client.token.verify_acls.side_effect = SandboxUnavailableError("Not available in sandbox")
+        loader = AssetIO(client)
+        resource = AssetRequest(name="my_asset", external_id="my_asset")
+
+        is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command.validate_access(
+            loader, [resource], is_dry_run=is_dry_run
+        )
+
+        assert is_missing_read is False
+        assert is_missing_write is False
+        assert is_write_acl_unknown is is_dry_run
 
     @pytest.mark.parametrize(
         "resources, expected_checked_acls",

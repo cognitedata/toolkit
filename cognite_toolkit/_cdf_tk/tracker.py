@@ -51,11 +51,13 @@ class Tracker:
         project = "offline"
         organization = "offline"
         private_link = "offline"
+        is_sandbox = False
 
         if client is not None:
             cluster = client.config.attempt_to_get_cdf_cluster() or "unknown"
             private_link = "yes" if client.config.is_private_link else "no"
-            if client.config.is_sandbox:
+            is_sandbox = client.config.is_sandbox
+            if is_sandbox:
                 organization = "unknown"
                 project = client.config.project
             else:
@@ -76,6 +78,7 @@ class Tracker:
             "organization": organization,
             "cluster": cluster,
             "privateLink": private_link,
+            "sandbox": is_sandbox,
         }
         return self._all_event_properties
 
