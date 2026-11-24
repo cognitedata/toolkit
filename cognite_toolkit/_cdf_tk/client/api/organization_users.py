@@ -13,8 +13,6 @@ from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.organization_user import OrganizationUser
 
-_AUTH_V0_URL = "https://auth.cognite.com/api/v0"
-
 
 class OrganizationUsersAPI(CDFResourceAPI[OrganizationUser]):
     """API for the Cognite Organization Users endpoint.
@@ -35,9 +33,7 @@ class OrganizationUsersAPI(CDFResourceAPI[OrganizationUser]):
 
     def _make_url(self, path: str = "") -> str:
         """Create the full URL for this resource endpoint."""
-        if not path.startswith("/"):
-            path = f"/{path}"
-        return f"{_AUTH_V0_URL}{path}"
+        return self._http_client.config.create_auth_url(path, version="v0")
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
