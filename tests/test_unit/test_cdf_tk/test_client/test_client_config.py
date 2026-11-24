@@ -14,12 +14,12 @@ class TestToolkitClientConfig:
         [
             pytest.param(
                 "https://auth-dev.cognitedata-development.cognite.ai/oauth2/token",
-                "https://auth-dev.cognitedata-development.cognite.ai/api/v1//principals/me",
+                "https://auth-dev.cognitedata-development.cognite.ai/api/v1/principals/me",
                 id="dev",
             ),
             pytest.param(
                 "https://auth-staging.gc-bru-001.cogheim.net/oauth2/token",
-                "https://auth-staging.gc-bru-001.cogheim.net/api/v1//principals/me",
+                "https://auth-staging.gc-bru-001.cogheim.net/api/v1/principals/me",
                 id="staging",
             ),
             pytest.param(
