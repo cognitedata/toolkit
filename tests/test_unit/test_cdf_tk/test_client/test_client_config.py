@@ -24,7 +24,7 @@ class TestToolkitClientConfig:
             ),
             pytest.param(
                 "https://auth.cognite.com/oauth2/token",
-                "https://auth.cognite.com/api/v1//principals/me",
+                "https://auth.cognite.com/api/v1/principals/me",
                 id="prod",
             ),
         ],
