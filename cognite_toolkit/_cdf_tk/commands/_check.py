@@ -26,6 +26,7 @@ class CheckCommand(ValidationCommand):
         checks: Sequence[CheckType],
         client: ToolkitClient,
         lookback_period: int = 3,
+        min_age: int = 7,
     ) -> ValidationResultList:
         """Checks the resources in the CDF project.
 
@@ -33,8 +34,9 @@ class CheckCommand(ValidationCommand):
             checks: The checks to run.
             client: The ToolkitClient for the CDF project to check.
             lookback_period: The number of days back in time to look for failing jobs.
+            min_age: The minimum number of days since a resource was created for it to be reported as unused.
         """
-        plan = self._create_check_plan(set(checks), client, lookback_period)
+        plan = self._create_check_plan(set(checks), client, lookback_period, min_age)
         validation_results = self.validate(client=client, display=CommandDisplay(results=False), plan=plan)
         validation_errors = [error for result in validation_results for error in result.errors]
         if validation_errors:
@@ -53,11 +55,11 @@ class CheckCommand(ValidationCommand):
 
     @classmethod
     def _create_check_plan(
-        cls, checks: set[CheckType], client: ToolkitClient, lookback_period: int
+        cls, checks: set[CheckType], client: ToolkitClient, lookback_period: int, min_age: int = 7
     ) -> list[ToolkitRuleSet]:
         plan: list[ToolkitRuleSet] = []
         if checks & {CheckType.failing, CheckType.all}:
             plan.append(FailingJobRuleSet(client=client, lookback_period=timedelta(days=lookback_period)))
         if checks & {CheckType.all, CheckType.unused}:
-            plan.append(UnusedRuleSet(client=client))
+            plan.append(UnusedRuleSet(client=client, created_before=timedelta(days=min_age)))
         return plan

@@ -52,9 +52,12 @@ class TestCheckCommand:
         assert len(plan_types) == len(set(plan_types)), "Each rule set should only be included once"
         assert set(plan_types) == expected
 
-    def test_create_check_plan_passes_lookback_period(self) -> None:
-        plan = CheckCommand._create_check_plan({CheckType.failing}, MagicMock(), lookback_period=5)
+    def test_create_check_plan_passes_time_periods(self) -> None:
+        plan = CheckCommand._create_check_plan({CheckType.all}, MagicMock(), lookback_period=5, min_age=10)
 
-        failing = [rule for rule in plan if isinstance(rule, FailingJobRuleSet)]
-        assert len(failing) == 1
-        assert failing[0].lookback_period == timedelta(days=5)
+        periods = {
+            type(rule): rule.lookback_period if isinstance(rule, FailingJobRuleSet) else rule.created_before
+            for rule in plan
+            if isinstance(rule, FailingJobRuleSet | UnusedRuleSet)
+        }
+        assert periods == {FailingJobRuleSet: timedelta(days=5), UnusedRuleSet: timedelta(days=10)}

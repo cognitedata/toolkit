@@ -533,9 +533,18 @@ class CoreApp(typer.Typer):
                 help="The number of days back in time to look for failing jobs.",
             ),
         ] = 3,
+        min_age: Annotated[
+            int,
+            typer.Option(
+                "--min-age",
+                "-a",
+                min=1,
+                help="The minimum number of days since a resource was created for it to be reported as unused.",
+            ),
+        ] = 7,
     ) -> None:
         """Checks resources in CDF project against rules and best practices."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = CheckCommand(client=client)
 
-        cmd.run(lambda: cmd.check(checks, client, lookback_period))
+        cmd.run(lambda: cmd.check(checks, client, lookback_period, min_age))
