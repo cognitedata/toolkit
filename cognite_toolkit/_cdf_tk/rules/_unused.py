@@ -120,7 +120,7 @@ class UnusedRuleSet(ToolkitRuleSet):
     )
     CONTEXT = frozenset({"cdf"})
 
-    def __init__(self, client: ToolkitClient | None = None, created_before: timedelta = timedelta(days=7)) -> None:
+    def __init__(self, client: ToolkitClient | None = None, created_before: timedelta = timedelta(days=14)) -> None:
         super().__init__(client=client)
         self.created_before = created_before
 

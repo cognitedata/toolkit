@@ -26,7 +26,7 @@ class CheckCommand(ValidationCommand):
         checks: Sequence[CheckType],
         client: ToolkitClient,
         lookback_period: int = 3,
-        min_age: int = 7,
+        min_age: int = 14,
     ) -> ValidationResultList:
         """Checks the resources in the CDF project.
 
@@ -55,7 +55,7 @@ class CheckCommand(ValidationCommand):
 
     @classmethod
     def _create_check_plan(
-        cls, checks: set[CheckType], client: ToolkitClient, lookback_period: int, min_age: int = 7
+        cls, checks: set[CheckType], client: ToolkitClient, lookback_period: int, min_age: int = 14
     ) -> list[ToolkitRuleSet]:
         plan: list[ToolkitRuleSet] = []
         if checks & {CheckType.failing, CheckType.all}:

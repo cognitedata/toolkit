@@ -541,7 +541,7 @@ class CoreApp(typer.Typer):
                 min=1,
                 help="The minimum number of days since a resource was created for it to be reported as unused.",
             ),
-        ] = 7,
+        ] = 14,
     ) -> None:
         """Checks resources in CDF project against rules and best practices."""
         client = EnvironmentVariables.create_from_environment().get_client()
