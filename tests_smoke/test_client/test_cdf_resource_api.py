@@ -2155,6 +2155,30 @@ class TestCDFResourceAPI:
                 client.organizations.projects._method_endpoint_map["list"].path, f"List projects failed: {e!s}"
             ) from e
 
+        admin = client.organizations.admin
+        try:
+            admin_retrieved = admin.retrieve()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                admin._method_endpoint_map["retrieve"].path, f"Admin retrieve org failed: {e!s}"
+            ) from e
+        if admin_retrieved.id != org:
+            raise EndpointAssertionError(
+                admin._method_endpoint_map["retrieve"].path, f"Expected org {org}, got {admin_retrieved.id}"
+            )
+        try:
+            admin.list_children(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                admin._method_endpoint_map["list"].path, f"Admin list child orgs failed: {e!s}"
+            ) from e
+        try:
+            admin.projects.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                admin.projects._method_endpoint_map["list"].path, f"Admin list projects failed: {e!s}"
+            ) from e
+
     def test_rulesets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 

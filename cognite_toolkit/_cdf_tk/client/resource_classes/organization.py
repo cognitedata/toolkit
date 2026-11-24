@@ -162,7 +162,7 @@ class OrgProjectResponse(BaseModelObject):
     returned when admin properties are requested."""
 
     name: str
-    api_url: str
+    api_url: str | None = None
     cluster_name: str | None = None
     state: ProjectState | None = None
     deletion_time: int | None = None
