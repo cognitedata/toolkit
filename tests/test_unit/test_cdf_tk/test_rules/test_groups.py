@@ -99,9 +99,10 @@ class TestGroupRuleSet:
     @pytest.mark.usefixtures("alpha_rules")
     def test_sandbox_skips_project_status(self, tmp_path: Path) -> None:
         client = _client("DATA_MODELING_ONLY", is_sandbox=True)
-        rule = GroupRuleSet(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)], client=client)
+        rule = GroupRuleSet(client=client)
+        data = ValidationInput(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)])
 
-        insights = [item for item in rule.validate() if isinstance(item, InsightDefinition)]
+        insights = [item for item in rule.validate(data) if isinstance(item, InsightDefinition)]
 
         assert ([item.insight_type for item in insights], client.project.status.called) == (["Recommendation"], False)
 
