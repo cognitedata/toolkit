@@ -31,6 +31,7 @@ cdf-group-emails = false
 neat = true
 postgres-gateway = true
 check = true
+build-validate = true
 
 [plugins]
 run = true
