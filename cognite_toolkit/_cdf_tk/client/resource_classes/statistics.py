@@ -62,3 +62,15 @@ class SpaceStatisticsResponse(BaseModelObject):
     def total_containers(self) -> int:
         """Containers used for nodes/edges plus records-only containers, which `containers` does not count."""
         return self.containers + (self.records_only_containers or 0)
+
+    @property
+    def is_empty(self) -> bool:
+        """Check if the space has no containers, views, or other resources."""
+        return (
+            self.containers == 0
+            and self.views == 0
+            and self.data_models == 0
+            and self.edges == 0
+            and self.nodes == 0
+            and (self.records_only_containers or 0) == 0
+        )

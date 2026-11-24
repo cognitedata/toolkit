@@ -147,6 +147,10 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         """Parse a reference response. Note: db_name must be injected separately."""
         return ResponseItems[RAWTableResponse].model_validate_json(response.body)
 
+    @staticmethod
+    def _tables_path(db_name: str) -> str:
+        return f"/raw/dbs/{quote(db_name, safe='')}/tables"
+
     def create(self, items: Sequence[RAWTableRequest], ensure_parent: bool = False) -> builtins.list[RAWTableResponse]:
         """Create tables in a database in CDF.
 
@@ -161,7 +165,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         for (db_name,), group in self._group_items_by_text_field(items, "db_name").items():
             if not db_name:
                 raise ValueError("db_name must be set on all RAWTable items for creation.")
-            endpoint = f"/raw/dbs/{db_name}/tables"
+            endpoint = self._tables_path(db_name)
             created = self._request_item_response(
                 group, "create", params={"ensureParent": ensure_parent}, endpoint=endpoint
             )
@@ -179,7 +183,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         for (db_name,), group in self._group_items_by_text_field(items, "db_name").items():
             if not db_name:
                 raise ValueError("db_name must be set on all RAWTable items for deletion.")
-            endpoint = f"/raw/dbs/{db_name}/tables/delete"
+            endpoint = f"{self._tables_path(db_name)}/delete"
             self._request_no_response(list(group), "delete", endpoint=endpoint)
 
     def profile(
@@ -227,7 +231,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         Returns:
             PagedResponse of RAWTable objects.
         """
-        page = self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        page = self._paginate(cursor=cursor, limit=limit, endpoint_path=self._tables_path(db_name))
         for table in page.items:
             table.db_name = db_name
         return page
@@ -246,7 +250,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         Returns:
             Iterable of lists of RAWTable objects.
         """
-        for table in self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables"):
+        for table in self._iterate(limit=limit, endpoint_path=self._tables_path(db_name)):
             for t in table:
                 t.db_name = db_name
             yield table
@@ -261,7 +265,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         Returns:
             List of RAWTable objects.
         """
-        listed = self._list(limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        listed = self._list(limit, endpoint_path=self._tables_path(db_name))
         for table in listed:
             table.db_name = db_name
         return listed
