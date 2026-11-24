@@ -19,6 +19,7 @@ from ._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     identifier_values,
     quote_identifier,
     with_position,
@@ -41,7 +42,7 @@ class DependencyRuleSet(ToolkitRuleSet):
         """Unresolved variables are reported on their own, and always lead to unknown references."""
         return contains_unresolved_variable(identifier)
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if self.client is None:
             return RuleSetStatus(
                 code="reduced",
@@ -50,15 +51,15 @@ class DependencyRuleSet(ToolkitRuleSet):
         else:
             return RuleSetStatus(code="ready", message="Will validate dependencies and state changes against CDF.")
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         local_resource_ids: set[tuple[ResourceType, Identifier]] = {
-            (resource.type, resource.identifier) for resource in self.resources
+            (resource.type, resource.identifier) for resource in data.resources
         }
         missing_locally_by_crud_cls: dict[type[ResourceIO], dict[Identifier, list[tuple[ResourceRef, Path]]]] = (
             defaultdict(lambda: defaultdict(list))
         )
-        for resource in self.resources:
+        for resource in data.resources:
             source_path = resource.source
             if not isinstance(source_path, Path):
                 continue

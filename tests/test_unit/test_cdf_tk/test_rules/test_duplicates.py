@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import TimeSeriesIO
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._duplicates import DuplicateRuleSet
 from cognite_toolkit._cdf_tk.utils.file import relative_to_modules
 
@@ -37,7 +38,9 @@ class TestDuplicateRuleSet:
         files = [tmp_path / f"{name}.TimeSeries.yaml" for name in ("first", "second", "third")]
         first, second, third = (relative_to_modules(file.resolve()) for file in files)
 
-        results = list(DuplicateRuleSet(resources=[_built_resource(file) for file in files]).validate())
+        results = list(
+            DuplicateRuleSet().validate(ValidationInput(resources=[_built_resource(file) for file in files]))
+        )
 
         assert [result.model_dump(include={"code", "message", "source_file", "line"}) for result in results] == [
             {

@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._functions import FunctionRuleSet
 from cognite_toolkit._cdf_tk.utils import PipValidationResult
 
@@ -75,7 +76,7 @@ class TestFunctionLimitsRule:
     @staticmethod
     def _load_function(resource: BuiltResource) -> FunctionRequest:
         """Load the function definition the same way the rule does, without a client."""
-        crud = FunctionIO(FunctionRuleSet(resources=[resource])._load_client())
+        crud = FunctionIO(FunctionRuleSet()._load_client())
         return resource.as_request(crud, is_dry_run=True).request
 
     @pytest.mark.parametrize(
@@ -94,8 +95,8 @@ class TestFunctionLimitsRule:
     ) -> None:
         """Test get_status depending on whether a client is available."""
         client = request.getfixturevalue(client_fixture) if client_fixture else None
-        rule = FunctionRuleSet(resources=[], client=client)
-        status = rule.get_status()
+        rule = FunctionRuleSet(client=client)
+        status = rule.get_status(ValidationInput())
         assert status.code == expected_code
         assert status.message is not None
         assert expected_message_substring in status.message.lower()

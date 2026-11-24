@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.rules._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     get_global_rules_registry,
 )
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
@@ -50,19 +51,35 @@ class ValidationCommand(ToolkitCommand):
         client: ToolkitClient | None = None,
         display: CommandDisplay = CommandDisplay(results=False),
         rule_context: Literal["local", "cdf"] = "local",
+        plan: list[ToolkitRuleSet] | None = None,
     ) -> ValidationResultList:
-        """Validates the built modules in the build folder."""
+        """Validates the resources and deployment results against the rules of the plan.
+
+        Args:
+            resources: The local resources to validate.
+            results: The deployment results, used by rules that validate the changes a deployment would make.
+            resource_types: The resource types to select rules for. Defaults to the types of the resources.
+            client: The ToolkitClient given to the selected rules.
+            display: What to display.
+            rule_context: The context to select rules for.
+            plan: The rules to run, for example, to configure them. If not given, the rules are selected from
+                the resource types and the rule context.
+        """
         console = client.console if client else Console(markup=True)
-        plan = self._create_validation_plan(resources, results, resource_types, client, rule_context)
+        data = ValidationInput(resources=resources or (), results=results or ())
+        rules = (
+            plan if plan is not None else self._create_validation_plan(resources, resource_types, client, rule_context)
+        )
+        steps = [ValidationStep(status=rule.get_status(data), rule=rule) for rule in rules]
 
         if display.header:
-            self._display_validation_plan(plan, console)
+            self._display_validation_plan(steps, console)
 
         with display.progress_bar(console) as progress:
-            validation_results = self._run_validation(plan, progress)
+            validation_results = self._run_validation(steps, data, progress)
 
         if display.results:
-            BuildV2Command._display_insights(
+            BuildV2Command.display_insights(
                 insights=InsightList([insight for result in validation_results for insight in result.insights]),
                 insight_path=Path("dummy"),
                 console=console,
@@ -74,20 +91,18 @@ class ValidationCommand(ToolkitCommand):
     def _create_validation_plan(
         cls,
         resources: Sequence[ResourceRef] | None = None,
-        results: Sequence[DeploymentResult] | None = None,
         resource_types: set[ResourceType] | None = None,
         client: ToolkitClient | None = None,
         context: Literal["local", "cdf"] = "local",
-    ) -> list[ValidationStep]:
+    ) -> list[ToolkitRuleSet]:
         """Selects the rules to run. Without resources, all rules for the context are selected."""
-        all_rules = get_global_rules_registry()
         used_resource_types: set[ResourceType] | None = (
             {resource.type for resource in resources}
             if resources is not None and resource_types is None
             else resource_types
         )
-        plan: list[ValidationStep] = []
-        for rule_cls in all_rules:
+        plan: list[ToolkitRuleSet] = []
+        for rule_cls in get_global_rules_registry():
             if (
                 used_resource_types is not None
                 and not used_resource_types.intersection(rule_cls.RESOURCE_TYPES)
@@ -96,10 +111,7 @@ class ValidationCommand(ToolkitCommand):
                 continue
             if context not in rule_cls.CONTEXT:
                 continue
-            rule = rule_cls(resources, results, client=client)
-
-            status = rule.get_status()
-            plan.append(ValidationStep(status=status, rule=rule))
+            plan.append(rule_cls(client=client))
         return plan
 
     @classmethod
@@ -133,7 +145,9 @@ class ValidationCommand(ToolkitCommand):
         )
 
     @classmethod
-    def _run_validation(cls, plan: list[ValidationStep], progress: Progress) -> ValidationResultList:
+    def _run_validation(
+        cls, plan: list[ValidationStep], data: ValidationInput, progress: Progress
+    ) -> ValidationResultList:
         ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
         validating_task = progress.add_task("Checking modules", total=ready_step_count)
         validation_results = ValidationResultList()
@@ -145,7 +159,7 @@ class ValidationCommand(ToolkitCommand):
 
             insights: list[Insight] = []
             errors: list[InternalValidatorException] = []
-            for result in step.rule.validate():
+            for result in step.rule.validate(data):
                 if isinstance(result, InternalValidatorException):
                     errors.append(result)
                 else:

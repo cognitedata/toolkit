@@ -46,6 +46,7 @@ _METHOD_LABELS: dict[LoginFlow, str] = {
     "device_code": "Device code",
     "interactive": "Interactive",
     "token": "Token",
+    "no_auth": "No authentication",
 }
 
 _PROVIDER_LABELS: dict[Provider, str] = {

@@ -18,6 +18,7 @@ class ToolkitClientConfig(ClientConfig):
         base_url: str | None = None,
         cluster: str | None = None,
         is_strict_validation: bool = True,
+        is_sandbox: bool = False,
         headers: dict[str, str] | None = None,
         timeout: int = DEFAULT_CLIENT_TIMEOUT,
         file_transfer_timeout: int | None = None,
@@ -36,6 +37,7 @@ class ToolkitClientConfig(ClientConfig):
             debug=debug,
         )
         self.is_strict_validation = is_strict_validation
+        self.is_sandbox = is_sandbox
 
     @classmethod
     def from_client_config(cls, config: ClientConfig, is_strict_validation: bool = True) -> "ToolkitClientConfig":

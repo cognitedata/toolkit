@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.http_client._credential_provider import NoCredentials
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOWS
 from cognite_toolkit._cdf_tk.commands.auth.data_classes._constants import parse_login_flow
@@ -152,6 +153,32 @@ class TestEnvironmentVariables:
         assert env_vars.IDP_TENANT_ID == "my_tenant.onmicrosoft.com"
         assert env_vars.CDF_CLIENT_TIMEOUT == 10
         assert env_vars.CDF_CLIENT_MAX_WORKERS == 5000
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            **PROJECT_AND_CLUSTER,
+            "COGNITE_SANDBOX": "1",
+            "LOGIN_FLOW": "client_credentials",
+            "IDP_CLIENT_ID": "my-identifier",
+            "IDP_CLIENT_SECRET": "my-secret",
+            "IDP_TENANT_ID": "my_tenant.onmicrosoft.com",
+        },
+    )
+    def test_sandbox_forces_no_auth(self) -> None:
+        env_vars = EnvironmentVariables.create_from_environment()
+
+        config = env_vars.get_config(is_strict_validation=True)
+
+        assert env_vars.LOGIN_FLOW == "no_auth"
+        assert isinstance(config.credentials, NoCredentials)
+        assert config.is_sandbox is True
+
+    @mock.patch.dict(os.environ, {"COGNITE_SANDBOX": "", "LOGIN_FLOW": "no_auth", **PROJECT_AND_CLUSTER})
+    def test_not_sandbox_by_default(self) -> None:
+        config = EnvironmentVariables.create_from_environment().get_config(is_strict_validation=True)
+
+        assert config.is_sandbox is False
 
     @pytest.mark.parametrize(
         "token_url, expected",
