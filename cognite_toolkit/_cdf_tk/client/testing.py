@@ -230,6 +230,7 @@ class ToolkitClientMock(ToolkitClient):
         self.config.api_subversion = None
         self.config.debug = False
         self.config.is_strict_validation = True
+        self.config.is_sandbox = False
         self.config.headers = None
         _credentials = MagicMock()
         _credentials.authorization_header.return_value = ("Authorization", "Bearer mock-token")

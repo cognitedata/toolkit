@@ -2,7 +2,7 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import ClassVar, Literal, overload
 
 from dateutil import parser
@@ -618,8 +618,10 @@ class _EpochConverter(_ValueConverter):
     type_str = "epoch"
     schema_type: ClassVar[DataType] = "epoch"
 
-    def _convert(self, value: str | int | float | bool | NodeId | dict | list) -> int:
-        if isinstance(value, int | float):
+    def _convert(self, value: str | int | float | bool | NodeId | dict | list | datetime) -> int:
+        if isinstance(value, datetime):
+            return self._datetime_to_ms(value)
+        elif isinstance(value, int | float):
             return int(value)
         elif isinstance(value, str):
             try:
@@ -628,12 +630,17 @@ class _EpochConverter(_ValueConverter):
             except ValueError:
                 pass
             try:
-                dt = parser.isoparse(value)
-                epoch = int(dt.timestamp() * 1000)
-                return epoch
+                return self._datetime_to_ms(parser.isoparse(value))
             except ValueError as e:
                 raise ValueError(f"Cannot convert {value} to epoch timestamp: {e}") from e
         raise ValueError(f"Cannot convert {value} to epoch timestamp.")
+
+    @staticmethod
+    def _datetime_to_ms(dt: datetime) -> int:
+        # Timestamps without a time zone are UTC, not the local time of the machine running Toolkit.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return int(dt.timestamp() * 1000)
 
 
 class _DateConverter(_ValueConverter):
