@@ -1348,6 +1348,7 @@ memberEmails:
     client.console = Console()
     client.config = MagicMock(spec=ToolkitClientConfig)
     client.config.project = CDF_PROJECT
+    client.config.is_sandbox = False
     client.project = MagicMock(spec=ProjectAPI)
     client.lookup = MagicMock(spec=LookUpGroup)
     # Instance attributes set in LookUpGroup.__init__ are not part of the class spec, so set them explicitly.

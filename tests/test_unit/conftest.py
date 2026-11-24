@@ -92,6 +92,7 @@ def _cheap_toolkit_client() -> MagicMock:
     mock_client.console = Console(file=StringIO())
     mock_client.config = MagicMock(spec=ToolkitClientConfig)
     mock_client.config.project = CDF_PROJECT
+    mock_client.config.is_sandbox = False
     mock_client.project = MagicMock()
     mock_client.project.organization.side_effect = ValueError("offline")
     return mock_client

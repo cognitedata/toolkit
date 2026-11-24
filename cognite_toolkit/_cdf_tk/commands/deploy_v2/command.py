@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ResourceUpdateError,
     ResourceUpsertError,
+    SandboxUnavailableError,
     ToolkitError,
     ToolkitNotADirectoryError,
     ToolkitUserAbortError,
@@ -1025,7 +1026,8 @@ class DeployV2Command(ToolkitCommand):
         Returns:
             A tuple of (is_missing_read_acl, is_missing_write_acl, is_write_acl_unknown). The last flag is
             only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
-            so write-protected dataset ownership cannot be verified.
+            so write-protected dataset ownership cannot be verified, or when permissions cannot be inspected
+            (Cognite sandbox).
         """
 
         if not isinstance(crud, FunctionIO):
@@ -1065,11 +1067,13 @@ class DeployV2Command(ToolkitCommand):
             if dataset_owner:
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
-            return (
-                bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl))),
-                bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl))),
-                is_write_acl_unknown,
-            )
+            try:
+                is_missing_read_acl = bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl)))
+                is_missing_write_acl = bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl)))
+            except SandboxUnavailableError:
+                # Permissions cannot be inspected in a sandbox, so access is reported as unknown.
+                return False, False, True
+            return is_missing_read_acl, is_missing_write_acl, is_write_acl_unknown
         else:
             # Is not dry run
             read_write_acls: list[AclType] = []
@@ -1077,7 +1081,11 @@ class DeployV2Command(ToolkitCommand):
                 read_write_acls.extend(crud.create_acl({"READ", "WRITE"}, scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
-            if missing := crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls)):
+            try:
+                missing = crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls))
+            except SandboxUnavailableError:
+                return False, False, False
+            if missing:
                 raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
             return False, False, False
 
