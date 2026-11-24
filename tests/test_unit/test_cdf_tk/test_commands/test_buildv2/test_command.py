@@ -1,3 +1,4 @@
+import os
 import shutil
 from io import StringIO
 from pathlib import Path
@@ -37,7 +38,7 @@ from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
-from tests.test_unit.utils import MockQuestionary
+from tests.test_unit.utils import MockQuestion, MockQuestionary
 
 BASE_URL = "http://neat.cognitedata.com"
 
@@ -1256,6 +1257,20 @@ class TestSelectModule:
                     module_scan_result=scan,
                     allow_creation=allow_creation,
                 )
+
+    def test_ask_user_to_select_modules_fits_choices_within_terminal_width(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        org = self._org(tmp_path)
+        modules = [self._make_module(org, "short"), self._make_module(org, "a_very_long_module_name_" * 3)]
+        monkeypatch.setattr(shutil, "get_terminal_size", MagicMock(return_value=os.terminal_size((40, 24))))
+        checkbox = MagicMock(return_value=MockQuestion([]))
+        monkeypatch.setattr(f"{BuildV2Command.__module__}.questionary.checkbox", checkbox)
+
+        BuildV2Command._ask_user_to_select_modules(modules, "build")
+
+        titles = [choice.title for choice in checkbox.call_args.kwargs["choices"]]
+        assert titles == ["short (modules/short)", "a_very_long_module_name_a_very_lo…"]
 
 
 _GIT_SPACE_FILE = f"org/{MODULES}/my_module/{SpaceIO.folder_name}/my_space.{SpaceIO.kind}.yaml"

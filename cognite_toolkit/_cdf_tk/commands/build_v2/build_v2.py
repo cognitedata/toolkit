@@ -638,23 +638,39 @@ class BuildV2Command(ToolkitCommand):
 
         return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
 
+    # Width of the " » ○ " pointer and checkbox questionary renders before each choice title.
+    _CHECKBOX_PREFIX_WIDTH: ClassVar[int] = 5
+
     @classmethod
     def _ask_user_to_select_modules(
         cls, available_modules: list[ModuleDirectory], operation: str
     ) -> set[RelativeDirPath | str]:
+        # Lines filling the full terminal width garble the prompt in some terminals, so we keep each
+        # line, including the pointer and checkbox prefix, at least one column short of the width.
+        max_title_width = shutil.get_terminal_size().columns - cls._CHECKBOX_PREFIX_WIDTH - 1
         choices = [
             Choice(
-                title=f"{module.name} ({module.id.as_posix()})",
+                title=cls._truncate(f"{module.name} ({module.id.as_posix()})", max_title_width),
                 value=module.id,
             )
             for module in available_modules
         ]
         if not available_modules:
             raise ToolkitValueError(f"No modules found to {operation}.")
-        result = questionary.checkbox(f"Which modules would you like to {operation}?", choices=choices).unsafe_ask()
+        result = questionary.checkbox(
+            f"Which modules would you like to {operation}?",
+            choices=choices,
+            instruction="(space: select, a: all, i: invert)",
+        ).unsafe_ask()
         if result is None:
             raise ToolkitValueError(f"{operation.title()} cancelled by user.")
         return set(result)
+
+    @staticmethod
+    def _truncate(text: str, max_width: int) -> str:
+        if len(text) <= max_width:
+            return text
+        return text[: max(max_width - 1, 0)] + "…"
 
     def _display_module_sources(
         self,
