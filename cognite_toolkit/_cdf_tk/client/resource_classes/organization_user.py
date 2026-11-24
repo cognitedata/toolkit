@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 class OrganizationUser(BaseModelObject):
     id: str
-    picture_url: str
+    picture_url: str | None = None
     email: str | None = None
     name: str | None = None
     given_name: str | None = None
