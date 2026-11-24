@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._agents import AgentRuleSet
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 
 
 class TestAgentRuleSet:
@@ -71,7 +72,7 @@ class TestAgentRuleSet:
         """Create an AgentRuleSet with a mocked client."""
         mock_client = MagicMock()
         mock_client.agents.service_availability.return_value = service_availability
-        return AgentRuleSet(resources=[], client=mock_client)
+        return AgentRuleSet(client=mock_client)
 
     @pytest.mark.parametrize(
         "with_client, expected_code",
@@ -86,13 +87,9 @@ class TestAgentRuleSet:
         with_client: bool,
         expected_code: str,
     ) -> None:
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(resources=[])
-        status = rule.get_status()
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet()
+        status = rule.get_status(ValidationInput())
         assert status.code == expected_code
-
-    def test_service_availability_returns_none_without_client(self) -> None:
-        rule = AgentRuleSet(resources=[])
-        assert rule.service_availability is None
 
     @pytest.mark.parametrize(
         "model, with_client, expected_codes",
@@ -117,8 +114,8 @@ class TestAgentRuleSet:
         yaml_file = tmp_path / "agents" / "agent.yaml"
         self._write_agent_yaml(yaml_file, content)
         resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(resources=[])
-        errors = list(rule._validate_agent(resource))
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet()
+        errors = list(rule.validate(ValidationInput(resources=[resource])))
         assert [error.code for error in errors] == expected_codes
         assert all(isinstance(error, BuildError) for error in errors)
 
@@ -139,7 +136,7 @@ class TestAgentRuleSet:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(service_availability)
-        errors = list(rule._validate_agent(resource))
+        errors = list(rule.validate(ValidationInput(resources=[resource])))
         assert len(errors) == 1
         assert errors[0].code == "EXCEEDED-LIMIT"
 
@@ -207,6 +204,6 @@ class TestAgentRuleSet:
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(resources=[])
-        errors = list(rule._validate_agent(resource))
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet()
+        errors = list(rule.validate(ValidationInput(resources=[resource])))
         assert [error.code for error in errors] == expected_codes

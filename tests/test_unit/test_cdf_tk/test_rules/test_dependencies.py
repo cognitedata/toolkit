@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltM
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.data_classes._insights import InternalValidatorException
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ResourceType, TimeSeriesIO
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 
@@ -41,9 +42,9 @@ class TestDependencyRuleSetCdfApiError:
 
         client = MagicMock()
         client.datasets.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
-        rule = DependencyRuleSet(resources=module.resources, client=client)
+        rule = DependencyRuleSet(client=client)
 
-        results = list(rule.validate())
+        results = list(rule.validate(ValidationInput(resources=module.resources)))
         assert len(results) == 1
         result = results[0]
         assert isinstance(result, InternalValidatorException)
