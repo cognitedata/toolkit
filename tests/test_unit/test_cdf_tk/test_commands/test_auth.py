@@ -32,8 +32,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.commands.auth import command as auth_command_module
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -81,11 +82,14 @@ def _setup_verify_mocks(
     user_groups: list[GroupResponse],
     all_cdf_groups: list[GroupResponse] | None = None,
     data_modeling_status: str = "HYBRID",
+    is_sandbox: bool = False,
 ) -> None:
     if all_cdf_groups is None:
         all_cdf_groups = list(user_groups)
 
-    client.config = MagicMock(spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False)
+    client.config = MagicMock(
+        spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False, is_sandbox=is_sandbox
+    )
 
     client.token.inspect.return_value = _create_inspect_response()
     client.token.verify_acls.return_value = []
@@ -126,6 +130,45 @@ class TestAuthCommand:
             cmd.verify(client, False, no_prompt=True)
 
             assert list(cmd.warning_list) == []
+
+    def test_auth_verify_sandbox_skips_blocked_calls(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            required_acls, _ = AuthCommand._get_required_acls(client, "HYBRID")
+            group = GroupResponse(
+                id=123,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls],
+            )
+            _setup_verify_mocks(client, user_groups=[group], is_sandbox=True)
+            client.token.verify_acls.side_effect = SandboxUnavailableError("Not available in sandbox")
+
+            AuthCommand(print_warning=False).verify(client, False, no_prompt=True)
+
+            assert not client.token.inspect.called
+            assert not client.token.verify_acls.called
+            assert not client.functions.status.called
+            assert not client.project.organization.called
+            assert not client.project.status.called
+
+    def test_auth_init_sandbox_returns_immediately(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("COGNITE_SANDBOX", "1")
+        environment_variables = MagicMock()
+        monkeypatch.setattr(auth_command_module, "EnvironmentVariables", environment_variables)
+
+        AuthCommand(print_warning=False).init()
+
+        environment_variables.create_from_environment.assert_not_called()
+
+    def test_auth_login_sandbox_returns_immediately(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("COGNITE_SANDBOX", "1")
+        parse_login_flow = MagicMock()
+        monkeypatch.setattr(auth_command_module, "parse_login_flow", parse_login_flow)
+
+        AuthCommand(print_warning=False).login()
+
+        parse_login_flow.assert_not_called()
 
     def test_auth_verify_wrong_capabilities(self) -> None:
         with monkeypatch_toolkit_client() as client:

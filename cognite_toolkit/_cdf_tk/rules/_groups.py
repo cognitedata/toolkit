@@ -133,11 +133,15 @@ class GroupRuleSet(ToolkitRuleSet):
 
         if not usages:
             return
-        try:
-            status = self.client.project.status().this_project.data_modeling_status
-        except (ToolkitAPIError, ValueError) as error:
-            yield InternalValidatorException(message=f"Failed to retrieve the project status: {error}", source="Groups")
-            return
+        status: Literal["HYBRID", "DATA_MODELING_ONLY"] = "HYBRID"
+        if not self.client.config.is_sandbox:
+            try:
+                status = self.client.project.status().this_project.data_modeling_status
+            except (ToolkitAPIError, ValueError) as error:
+                yield InternalValidatorException(
+                    message=f"Failed to retrieve the project status: {error}", source="Groups"
+                )
+                return
         for usage in usages:
             yield self._create_insight(usage, status)
 
