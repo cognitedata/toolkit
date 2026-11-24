@@ -272,6 +272,25 @@ CDF_CLIENT_MAX_WORKERS=5
         assert credentials.authorization_header() == ("Authorization", "Bearer session-access")
         assert credentials.authorization_header() == ("Authorization", "Bearer session-access")
 
+    def test_session_config_uses_session_idp_for_auth_urls(self, sample_keyring: Path, cli_home: Path) -> None:
+        now = datetime.now(UTC)
+        StoredSession(
+            version=COGNITE_CLI_SESSION_VERSION,
+            org="cog-staging-my-org",
+            access_token="session-access",
+            refresh_token="session-refresh",
+            access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+            refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+        ).save()
+        env_vars = EnvironmentVariables(**PROJECT_AND_CLUSTER, PROVIDER="cdf", LOGIN_FLOW="session")
+
+        config = env_vars.get_config(is_strict_validation=False)
+
+        assert (
+            config.create_auth_url("/orgs/cog-staging-my-org/applications")
+            == "https://auth-staging.gc-bru-001.cogheim.net/api/v1/orgs/cog-staging-my-org/applications"
+        )
+
     def test_get_credentials_session_refreshes_expiring_access_token(
         self, sample_keyring: Path, cli_home: Path, cogidp_http
     ) -> None:
