@@ -230,6 +230,9 @@ class UnusedRuleSet(ToolkitRuleSet):
             for workflow in requests.request(client.workflows.list, limit=None)
             if workflow.created_time < created_before_epoch
         ]
+        # We do one request here per workflow, if we did a single request for up to 100 workflows
+        # (limit for workflow filters) we would have to paginate through all executions to ensure that a
+        # workflow has never run, which could be more expensive than doing one request per workflow.
         has_run = requests.each(
             lambda workflow: bool(
                 client.workflows.executions.list(
