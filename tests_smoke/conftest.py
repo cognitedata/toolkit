@@ -1,10 +1,8 @@
-import os
 import zipfile
 from pathlib import Path
 
 import pytest
 from cognite.client import global_config
-from cognite.client.credentials import OAuthClientCredentials
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -13,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables
 from tests.data import THREE_D_He2_FBX_ZIP
 from tests_smoke.constants import SMOKE_SPACE
 
@@ -22,20 +21,13 @@ REPO_ROOT = Path(__file__).parent.parent
 @pytest.fixture(scope="session")
 def toolkit_client_config() -> ToolkitClientConfig:
     load_dotenv(REPO_ROOT / ".env", override=True)
-    cdf_cluster = os.environ["CDF_CLUSTER"]
-    credentials = OAuthClientCredentials(
-        token_url=os.environ["IDP_TOKEN_URL"],
-        client_id=os.environ["IDP_CLIENT_ID"],
-        client_secret=os.environ["IDP_CLIENT_SECRET"],
-        scopes=[f"https://{cdf_cluster}.cognitedata.com/.default"],
-        audience=f"https://{cdf_cluster}.cognitedata.com",
-    )
+    env_vars = EnvironmentVariables.create_from_environment()
     global_config.disable_pypi_version_check = True
     return ToolkitClientConfig(
         client_name="cdf-toolkit-integration-tests",
-        base_url=f"https://{cdf_cluster}.cognitedata.com",
-        project=os.environ["CDF_PROJECT"],
-        credentials=credentials,
+        base_url=env_vars.cdf_url,
+        project=env_vars.CDF_PROJECT,
+        credentials=env_vars.get_credentials(),
         is_strict_validation=False,
     )
 

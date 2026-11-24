@@ -91,6 +91,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ApplicationId,
     DataModelId,
     ExternalId,
     ExtractionPipelineConfigId,
@@ -117,6 +118,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.application import ApplicationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart_monitoring_job import (
@@ -407,7 +409,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         UserProfilesAPI,
         # Metering is read-only (list/retrieve) and alpha.
         MeteringAPI,
-        # Alpha and org-scoped on auth.cognite.com. Creating one registers a real application for the organization.
+        # Org-scoped with a server-generated client ID, so there is no fixed example identifier.
         ApplicationsAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
         DocumentsAPI,
@@ -3160,6 +3162,60 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(
                 endpoints["retrieve"].path, f"Expected to retrieve meter {meter_id}, got {len(retrieved)} items"
             )
+
+    def test_applications_crudl(self, toolkit_client: ToolkitClient) -> None:
+        applications = toolkit_client.applications
+        endpoints = applications._method_endpoint_map
+        request = ApplicationRequest(
+            name="toolkit_smoke_test_application", project_names=[toolkit_client.config.project]
+        )
+        application_id: ApplicationId | None = None
+        try:
+            try:
+                created = applications.create([request])
+            except ToolkitAPIError as e:
+                if e.code == 403:
+                    pytest.skip("Missing permission to create applications in the organization")
+                raise EndpointAssertionError(endpoints["create"].path, f"Creating application failed: {e!s}") from e
+            if len(created) != 1:
+                raise EndpointAssertionError(endpoints["create"].path, f"Expected 1 created item, got {len(created)}")
+            created_id = application_id = created[0].as_id()
+
+            self.assert_endpoint_method(
+                lambda: applications.retrieve([created_id]), "retrieve", endpoints["retrieve"], created_id
+            )
+
+            update = request.model_copy(
+                update={
+                    "id": created_id.id,
+                    "description": "Updated by the Toolkit smoke test",
+                    "allowed_origins": ["https://toolkit-smoke-test.example.com"],
+                }
+            )
+            self.assert_endpoint_method(
+                lambda: applications.update([update]), "update", endpoints["update"], created_id
+            )
+            retrieved = applications.retrieve([created_id])
+            if retrieved[0].description != update.description or retrieved[0].allowed_origins != update.allowed_origins:
+                raise EndpointAssertionError(endpoints["update"].path, "Updated application fields were not persisted")
+
+            try:
+                listed = applications.list(limit=None)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Listing applications failed: {e!s}") from e
+            if created_id not in {application.as_id() for application in listed}:
+                raise EndpointAssertionError(endpoints["list"].path, f"Created application {created_id} was not listed")
+
+            try:
+                applications.delete([created_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["delete"].path, f"Deleting application failed: {e!s}") from e
+            application_id = None
+            if applications.retrieve([created_id], ignore_unknown_ids=True):
+                raise EndpointAssertionError(endpoints["delete"].path, f"Application {created_id} was not deleted")
+        finally:
+            if application_id is not None:
+                best_effort_cleanup(lambda: applications.delete([application_id]))
 
     def test_statistics(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test project and space statistics endpoints (read-only)."""
