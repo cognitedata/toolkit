@@ -7,13 +7,9 @@ from cognite_toolkit._cdf_tk.commands import CheckCommand, CheckType
 from cognite_toolkit._cdf_tk.rules import (
     FailingJobRuleSet,
     ToolkitRuleSet,
-    TransformationRuleSet,
     UnusedRuleSet,
     get_global_rules_registry,
 )
-
-# TransformationRuleSet is scheduled for deletion and is not part of the check command.
-EXCLUDED_CDF_RULE_SETS: set[type[ToolkitRuleSet]] = {TransformationRuleSet}
 
 
 class TestCheckCommand:
@@ -40,11 +36,7 @@ class TestCheckCommand:
         ],
     )
     def test_create_check_plan_all_includes_all_cdf_rule_sets(self, checks: set[CheckType]) -> None:
-        expected = {
-            rule_set
-            for rule_set in get_global_rules_registry()
-            if "cdf" in rule_set.CONTEXT and rule_set not in EXCLUDED_CDF_RULE_SETS
-        }
+        expected = {rule_set for rule_set in get_global_rules_registry() if "cdf" in rule_set.CONTEXT}
 
         plan = CheckCommand._create_check_plan(checks, MagicMock(), lookback_period=5)
 
