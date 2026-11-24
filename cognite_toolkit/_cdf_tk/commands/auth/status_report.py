@@ -345,7 +345,7 @@ def render_auth_status(
 
     console.print(_authentication_panel(status))
     if not status.permissions_available:
-        console.print("\n[dim]Permissions are not available in a Cognite sandbox.[/dim]")
+        console.print("\n[dim]Permissions are not available.[/dim]")
         return
     if status.current_project and not any(project.is_current for project in status.projects):
         console.print(

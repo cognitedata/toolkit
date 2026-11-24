@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatc
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.commands.auth import command as auth_command_module
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -142,10 +142,13 @@ class TestAuthCommand:
                 capabilities=[GroupCapability(acl=acl) for acl in required_acls],
             )
             _setup_verify_mocks(client, user_groups=[group], is_sandbox=True)
+            client.token.verify_acls.side_effect = SandboxUnavailableError("Not available in sandbox")
 
             AuthCommand(print_warning=False).verify(client, False, no_prompt=True)
 
             assert not client.token.inspect.called
+            assert not client.token.verify_acls.called
+            assert not client.functions.status.called
             assert not client.project.organization.called
             assert not client.project.status.called
 

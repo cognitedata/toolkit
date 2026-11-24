@@ -690,6 +690,9 @@ class AuthCommand(ToolkitCommand):
     def check_function_service_status(
         self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool
     ) -> str | None:
+        if client.config.is_sandbox:
+            self._print_skipped_in_sandbox("function service status")
+            return None
         print("Checking function service status...")
         has_function_read_access = self.has_function_rights(client, ["READ"], has_added_capabilities)
         if not has_function_read_access:
