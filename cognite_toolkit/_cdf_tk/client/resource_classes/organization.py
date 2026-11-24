@@ -133,7 +133,7 @@ class OrgResponse(Org, ResponseResource[OrgRequest]):
 class OrgWithContactPersonsResponse(OrgResponse):
     """Response from retrieving a single organization."""
 
-    contact_persons: list[ContactPerson]
+    contact_persons: list[ContactPerson] | None = None
 
 
 class OrgProject(BaseModelObject):
