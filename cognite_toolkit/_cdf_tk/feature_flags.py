@@ -125,7 +125,7 @@ class Flags(Enum):
         "the 'include' field.",
     )
     CHECK = FlagMetadata(
-        visible=False,
+        visible=True,
         description="Enables the check command plugin for checking CDF resources and configurations",
     )
 

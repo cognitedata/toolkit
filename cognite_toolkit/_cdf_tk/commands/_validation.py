@@ -79,7 +79,7 @@ class ValidationCommand(ToolkitCommand):
             validation_results = self._run_validation(steps, data, progress)
 
         if display.results:
-            BuildV2Command._display_insights(
+            BuildV2Command.display_insights(
                 insights=InsightList([insight for result in validation_results for insight in result.insights]),
                 insight_path=Path("dummy"),
                 console=console,

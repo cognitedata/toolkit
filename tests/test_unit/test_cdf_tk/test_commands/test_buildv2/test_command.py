@@ -690,7 +690,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command().display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert "! Unrecognized field  [UNRECOGNIZED-FIELD]" in rendered
@@ -710,7 +710,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command().display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert rendered.count("[UNRECOGNIZED-FIELD]") == 1
@@ -733,7 +733,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command().display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert pattern in rendered
