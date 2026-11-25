@@ -6,6 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.commands import CheckCommand, CheckType
 from cognite_toolkit._cdf_tk.rules import (
     FailingJobRuleSet,
+    PerformanceRuleSet,
     ToolkitRuleSet,
     UnusedRuleSet,
     get_global_rules_registry,
@@ -18,6 +19,7 @@ class TestCheckCommand:
         [
             pytest.param({CheckType.failing}, {FailingJobRuleSet}, id="failing"),
             pytest.param({CheckType.unused}, {UnusedRuleSet}, id="unused"),
+            pytest.param({CheckType.performance}, {PerformanceRuleSet}, id="performance"),
             pytest.param(
                 {CheckType.failing, CheckType.unused}, {FailingJobRuleSet, UnusedRuleSet}, id="failing and unused"
             ),
