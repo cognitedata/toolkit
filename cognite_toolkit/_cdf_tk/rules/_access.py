@@ -205,6 +205,8 @@ class AccessRuleSet(ToolkitRuleSet):
             if status := invalid_session_status(session):
                 invalid.append(f"session {session_id} is {status}")
                 continue
+            if session is None:
+                continue
             if session.expiration_time is None:
                 continue
             expires = ms_to_datetime(session.expiration_time)
