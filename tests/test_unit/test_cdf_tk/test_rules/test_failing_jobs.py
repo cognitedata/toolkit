@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
@@ -156,6 +156,7 @@ def _client() -> MagicMock:
         _execution("e4", RECENT, "Function task failed"),
     ]
     client.workflows.versions.retrieve.return_value = [_workflow_version()]
+    client.functions.status.return_value = FunctionsActivation(status="activated")
     client.functions.list.return_value = [
         _function(1, "fn_in_workflow", last_called=RECENT),
         _function(2, "fn_not_called_recently", last_called=OLD),
