@@ -101,7 +101,7 @@ class Flags(Enum):
     )
     CDF_GROUP_EMAILS = FlagMetadata(
         visible=True,
-        description="Enables support for CDF group resources with members set to 'emails' and memberEmails set to a list of email addresses.",
+        description="Enables support for CDF group members given as users by email or service accounts by external ID.",
     )
     NEAT = FlagMetadata(
         visible=True,

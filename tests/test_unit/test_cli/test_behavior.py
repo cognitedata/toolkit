@@ -1324,10 +1324,12 @@ secrets:
 def test_build_deploy_cdf_group_with_member_emails(tmp_path: Path) -> None:
     """Test that a group with member emails can be built and deployed successfully."""
     group_yaml = """name: group_with_emails
-members: "emails"
-memberEmails:
-- bob@example.com
-- alice@example.com
+members:
+- 1230398
+- type: user
+  email: bob@example.com
+- type: service-account
+  externalId: service-account-1
 """
 
     my_org = tmp_path / "my_org"
@@ -1336,13 +1338,11 @@ memberEmails:
     yaml_filepath.write_text(group_yaml, encoding="utf-8")
 
     # Mock client
-    def lookup(email: list[str] | tuple[str, ...], warn: bool = True) -> None | str | list[str]:
-        if not isinstance(email, str):
-            assert False, f"Expected a single email string, got {email}"
-        return {
-            "bob@example.com": "123",
-            "alice@example.com": "456",
-        }.get(email)
+    def lookup_user(email: str, warn: bool = True) -> str | None:
+        return {"bob@example.com": "123"}.get(email)
+
+    def lookup_service_account(external_id: str, warn: bool = True) -> str | None:
+        return {"service-account-1": "456"}.get(external_id)
 
     client = MagicMock(spec=ToolkitClient)
     client.console = Console()
@@ -1362,13 +1362,14 @@ memberEmails:
     ]:
         setattr(client.lookup, lookup_name, MagicMock())
     client.lookup.principals = MagicMock(spec=PrincipalLookUpAPI)
-    client.lookup.principals.user_id.side_effect = lookup
+    client.lookup.principals.user_id.side_effect = lookup_user
+    client.lookup.principals.service_account_id.side_effect = lookup_service_account
     client.groups = MagicMock(spec=GroupsAPI)
     client.groups.list.return_value = []
     client.token = MagicMock(spec=ToolkitTokenAPI)
     client.token.verify_acls.return_value = []
     client.groups.create.return_value = [
-        GroupResponse(name="group_with_emails", members=["123", "456"], id=1, is_deleted=False)
+        GroupResponse(name="group_with_emails", members=["1230398", "123", "456"], id=1, is_deleted=False)
     ]
 
     # Build the project
@@ -1398,4 +1399,4 @@ memberEmails:
     assert client.groups.create.call_count == 1
     created_groups = client.groups.create.call_args.args[0]
     assert len(created_groups) == 1
-    assert created_groups[0].dump() == {"name": "group_with_emails", "members": ["123", "456"]}
+    assert created_groups[0].dump() == {"name": "group_with_emails", "members": ["1230398", "123", "456"]}

@@ -522,6 +522,28 @@ capabilities:
             "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
+    def test_lookup_member_ids_dry_run_uses_placeholders_for_missing(self) -> None:
+        client = MagicMock()
+        client.lookup.principals.user_id.return_value = None
+        client.lookup.principals.service_account_id.return_value = None
+        loader = GroupAllScopedIO(client)
+
+        member_ids = loader._lookup_member_ids(
+            [
+                "1230398",
+                {"type": "user", "email": "bob@example.com"},
+                {"type": "service-account", "externalId": "service-account-1"},
+            ],
+            NameId(name="my_group"),
+            is_dry_run=True,
+        )
+
+        assert member_ids == [
+            "1230398",
+            "dry-run-user-id-for-bob@example.com",
+            "dry-run-service-account-id-for-service-account-1",
+        ]
+
     def test_dependencies_test_cases_is_complete(self) -> None:
         """Test that the test cases cover every non-all scope of every ACL."""
         acls = [case.values[0] for case in group_acl_expected_dependency()]
