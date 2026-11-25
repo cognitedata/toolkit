@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     TimeSeriesAcl,
     UserProfilesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.principal import Principal, UserPrincipal
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import Principal, ServiceAccountPrincipal, UserPrincipal
 from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import SandboxUnavailableError
@@ -399,12 +399,14 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
         return LocationFiltersAcl(actions=["READ"], scope=AllScope() if ids is None else IDScope(ids=sorted(ids)))
 
 
-class UserLookUpAPI:
+class PrincipalLookUpAPI:
     def __init__(self, toolkit_client: "ToolkitClient") -> None:
         self._client = toolkit_client
         self._has_looked_up = False
         self._email_by_user_id: dict[str, str] = {}
         self._user_id_by_email: dict[str, str] = {}
+        self._external_id_by_service_account_id: dict[str, str] = {}
+        self._service_account_id_by_external_id: dict[str, str] = {}
 
     @classmethod
     def _read_acl(cls) -> AclType:
@@ -414,21 +416,28 @@ class UserLookUpAPI:
         if self._has_looked_up:
             return
         try:
-            users: list[Principal] | list[UserProfile] = self._client.principals.list(types=["USER"], limit=None)
+            principals: list[Principal] | list[UserProfile] = self._client.principals.list(
+                types=["USER", "SERVICE_ACCOUNT"], limit=None
+            )
         except ToolkitAPIError as e:
-            if e.code == 401:
-                # Requires to be authenticated by CogIdp, falling back to deprecated API.
-                users = self._list_user_profiles()
+            if e.code in (401, 403):
+                # Requires to be authenticated by CogIdp with access to list principals,
+                # falling back to deprecated API.
+                # Note that this API does not include service accounts.
+                principals = self._list_user_profiles()
             else:
                 raise e
-        for user in users:
-            if isinstance(user, UserPrincipal) and user.email:
-                self._email_by_user_id[user.id] = user.email
-                self._user_id_by_email[user.email] = user.id
-            elif isinstance(user, UserProfile):
-                if user.user_identifier and user.email:
-                    self._email_by_user_id[user.user_identifier] = user.email
-                    self._user_id_by_email[user.email] = user.user_identifier
+        for principal in principals:
+            if isinstance(principal, UserPrincipal) and principal.email:
+                self._email_by_user_id[principal.id] = principal.email
+                self._user_id_by_email[principal.email] = principal.id
+            elif isinstance(principal, ServiceAccountPrincipal) and principal.external_id:
+                self._external_id_by_service_account_id[principal.id] = principal.external_id
+                self._service_account_id_by_external_id[principal.external_id] = principal.id
+            elif isinstance(principal, UserProfile):
+                if principal.user_identifier and principal.email:
+                    self._email_by_user_id[principal.user_identifier] = principal.email
+                    self._user_id_by_email[principal.email] = principal.user_identifier
         self._has_looked_up = True
 
     def _list_user_profiles(self) -> list[UserProfile]:
@@ -459,7 +468,7 @@ class UserLookUpAPI:
             The corresponding email if a single user ID is provided (None if not found),
             or a list of emails if a sequence of user IDs is provided (missing users are skipped).
         """
-        return self._lookup_values(user_id, self._email_by_user_id, "user ID", "email", warn)
+        return self._lookup_values(user_id, self._email_by_user_id, "user", "user ID", "email", warn)
 
     @overload
     def user_id(self, email: str, warn: bool = True) -> str | None: ...
@@ -478,12 +487,69 @@ class UserLookUpAPI:
             The corresponding user ID if a single email is provided (None if not found),
             or a list of user IDs if a sequence of emails is provided (missing users are skipped).
         """
-        return self._lookup_values(email, self._user_id_by_email, "email", "user ID", warn)
+        return self._lookup_values(email, self._user_id_by_email, "user", "email", "user ID", warn)
+
+    @overload
+    def external_id(self, service_account_id: str, warn: bool = True) -> str | None: ...
+
+    @overload
+    def external_id(self, service_account_id: list[str] | tuple[str, ...], warn: bool = True) -> list[str]: ...
+
+    def external_id(
+        self, service_account_id: str | list[str] | tuple[str, ...], warn: bool = True
+    ) -> str | list[str] | None:
+        """Lookup the external ID of service accounts given their principal IDs.
+
+        Args:
+            service_account_id: A service account principal ID or a sequence of them to look up.
+            warn: If True, print a warning for any service account IDs that are not found.
+
+        Returns:
+            The corresponding external ID if a single service account ID is provided (None if not found),
+            or a list of external IDs if a sequence of IDs is provided (missing service accounts are skipped).
+        """
+        return self._lookup_values(
+            service_account_id,
+            self._external_id_by_service_account_id,
+            "service account",
+            "ID",
+            "external ID",
+            warn,
+        )
+
+    @overload
+    def service_account_id(self, external_id: str, warn: bool = True) -> str | None: ...
+
+    @overload
+    def service_account_id(self, external_id: list[str] | tuple[str, ...], warn: bool = True) -> list[str]: ...
+
+    def service_account_id(
+        self, external_id: str | list[str] | tuple[str, ...], warn: bool = True
+    ) -> str | list[str] | None:
+        """Lookup the principal IDs of service accounts given their external IDs.
+
+        Args:
+            external_id: An external ID or a sequence of external IDs to look up.
+            warn: If True, print a warning for any external IDs that are not found.
+
+        Returns:
+            The corresponding service account ID if a single external ID is provided (None if not found),
+            or a list of service account IDs if a sequence of external IDs is provided (missing ones are skipped).
+        """
+        return self._lookup_values(
+            external_id,
+            self._service_account_id_by_external_id,
+            "service account",
+            "external ID",
+            "ID",
+            warn,
+        )
 
     def _lookup_values(
         self,
         keys: str | list[str] | tuple[str, ...],
         mapping: dict[str, str],
+        principal_name: str,
         key_name: str,
         value_name: str,
         warn: bool = True,
@@ -495,7 +561,7 @@ class UserLookUpAPI:
             plural = "s" if len(missing) > 1 else ""
             plural2 = "They do" if len(missing) > 1 else "It does"
             MediumSeverityWarning(
-                f"Failed to retrieve {value_name} for user{plural} with {key_name}{plural} "
+                f"Failed to retrieve {value_name} for {principal_name}{plural} with {key_name}{plural} "
                 f"{humanize_collection(missing)}. {plural2} not exist in CDF"
             ).print_warning(console=self._client.console)
         if isinstance(keys, str):
@@ -515,4 +581,4 @@ class LookUpGroup:
         self.location_filters = LocationFiltersLookUpAPI(toolkit_client)
         self.extraction_pipelines = ExtractionPipelineLookUpAPI(toolkit_client)
         self.functions = FunctionLookUpAPI(toolkit_client)
-        self.users = UserLookUpAPI(toolkit_client)
+        self.principals = PrincipalLookUpAPI(toolkit_client)

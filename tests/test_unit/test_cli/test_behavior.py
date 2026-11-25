@@ -17,7 +17,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
-from cognite_toolkit._cdf_tk.client.api.lookup import LookUpGroup, UserLookUpAPI
+from cognite_toolkit._cdf_tk.client.api.lookup import LookUpGroup, PrincipalLookUpAPI
 from cognite_toolkit._cdf_tk.client.api.project import ProjectAPI
 from cognite_toolkit._cdf_tk.client.api.token import ToolkitTokenAPI
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
@@ -1361,8 +1361,8 @@ memberEmails:
         "assets",
     ]:
         setattr(client.lookup, lookup_name, MagicMock())
-    client.lookup.users = MagicMock(spec=UserLookUpAPI)
-    client.lookup.users.user_id.side_effect = lookup
+    client.lookup.principals = MagicMock(spec=PrincipalLookUpAPI)
+    client.lookup.principals.user_id.side_effect = lookup
     client.groups = MagicMock(spec=GroupsAPI)
     client.groups.list.return_value = []
     client.token = MagicMock(spec=ToolkitTokenAPI)

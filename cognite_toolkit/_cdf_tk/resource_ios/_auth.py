@@ -343,7 +343,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 missing_ids: list[str] = []
                 member_ids: list[str] = []
                 for email in member_emails or []:
-                    user_id = self.client.lookup.users.user_id(email)
+                    user_id = self.client.lookup.principals.user_id(email)
                     if user_id:
                         member_ids.append(user_id)
                     else:
