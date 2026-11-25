@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -18,6 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavai
 from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionScheduleIO,
     HostedExtractorDestinationIO,
+    ResourceType,
     TransformationIO,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -95,15 +97,15 @@ class AccessRuleSet(ToolkitRuleSet):
     recommendations.
     """
 
-    DISPLAY_NAME = "Access"
-    RESOURCE_TYPES = frozenset(
+    DISPLAY_NAME: ClassVar[str] = "Access"
+    RESOURCE_TYPES: ClassVar[frozenset[ResourceType]] = frozenset(
         {
             TransformationIO.as_resource_type(),
             FunctionScheduleIO.as_resource_type(),
             HostedExtractorDestinationIO.as_resource_type(),
         }
     )
-    CONTEXT = frozenset({"cdf"})
+    CONTEXT: ClassVar[frozenset[Literal["cdf"]]] = frozenset({"cdf"})
 
     def __init__(
         self,
@@ -203,7 +205,7 @@ class AccessRuleSet(ToolkitRuleSet):
             if status := invalid_session_status(session):
                 invalid.append(f"session {session_id} is {status}")
                 continue
-            if session is None or session.expiration_time is None:
+            if session.expiration_time is None:
                 continue
             expires = ms_to_datetime(session.expiration_time)
             if expires <= now:
