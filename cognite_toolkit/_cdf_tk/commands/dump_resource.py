@@ -768,6 +768,8 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         safe_name = sanitize_filename(external_id)
         base = folder.resolve()
         function_dir = (folder / safe_name).resolve()
+        if function_dir == base or not function_dir.is_relative_to(base):
+            raise ValueError(f"Invalid identifier {external_id!r}: must not escape the function directory")
         try:
             zip_bytes = _download_file_bytes(self.client, function.file_id)
         except ToolkitAPIError as e:
