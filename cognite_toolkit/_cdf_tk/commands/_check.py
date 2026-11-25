@@ -11,10 +11,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import ValidationResultList
 from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightList
-from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, ToolkitRuleSet, UnusedRuleSet
+from cognite_toolkit._cdf_tk.rules import AccessRuleSet, FailingJobRuleSet, ToolkitRuleSet, UnusedRuleSet
 
 
 class CheckType(StrEnum):
+    access = "access"
     failing = "failing"
     unused = "unused"
     all = "all"
@@ -58,6 +59,8 @@ class CheckCommand(ValidationCommand):
         cls, checks: set[CheckType], client: ToolkitClient, lookback_period: int, min_age: int = 14
     ) -> list[ToolkitRuleSet]:
         plan: list[ToolkitRuleSet] = []
+        if checks & {CheckType.access, CheckType.all}:
+            plan.append(AccessRuleSet(client=client))
         if checks & {CheckType.failing, CheckType.all}:
             plan.append(FailingJobRuleSet(client=client, lookback_period=timedelta(days=lookback_period)))
         if checks & {CheckType.all, CheckType.unused}:
