@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionScheduleIO,
     HostedExtractorDestinationIO,
@@ -151,7 +150,6 @@ class AccessRuleSet(ToolkitRuleSet):
                 ),
                 source_url="/token/inspect",
                 fix="Add sessionsAcl:LIST to your credentials to check them.",
-                alpha=Flags.ALPHA_RULES.is_enabled(),
             )
             return
         now = datetime.now(UTC)
@@ -213,14 +211,12 @@ class AccessRuleSet(ToolkitRuleSet):
             elif first_expiry is None or expires < first_expiry:
                 first_expiry = expires
 
-        alpha = Flags.ALPHA_RULES.is_enabled()
         if invalid:
             return BuildError(
                 code="INVALID-CREDENTIALS",
                 message=f"{compute.display_name} has credentials that are no longer valid, as {humanize_collection(invalid)}.",
                 source_url=compute.url,
                 fix=compute.fix,
-                alpha=alpha,
             )
         if first_expiry is None:
             return None
@@ -236,7 +232,6 @@ class AccessRuleSet(ToolkitRuleSet):
             ),
             source_url=compute.url,
             fix=compute.fix,
-            alpha=alpha,
         )
 
     @staticmethod
