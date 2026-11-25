@@ -765,8 +765,6 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
         external_id = function.external_id or "unknown_external_id"
-        # Separators in an external ID are filename-safe (`team/func` → `team_func`). `.` and `..` are not:
-        # they resolve to this folder or its parent, so the code would land outside the function directory.
         safe_name = sanitize_filename(external_id)
         base = folder.resolve()
         function_dir = (folder / safe_name).resolve()
@@ -858,7 +856,6 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             folder (Path): The directory where the app code will be saved.
             console (Console | None): Optional Rich console for printing warnings.
         """
-        # `.` and `..` pass through sanitize_filename and resolve to this folder or its parent.
         base = folder.resolve()
         app_path = (folder / sanitize_filename(app.external_id)).resolve()
         if app_path == base or not app_path.is_relative_to(base):
@@ -1127,7 +1124,7 @@ class DumpResourceCommand(ToolkitCommand):
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
                 resource_id = loader.get_id(resource)
-                name = loader.as_filename(resource_id)
+                name = resource_id.as_filename()
                 base_filepath = resource_folder / f"{name}.{loader.kind}.yaml"
                 if base_filepath.exists():
                     self.warn(FileExistsWarning(base_filepath, "Skipping... Use --clean to remove existing files."))
