@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessag
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AclType, Scope
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
 from cognite_toolkit._cdf_tk.constants import URL
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
@@ -17,6 +17,10 @@ class ToolkitTokenAPI:
     def inspect(self) -> InspectResponse:
         """Inspect the current token and return its capabilities and scopes."""
         config = self._http_client.config
+        if config.is_sandbox:
+            raise SandboxUnavailableError(
+                "Permissions cannot be checked in a Cognite sandbox, as token inspection is not available there."
+            )
         url = f"{config.base_url}/api/v1/token/inspect"
         request = RequestMessage(
             endpoint_url=url,
@@ -36,6 +40,8 @@ class ToolkitTokenAPI:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
         try:
             capabilities = self.project_capabilities
+        except SandboxUnavailableError:
+            raise
         except AuthorizationError as e:
             raise AuthorizationError(
                 f"Failed to validate {humanize_collection([repr(acl) for acl in required_acls])}. \n{e!s}"

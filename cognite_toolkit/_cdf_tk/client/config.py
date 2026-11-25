@@ -1,6 +1,6 @@
 import re
 from typing import Literal
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from cognite.client import ClientConfig
 from cognite.client.credentials import CredentialProvider
@@ -18,6 +18,7 @@ class ToolkitClientConfig(ClientConfig):
         base_url: str | None = None,
         cluster: str | None = None,
         is_strict_validation: bool = True,
+        is_sandbox: bool = False,
         headers: dict[str, str] | None = None,
         timeout: int = DEFAULT_CLIENT_TIMEOUT,
         file_transfer_timeout: int | None = None,
@@ -36,6 +37,7 @@ class ToolkitClientConfig(ClientConfig):
             debug=debug,
         )
         self.is_strict_validation = is_strict_validation
+        self.is_sandbox = is_sandbox
 
     @classmethod
     def from_client_config(cls, config: ClientConfig, is_strict_validation: bool = True) -> "ToolkitClientConfig":
@@ -127,10 +129,24 @@ class ToolkitClientConfig(ClientConfig):
 
         Args:
             endpoint (str): The Auth endpoint to append to the base URL.
+
+        The auth host is derived from the token URL of the credentials when available,
+        e.g. 'https://auth-dev.cognitedata-development.cognite.ai/oauth2/token'. Falls back
+        to 'https://auth.cognite.com'.
         """
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
-        return f"https://auth.cognite.com/api/v1{endpoint}"
+        return f"{self._auth_base_url}/api/v1{endpoint}"
+
+    @property
+    def _auth_base_url(self) -> str:
+        token_url = getattr(self.credentials, "token_url", None)
+        if isinstance(token_url, str):
+            parsed = urlparse(token_url)
+            # Only Cognite IdP hosts (auth.*, auth-dev.*, auth-staging.*); other IdPs, e.g. Entra ID, use the default.
+            if parsed.scheme and re.match(r"^auth(-[a-z0-9]+)?\.", parsed.netloc):
+                return f"{parsed.scheme}://{parsed.netloc}"
+        return "https://auth.cognite.com"
 
     def attempt_to_get_cdf_cluster(self) -> str | None:
         """A best effort attempt to extract the cluster from the base url when cluster was not explicitly provided in init."""

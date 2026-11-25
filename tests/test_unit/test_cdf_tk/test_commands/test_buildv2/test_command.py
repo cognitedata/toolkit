@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO,
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
@@ -369,7 +370,7 @@ class TestDependencyValidationSearchConfig:
                 module_id=module.module_id,
             )
         )
-        result = list(DependencyRuleSet(module.resources).validate())
+        result = list(DependencyRuleSet().validate(ValidationInput(resources=module.resources)))
         assert len(result) == 0
 
 
@@ -689,7 +690,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command().display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert "! Unrecognized field  [UNRECOGNIZED-FIELD]" in rendered
@@ -709,7 +710,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command().display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert rendered.count("[UNRECOGNIZED-FIELD]") == 1
@@ -732,7 +733,7 @@ class TestDisplayInsightsOutput:
             ]
         )
 
-        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+        BuildV2Command().display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
         assert pattern in rendered

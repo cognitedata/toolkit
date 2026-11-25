@@ -178,13 +178,13 @@ class DataModelingFilter(Filter):
 
 
 class ContainerFilter(DataModelingFilter):
-    used_for: Literal["node", "edge", "record", "all"] | None = None
+    used_for: list[Literal["node", "edge", "record", "all"]] | None = None
 
 
 class ViewFilter(DataModelingFilter):
     include_inherited_properties: bool | None = None
     all_versions: bool | None = None
-    used_for: Literal["node", "edge", "record", "all"] | None = None
+    used_for: list[Literal["node", "edge", "record", "all"]] | None = None
 
 
 class DataModelFilter(DataModelingFilter):

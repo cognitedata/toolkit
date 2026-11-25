@@ -127,6 +127,7 @@ class TestContainerIO:
         loader = ContainerIO(toolkit_client)
 
         try:
+            loader.drop_data(container_id)
             assert loader.count(container_id) == 0
 
             cognite_client.data_modeling.instances.apply(nodes=[node])
@@ -184,6 +185,7 @@ class TestContainerIO:
         loader = ContainerIO(toolkit_client)
 
         try:
+            loader.drop_data(container_id)
             assert loader.count(container_id) == 0
 
             cognite_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)

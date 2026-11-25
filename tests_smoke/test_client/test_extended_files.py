@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceR
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from tests_smoke.constants import SMOKE_FILE_UNLINK_EXTERNAL_ID, SMOKE_SPACE
+from tests_smoke.utils import best_effort_cleanup
 
 
 class TestExtendedFilesAPI:
@@ -28,6 +29,11 @@ class TestExtendedFilesAPI:
         content = b"Hello, this is a smoke test file's content."
         created: FileMetadataResponse | None = None
         created_dm = False
+        # A previous run that failed before its cleanup leaves the file behind, which makes create fail.
+        best_effort_cleanup(
+            lambda: client.cognite_files.delete([cognite_file.as_id()]),
+            lambda: client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True),
+        )
         try:
             created_files = client.filemetadata.create([metadata])
             if len(created_files) != 1:
@@ -90,6 +96,8 @@ class TestExtendedFilesAPI:
                 )
         finally:
             if created is not None and not created_dm:
-                client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+                best_effort_cleanup(
+                    lambda: client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+                )
             if created_dm:
-                client.cognite_files.delete([cognite_file.as_id()])
+                best_effort_cleanup(lambda: client.cognite_files.delete([cognite_file.as_id()]))

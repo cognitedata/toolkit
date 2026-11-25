@@ -112,6 +112,24 @@ class TestLookup:
 
         assert cap_cls.__name__ in str(exc_info.value)
 
+    def test_missing_access_in_sandbox_raises_original_error(
+        self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter
+    ) -> None:
+        sandbox_config = ToolkitClientConfig(
+            client_name=toolkit_config.client_name,
+            project=toolkit_config.project,
+            base_url=toolkit_config.base_url,
+            credentials=toolkit_config.credentials,
+            is_sandbox=True,
+        )
+        rsps.post(sandbox_config.create_api_url("events/byids")).respond(status_code=403)
+        client = ToolkitClient(config=sandbox_config)
+
+        with pytest.raises(ToolkitAPIError) as exc_info:
+            client.lookup.events.id(external_id="non-existing")
+
+        assert not isinstance(exc_info.value, AuthorizationError)
+
     def test_lookup_external_id_missing(
         self,
         toolkit_config: ToolkitClientConfig,

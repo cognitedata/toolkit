@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.rules._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     quote_identifier,
     with_position,
 )
@@ -80,7 +81,7 @@ class GroupRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Groups"
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():
             return RuleSetStatus(
                 code="skip",
@@ -96,12 +97,12 @@ class GroupRuleSet(ToolkitRuleSet):
             )
         return RuleSetStatus(code="ready", message="Will validate that groups do not use ACLs of deprecated resources.")
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None or not Flags.ALPHA_RULES.is_enabled():
             return
         usages: list[_DeprecatedAclUsage] = []
         cruds = (GroupResourceScopedIO(self.client), GroupAllScopedIO(self.client))
-        for resource in self.resources:
+        for resource in data.resources:
             if resource.type not in self.RESOURCE_TYPES or not resource.has_valid_syntax:
                 continue
             if not isinstance(resource.source, Path):
@@ -132,11 +133,15 @@ class GroupRuleSet(ToolkitRuleSet):
 
         if not usages:
             return
-        try:
-            status = self.client.project.status().this_project.data_modeling_status
-        except (ToolkitAPIError, ValueError) as error:
-            yield InternalValidatorException(message=f"Failed to retrieve the project status: {error}", source="Groups")
-            return
+        status: Literal["HYBRID", "DATA_MODELING_ONLY"] = "HYBRID"
+        if not self.client.config.is_sandbox:
+            try:
+                status = self.client.project.status().this_project.data_modeling_status
+            except (ToolkitAPIError, ValueError) as error:
+                yield InternalValidatorException(
+                    message=f"Failed to retrieve the project status: {error}", source="Groups"
+                )
+                return
         for usage in usages:
             yield self._create_insight(usage, status)
 

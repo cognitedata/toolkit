@@ -3,6 +3,7 @@ from typing import Annotated, Any
 
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -15,6 +16,7 @@ from ._charts import AllChartsSelector, ChartExternalIdSelector, ChartOwnerSelec
 from ._datapoints import (
     DataPointsDataSetSelector,
     DataPointsFileSelector,
+    DataPointsInstanceSpaceSelector,
     DataPointsSelector,
     ExternalIdColumn,
     InstanceColumn,
@@ -69,6 +71,7 @@ Selector = Annotated[
     | DataSetSelector
     | DataPointsDataSetSelector
     | DataPointsFileSelector
+    | DataPointsInstanceSpaceSelector
     | ChartExternalIdSelector
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
@@ -84,6 +87,7 @@ Selector = Annotated[
 
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
+ALPHA_FLAG_BY_SELECTOR: dict[type[DataSelector], Flags] = {DataPointsInstanceSpaceSelector: Flags.EXTEND_DOWNLOAD}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector, config=ConfigDict(defer_build=True))
 
 
@@ -127,6 +131,11 @@ def load_selector_from_dict(selector_dict: dict[str, Any], source_file: Path) ->
             ),
             text="Invalid selector in metadata file, skipping.",
         )
+    elif (flag := ALPHA_FLAG_BY_SELECTOR.get(type(selector))) and not flag.is_enabled():
+        return MediumSeverityWarning(
+            f"Skipping selector type '{type(selector).__name__}' in file '{source_file}'. It is currently behind "
+            f"an alpha feature flag. Enable the flag `{flag.name.lower()}` under [alpha_flags] in cdf.toml."
+        )
     return selector
 
 
@@ -147,6 +156,7 @@ __all__ = [
     "CogniteFileTemplateV2",
     "DataPointsDataSetSelector",
     "DataPointsFileSelector",
+    "DataPointsInstanceSpaceSelector",
     "DataPointsSelector",
     "DataSelector",
     "DataSetSelector",

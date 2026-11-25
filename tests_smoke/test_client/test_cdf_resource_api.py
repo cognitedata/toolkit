@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCateg
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
+from cognite_toolkit._cdf_tk.client.api.signals import SignalsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_integrations import SimulatorIntegrationsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_logs import SimulatorLogsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
@@ -258,6 +259,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.session import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
+    CurrentUserSinkRef,
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
 )
@@ -311,11 +313,12 @@ from tests_smoke.constants import (
     SEQUENCE_EXTERNAL_ID,
     SMOKE_SPACE,
     SMOKE_TEST_CONTAINER_EXTERNAL_ID,
+    SMOKE_TEST_STREAM,
     SMOKE_TEST_VIEW_EXTERNAL_ID,
     TIMESERIES_EXTERNAL_ID,
 )
 from tests_smoke.exceptions import EndpointAssertionError
-from tests_smoke.utils import retry_api_call
+from tests_smoke.utils import best_effort_cleanup, retry_api_call
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
     {
@@ -409,6 +412,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         AnnotationsAPI,
         # Subscriptions depend on existing sinks and have no retrieve method.
         SignalSubscriptionsAPI,
+        # Signals are read-only, created by CDF services, and listing requires a sink.
+        SignalsAPI,
         # Rule sets: parent/child relationship, versions require parent in path.
         RuleSetsAPI,
         RuleSetVersionsAPI,
@@ -700,9 +705,7 @@ Used by toolkit smoke tests.
         StreamlitResponse: [
             {"externalId": "smoke-test-streamlit", "name": "Smoke Test Streamlit App", "creator": "doctrino"}
         ],
-        StreamResponse: [
-            {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
-        ],
+        StreamResponse: [{"externalId": SMOKE_TEST_STREAM, "settings": {"template": {"name": "ImmutableTestStream"}}}],
         ThreeDModelClassicResponse: [{"name": "smoke-test-3d-model-classic"}],
         # ThreeDModelDMSResponse: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
         ThreeDRevisionClassicResponse: [{"fileId": -1, "modelId": -1}],
@@ -1239,11 +1242,13 @@ class TestCDFResourceAPI:
         api = api_cls(toolkit_client.http_client)
         methods = api._method_endpoint_map
 
+        create = getattr(api, "create", None)
+        created = create is None
         try:
-            create = getattr(api, "create", None)
             if create is not None:
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
                 id = self.assert_endpoint_method(lambda: create([request]), "create", create_endpoint, id)
+                created = True
             retrieve = getattr(api, "retrieve", None)
             if retrieve is not None:
                 retrieve_endpoint = methods["retrieve"]
@@ -1263,8 +1268,8 @@ class TestCDFResourceAPI:
                     raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed item, got 0")
         finally:
             delete = getattr(api, "delete", None)
-            if delete is not None and id is not None:
-                delete([id])
+            if delete is not None and id is not None and created:
+                best_effort_cleanup(lambda: delete([id]))
 
     def wait_until_has_value(
         self,
@@ -2496,8 +2501,8 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             if schedule_id is not None:
-                client.functions.schedules.delete([schedule_id])
-            client.functions.delete([function_id], ignore_unknown_ids=True)
+                best_effort_cleanup(lambda: client.functions.schedules.delete([schedule_id]))
+            best_effort_cleanup(lambda: client.functions.delete([function_id], ignore_unknown_ids=True))
 
     def test_persistent_function_calls(
         self, toolkit_client: ToolkitClient, persistent_function: FunctionResponse
@@ -3417,6 +3422,32 @@ class TestCDFResourceAPI:
             client.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
             client.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
             client.workflows.delete([workflow_id])
+
+    def test_signals_topics_list_sync(self, toolkit_client: ToolkitClient) -> None:
+        """Signals are created by CDF services, so the smoke project may have none. This verifies the endpoints
+        respond and that the responses parse, not that signals exist."""
+        client = toolkit_client
+        sink = CurrentUserSinkRef()
+
+        try:
+            topics = client.signals.topics()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(SignalsAPI._TOPICS_ENDPOINT, f"Listing signal topics failed: {e!s}") from e
+        if not topics:
+            raise EndpointAssertionError(SignalsAPI._TOPICS_ENDPOINT, "Expected at least 1 signal topic, got 0")
+
+        list_endpoint = client.signals._method_endpoint_map["list"]
+        try:
+            client.signals.list(sink, limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(list_endpoint.path, f"Listing signals failed: {e!s}") from e
+
+        try:
+            synced = client.signals.sync(sink, limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(SignalsAPI._SYNC_ENDPOINT, f"Syncing signals failed: {e!s}") from e
+        if not synced.next_cursor:
+            raise EndpointAssertionError(SignalsAPI._SYNC_ENDPOINT, "Expected sync to return a next cursor.")
 
     def test_chart_monitoring_job(
         self,

@@ -67,7 +67,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, is_cognite_sandbox
 
 from .data_classes import EnvironmentVariables
 from .data_classes._constants import parse_login_flow
@@ -83,6 +83,10 @@ class VerifyAuthResult:
 
 class AuthCommand(ToolkitCommand):
     def init(self, reset: bool = False) -> None:
+        if is_cognite_sandbox():
+            self._print_nothing_to_configure_in_sandbox()
+            return
+
         env_vars: EnvironmentVariables | None = None
         try:
             env_vars = EnvironmentVariables.create_from_environment()
@@ -120,6 +124,10 @@ class AuthCommand(ToolkitCommand):
         port: int | None = None,
         project: str | None = None,
     ) -> None:
+        if is_cognite_sandbox():
+            self._print_nothing_to_configure_in_sandbox()
+            return
+
         login_flow = parse_login_flow(flow)
         if not confirm_login_flow_overrides_env(login_flow):
             print("[yellow]Aborted.[/yellow]")
@@ -200,15 +208,21 @@ class AuthCommand(ToolkitCommand):
         if client.config.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
         cdf_project = client.config.project
-        inspect_response = self.check_has_any_access(client)
-
-        self.check_has_project_access(inspect_response, cdf_project)
+        is_sandbox = client.config.is_sandbox
+        if is_sandbox:
+            self._print_skipped_in_sandbox("basic project configuration and project access")
+        else:
+            inspect_response = self.check_has_any_access(client)
+            self.check_has_project_access(inspect_response, cdf_project)
 
         print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
 
-        self.check_has_group_access(client)
-
-        self.check_identity_provider(client)
+        if is_sandbox:
+            self._print_skipped_in_sandbox("basic project and group manipulation access rights")
+            self._print_skipped_in_sandbox("identity provider settings")
+        else:
+            self.check_has_group_access(client)
+            self.check_identity_provider(client)
 
         try:
             user_groups = client.groups.list(all_groups=False)
@@ -218,7 +232,11 @@ class AuthCommand(ToolkitCommand):
         if not user_groups:
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
-        data_modeling_status = client.project.status().this_project.data_modeling_status
+        if is_sandbox:
+            self._print_skipped_in_sandbox("project data modeling status, assuming HYBRID")
+            data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"] = "HYBRID"
+        else:
+            data_modeling_status = client.project.status().this_project.data_modeling_status
         required_acls, resource_names_by_acl_type = self._get_required_acls(client, data_modeling_status)
         toolkit_group = self._create_toolkit_group(required_acls, demo_principal)
 
@@ -509,6 +527,16 @@ class AuthCommand(ToolkitCommand):
         required_acls = list(FlatCapabilities.merge_acls(required_acls))
         return required_acls, io_name_by_acl_type
 
+    @staticmethod
+    def _print_nothing_to_configure_in_sandbox() -> None:
+        print(
+            "[yellow]Authentication is handled automatically in a Cognite sandbox; there is nothing to configure.[/yellow]"
+        )
+
+    @staticmethod
+    def _print_skipped_in_sandbox(check: str) -> None:
+        print(f"Checking {check}...\n  [yellow]Skipped[/] - not available in a Cognite sandbox.")
+
     def check_has_any_access(self, client: ToolkitClient) -> InspectResponse:
         print("Checking basic project configuration...")
         try:
@@ -662,6 +690,9 @@ class AuthCommand(ToolkitCommand):
     def check_function_service_status(
         self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool
     ) -> str | None:
+        if client.config.is_sandbox:
+            self._print_skipped_in_sandbox("function service status")
+            return None
         print("Checking function service status...")
         has_function_read_access = self.has_function_rights(client, ["READ"], has_added_capabilities)
         if not has_function_read_access:

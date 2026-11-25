@@ -232,7 +232,7 @@ class BuildV2Command(ToolkitCommand):
 
         insight_path = build_folder.build_dir / f"insights.{parameters.insight_format}"
         if display:
-            self._display_insights(report_insights, insight_path, console, verbose)
+            self.display_insights(report_insights, insight_path, console, verbose)
             self._display_build_summary(build_folder, validation_results, report_insights, console, verbose)
 
         self._track_build_results(build_folder, found_insights, client)
@@ -1604,10 +1604,17 @@ class BuildV2Command(ToolkitCommand):
         safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
 
     @classmethod
-    def _display_insights(cls, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+    def display_insights(
+        cls,
+        insights: InsightList,
+        insight_path: Path,
+        console: Console,
+        verbose: bool,
+        title: str = "Build Insights",
+    ) -> None:
         if not insights:
             return
-        cls._display_grouped_insights(insights, insight_path, console, verbose)
+        cls._display_grouped_insights(insights, insight_path, console, verbose, title)
 
     _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
 
@@ -1648,7 +1655,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _display_grouped_insights(
-        cls, insights: InsightList, insight_path: Path, console: Console, verbose: bool
+        cls, insights: InsightList, insight_path: Path, console: Console, verbose: bool, title: str
     ) -> None:
         severity_style = {
             "Error": (AuraColor.RED.rich, "✗"),
@@ -1692,7 +1699,7 @@ class BuildV2Command(ToolkitCommand):
         console.print(
             ToolkitPanel(
                 Group(*insight_sections),
-                title="Build Insights",
+                title=title,
                 border_style=border_style,
             )
         )

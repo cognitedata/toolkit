@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     ContainerId,
@@ -373,6 +374,16 @@ class TestRecordViewSupport:
         api.create([request])
 
         assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
+
+    def test_views_api_list_sends_used_for_as_repeated_query_parameter(
+        self, toolkit_config, respx_mock: respx.MockRouter
+    ) -> None:
+        api = ViewsAPI(HTTPClient(toolkit_config))
+        respx_mock.get(toolkit_config.create_api_url("/models/views")).respond(status_code=200, json={"items": []})
+
+        api.list(filter=ViewFilter(used_for=["node", "record"]))
+
+        assert respx_mock.calls[-1].request.url.params.get_list("usedFor") == ["node", "record"]
 
     def test_data_models_api_sends_alpha_cdf_version(self, toolkit_config, respx_mock: respx.MockRouter) -> None:
         api = DataModelsAPI(HTTPClient(toolkit_config))

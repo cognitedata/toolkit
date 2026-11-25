@@ -49,9 +49,10 @@ from cognite_toolkit._cdf_tk.resource_ios import AssetIO, GroupIO
 CDF_PROJECT = "pytest-project"
 
 
-def _status_client() -> MagicMock:
+def _status_client(is_sandbox: bool = False) -> MagicMock:
     """Client stand-in for auth status. Avoids building the full ToolkitClient mock."""
     client = MagicMock()
+    client.config.is_sandbox = is_sandbox
     client.config.project = CDF_PROJECT
     client.config.cdf_cluster = "bluefield"
     return client
@@ -232,6 +233,22 @@ class TestAuthStatus:
             "Service principal",
             "Not authenticated. Invalid token",
         )
+
+    def test_sandbox_skips_inspect(self) -> None:
+        client = _status_client(is_sandbox=True)
+        environment = EnvironmentVariables(CDF_CLUSTER="westeurope-1", CDF_PROJECT=CDF_PROJECT, LOGIN_FLOW="no_auth")
+
+        report = collect_auth_status(client, environment)
+
+        assert (
+            report.authenticated,
+            report.method_label,
+            report.current_project,
+            report.permissions_available,
+            client.token.inspect.called,
+            client.project.organization.called,
+            client.project.status.called,
+        ) == (True, "No authentication", CDF_PROJECT, False, False, False, False)
 
     def test_missing_credentials(self) -> None:
         report = collect_auth_status()
