@@ -6,7 +6,12 @@ import pytest
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    StreamResponse,
+    StreamTemplateMaxStreams,
+    StreamTemplateResponse,
+    StreamTemplateSettings,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
@@ -57,11 +62,30 @@ def _limits(max_active: float = 3.0, **by_template: float) -> list[LimitValueRes
     ]
 
 
-def _client(limits: list[LimitValueResponse], existing: list[StreamResponse]) -> MagicMock:
+def _templates(*names: str) -> list[StreamTemplateResponse]:
+    return [
+        StreamTemplateResponse(
+            name=name,
+            type="Mutable",
+            max_streams=StreamTemplateMaxStreams(provisioned=10),
+            settings=StreamTemplateSettings(limits={}, lifecycle={}),
+        )
+        for name in names
+    ]
+
+
+def _client(
+    limits: list[LimitValueResponse],
+    existing: list[StreamResponse],
+    templates: list[StreamTemplateResponse] | None = None,
+) -> MagicMock:
     client = MagicMock()
     client.config.create_api_url.side_effect = lambda endpoint: f"{API_URL}{endpoint}"
     client.limits.list.return_value = limits
     client.streams.list.return_value = existing
+    client.streams.list_templates.return_value = (
+        _templates("BasicArchive", "BasicLiveData") if templates is None else templates
+    )
     return client
 
 
@@ -103,6 +127,23 @@ class TestStreamLimits:
             ),
             1,
         )
+
+
+class TestStreamTemplateName:
+    def test_unknown_template_is_reported(self, tmp_path: Path) -> None:
+        rule = StreamRuleSet(client=_client(_limits(), [], _templates("BasicArchive", "BasicLiveData")))
+        resource = _stream_resource(tmp_path, NEW_STREAM.external_id, "NotATemplate")
+        data = ValidationInput(resources=[resource], results=[_deployment([NEW_STREAM])])
+
+        insights = [item for item in rule.validate(data) if isinstance(item, BuildError)]
+        assert [(insight.code, insight.source_file, insight.line, insight.fix) for insight in insights] == [
+            (
+                "INVALID-VALUE",
+                resource.source_path,
+                4,
+                "Use one of the available templates: BasicArchive or BasicLiveData.",
+            )
+        ]
 
 
 class TestStreamCapacity:
