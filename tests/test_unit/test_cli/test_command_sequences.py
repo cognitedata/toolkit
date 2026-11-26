@@ -182,25 +182,21 @@ def test_init_build_clean(
         "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
         lambda msg, project, console: True,
     )
-    with patch.dict(
-        os.environ,
-        {"CDF_ENVIRON": "pytest", "CDF_BUILD_TYPE": "dev"},
-    ):
-        DeployV2Command(silent=True, skip_tracking=True).deploy(
-            user_build_dir=build_tmp_path,
-            env_vars=env_vars_with_client,
-            options=DeployOptions(
-                operation="clean",
-                cdf_project=env_vars_with_client.CDF_PROJECT,
-                drop=True,
-                dry_run=False,
-                include=None,
-                verbose=False,
-                drop_data=True,
-                force_update=False,
-                environment_variables=env_vars_with_client.dump(),
-            ),
-        )
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_tmp_path,
+        env_vars=env_vars_with_client,
+        options=DeployOptions(
+            operation="clean",
+            cdf_project=env_vars_with_client.CDF_PROJECT,
+            drop=True,
+            dry_run=False,
+            include=None,
+            verbose=False,
+            drop_data=True,
+            force_update=False,
+            environment_variables=env_vars_with_client.dump(),
+        ),
+    )
 
     not_mocked = toolkit_client_approval.not_mocked_calls()
     assert not not_mocked, (
