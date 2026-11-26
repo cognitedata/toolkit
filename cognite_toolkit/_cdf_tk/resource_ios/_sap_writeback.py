@@ -80,6 +80,8 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
         return self.client.sap_writeback.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SchemaMappingRequest]) -> list[SchemaMappingResponse]:
+        if not items:
+            return []
         return self.client.sap_writeback.mappings.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
