@@ -1,5 +1,6 @@
 import builtins
 from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -229,6 +230,7 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/writeback/sap/mappings", item_limit=_ITEM_LIMIT),
                 "retrieve": Endpoint(method="POST", path="/writeback/sap/mappings/byids", item_limit=_ITEM_LIMIT),
+                "update": Endpoint(method="POST", path="/writeback/sap/mappings/update", item_limit=_ITEM_LIMIT),
                 "delete": Endpoint(method="POST", path="/writeback/sap/mappings/delete", item_limit=_ITEM_LIMIT),
                 "list": Endpoint(method="GET", path="/writeback/sap/mappings", item_limit=_ITEM_LIMIT),
             },
@@ -263,6 +265,19 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
         return self._request_item_response(
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
+
+    def update(
+        self, items: Sequence[SchemaMappingRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> builtins.list[SchemaMappingResponse]:
+        """Update schema mappings.
+
+        Args:
+            items: Schema mappings to update. At most 100 per request.
+            mode: Update mode, either "patch" or "replace".
+        Returns:
+            The updated schema mappings.
+        """
+        return self._update(items, mode=mode)
 
     def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete schema mappings by external ID.

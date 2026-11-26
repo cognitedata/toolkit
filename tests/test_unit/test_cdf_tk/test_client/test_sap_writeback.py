@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WritebackRequestId
 from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
     SAPEndpointConnectionCheck,
+    SchemaMappingRequest,
     WritebackRequestItem,
     WritebackRequestRequest,
 )
@@ -54,6 +55,32 @@ class TestSchemaMappingsAPI:
                 "items": [{"externalId": "my.known.id"}],
                 "ignoreUnknownIds": False,
             },
+        }
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_update_sends_expression(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        api = SchemaMappingsAPI(HTTPClient(toolkit_config))
+        expression = '{ "SAPFieldA": input.CDFFieldB }'
+        respx_mock.post(api._make_url("/writeback/sap/mappings/update")).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": "my.known.id",
+                            "expression": expression,
+                            "createdTime": 1730204346000,
+                            "lastUpdatedTime": 1730204347000,
+                        }
+                    ]
+                },
+            )
+        )
+
+        api.update([SchemaMappingRequest(external_id="my.known.id", expression=expression)])
+
+        assert json.loads(respx_mock.calls[0].request.content) == {
+            "items": [{"externalId": "my.known.id", "update": {"expression": {"set": expression}}}]
         }
 
 

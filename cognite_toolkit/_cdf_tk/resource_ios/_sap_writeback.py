@@ -37,7 +37,6 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
     resource_write_cls = SchemaMappingRequest
     kind = "SchemaMapping"
     yaml_cls = SchemaMappingYAML
-    support_update = False
     _doc_url = "Schema-Mappings/operation/create_schema_mappings"
 
     @property
@@ -79,6 +78,11 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
         if not ids:
             return []
         return self.client.sap_writeback.mappings.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def update(self, items: Sequence[SchemaMappingRequest]) -> list[SchemaMappingResponse]:
+        if not items:
+            return []
+        return self.client.sap_writeback.mappings.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
