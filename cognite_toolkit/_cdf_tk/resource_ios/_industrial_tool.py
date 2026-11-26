@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
@@ -98,10 +98,6 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -186,7 +182,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             original_filepath=filepath,
         )
         if warning:
-            self.on_warning(warning)
+            self._warn_missing_environment_variables(warning, filepath)
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind.lower())].rstrip(".")

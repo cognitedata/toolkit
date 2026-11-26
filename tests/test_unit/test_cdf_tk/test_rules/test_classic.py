@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import AssetIO, LabelIO, ResourceIO, SpaceIO
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._classic import ClassicDeprecationRuleSet
 
 ASSETS = """- externalId: root
@@ -47,7 +48,7 @@ class TestClassicDeprecationRuleSet:
             _resource(labels, ExternalId(external_id="my_label"), LabelIO),
         ]
 
-        results = list(ClassicDeprecationRuleSet(resources=resources).validate())
+        results = list(ClassicDeprecationRuleSet().validate(ValidationInput(resources=resources)))
         insights = [item for item in results if isinstance(item, InsightDefinition)]
 
         assert [(item.code, item.message, item.source_file, item.line) for item in insights] == [

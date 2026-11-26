@@ -9,8 +9,15 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
     InternalValidatorException,
 )
+from cognite_toolkit._cdf_tk.exceptions import SandboxUnavailableError
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, quote_identifier, with_position
+from cognite_toolkit._cdf_tk.rules._base import (
+    RuleSetStatus,
+    ToolkitRuleSet,
+    ValidationInput,
+    quote_identifier,
+    with_position,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
 
 
@@ -19,7 +26,7 @@ class FunctionRuleSet(ToolkitRuleSet):
     RESOURCE_TYPES = frozenset({FunctionIO.as_resource_type()})
     CONTEXT = frozenset({"local"})
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if not self.client:
             return RuleSetStatus(
                 code="reduced",
@@ -35,10 +42,10 @@ class FunctionRuleSet(ToolkitRuleSet):
             message="Will validate function limits, runtime, and requirements.txt.",
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         functions: list[tuple[Path, FunctionRequest]] = []
         crud = FunctionIO(self._load_client())
-        for resource in self.resources:
+        for resource in data.resources:
             if not resource.has_valid_syntax or resource.type != FunctionIO.as_resource_type():
                 # We do not do further validation if there are syntax errors.
                 continue
@@ -87,7 +94,12 @@ class FunctionRuleSet(ToolkitRuleSet):
 
     @classmethod
     def _validate_function_service(cls, client: ToolkitClient, first_function: Path) -> Iterable[Insight]:
-        if missing := client.token.verify_acls([FunctionsAcl(actions=["READ"], scope=AllScope())]):
+        try:
+            missing = client.token.verify_acls([FunctionsAcl(actions=["READ"], scope=AllScope())])
+        except SandboxUnavailableError:
+            # Permissions cannot be inspected in a sandbox, so we skip this check.
+            missing = []
+        if missing:
             yield BuildError(
                 message=(
                     f"Function limits validation requires READ access to Functions. "

@@ -76,8 +76,8 @@ def _view_missing_error() -> ToolkitAPIError:
 @pytest.fixture
 def client() -> Iterator[ToolkitClientMock]:
     with monkeypatch_toolkit_client() as client:
-        client.lookup.users = MagicMock()
-        client.lookup.users.email.return_value = "bob@example.com"
+        client.lookup.principals = MagicMock()
+        client.lookup.principals.email.return_value = "bob@example.com"
         client.instances.retrieve.return_value = []
         client.instances.create.return_value = []
         yield client
@@ -372,7 +372,7 @@ class TestModuleLockManagerTryLock:
             _lock_node("m1", branch="feature/other", git_name="bob", user_id="user-456"),
             _lock_node("m2", lock=False),
         ]
-        client.lookup.users.email.return_value = None
+        client.lookup.principals.email.return_value = None
 
         result = ModuleLockManager(client, git, dry_run=False).try_lock(["m1", "m2", "m3"])
 
@@ -555,7 +555,7 @@ class TestModuleLockManagerContext:
 
     def test_context_raises_when_locked(self, client: ToolkitClientMock, git: MagicMock) -> None:
         client.instances.retrieve.return_value = [_lock_node("m1")]
-        client.lookup.users.email.return_value = None
+        client.lookup.principals.email.return_value = None
 
         with pytest.raises(ToolkitError, match="Failed to acquire locks for modules"):
             with ModuleLockManager(client, git, dry_run=False, module_ids=["m1"]):

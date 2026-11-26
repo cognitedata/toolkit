@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import GroupResourceScopedIO
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._groups import GroupRuleSet
 
 ALL_SCOPED_GROUP = """name: all_scoped
@@ -50,8 +51,9 @@ def _group_resource(tmp_path: Path, name: str, content: str) -> BuiltResource:
     )
 
 
-def _client(data_modeling_status: str) -> MagicMock:
+def _client(data_modeling_status: str, is_sandbox: bool = False) -> MagicMock:
     client = MagicMock()
+    client.config.is_sandbox = is_sandbox
     client.project.status.return_value.this_project.data_modeling_status = data_modeling_status
     client.lookup.data_sets.id.return_value = 789
     return client
@@ -66,9 +68,10 @@ class TestGroupRuleSet:
     def test_skipped_without_alpha_rules(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: False)
         client = _client("DATA_MODELING_ONLY")
-        rule = GroupRuleSet(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)], client=client)
+        rule = GroupRuleSet(client=client)
+        data = ValidationInput(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)])
 
-        assert (rule.get_status().code, list(rule.validate())) == ("skip", [])
+        assert (rule.get_status(data).code, list(rule.validate(data))) == ("skip", [])
 
     @pytest.mark.usefixtures("alpha_rules")
     @pytest.mark.parametrize(
@@ -83,9 +86,9 @@ class TestGroupRuleSet:
             _group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP),
             _group_resource(tmp_path, "resource_scoped", RESOURCE_SCOPED_GROUP),
         ]
-        rule = GroupRuleSet(resources=resources, client=_client(data_modeling_status))
+        rule = GroupRuleSet(client=_client(data_modeling_status))
 
-        results = list(rule.validate())
+        results = list(rule.validate(ValidationInput(resources=resources)))
         insights = [item for item in results if isinstance(item, InsightDefinition)]
 
         assert [(item.insight_type, item.code, item.source_file, item.line, item.alpha) for item in insights] == [
@@ -94,9 +97,20 @@ class TestGroupRuleSet:
         ]
 
     @pytest.mark.usefixtures("alpha_rules")
+    def test_sandbox_skips_project_status(self, tmp_path: Path) -> None:
+        client = _client("DATA_MODELING_ONLY", is_sandbox=True)
+        rule = GroupRuleSet(client=client)
+        data = ValidationInput(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)])
+
+        insights = [item for item in rule.validate(data) if isinstance(item, InsightDefinition)]
+
+        assert ([item.insight_type for item in insights], client.project.status.called) == (["Recommendation"], False)
+
+    @pytest.mark.usefixtures("alpha_rules")
     def test_no_project_status_call_without_deprecated_acls(self, tmp_path: Path) -> None:
         content = ALL_SCOPED_GROUP.split("  - assetsAcl")[0]
         client = _client("DATA_MODELING_ONLY")
-        rule = GroupRuleSet(resources=[_group_resource(tmp_path, "all_scoped", content)], client=client)
+        rule = GroupRuleSet(client=client)
+        data = ValidationInput(resources=[_group_resource(tmp_path, "all_scoped", content)])
 
-        assert (list(rule.validate()), client.project.status.called) == ([], False)
+        assert (list(rule.validate(data)), client.project.status.called) == ([], False)

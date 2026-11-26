@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InternalValidatorException
 from cognite_toolkit._cdf_tk.resource_ios import ResourceType, StreamIO
+from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._streams import StreamLimits, StreamRuleSet
 
 API_URL = "https://bluefield.cognitedata.com/api/v1/projects/my_project"
@@ -86,12 +87,9 @@ class TestStreamRuleSetStatus:
         ],
     )
     def test_get_status(self, has_client: bool, has_results: bool, expected: str) -> None:
-        rule = StreamRuleSet(
-            resources=[],
-            results=[_deployment([NEW_STREAM])] if has_results else None,
-            client=MagicMock() if has_client else None,
-        )
-        assert rule.get_status().code == expected
+        rule = StreamRuleSet(client=MagicMock() if has_client else None)
+        data = ValidationInput(results=[_deployment([NEW_STREAM])] if has_results else ())
+        assert rule.get_status(data).code == expected
 
 
 class TestStreamLimits:
@@ -143,13 +141,13 @@ class TestStreamCapacity:
         deleted: list[ExternalId],
         expected_fragments: list[str],
     ) -> None:
-        rule = StreamRuleSet(
+        rule = StreamRuleSet(client=_client(limits, existing))
+        data = ValidationInput(
             resources=[_stream_resource(tmp_path, NEW_STREAM.external_id, "BasicLiveData")],
             results=[_deployment([NEW_STREAM], deleted)],
-            client=_client(limits, existing),
         )
 
-        insights = [item for item in rule.validate() if isinstance(item, BuildError)]
+        insights = [item for item in rule.validate(data) if isinstance(item, BuildError)]
         assert [
             (insight.code, insight.source_url, fragment in insight.message)
             for insight, fragment in zip(insights, expected_fragments, strict=True)
@@ -157,16 +155,20 @@ class TestStreamCapacity:
 
     def test_no_api_calls_without_created_streams(self) -> None:
         client = _client(_limits(), [])
-        rule = StreamRuleSet(resources=[], results=[_deployment([])], client=client)
+        rule = StreamRuleSet(client=client)
 
-        assert (list(rule.validate()), client.limits.list.called, client.streams.list.called) == ([], False, False)
+        assert (
+            list(rule.validate(ValidationInput(results=[_deployment([])]))),
+            client.limits.list.called,
+            client.streams.list.called,
+        ) == ([], False, False)
 
     def test_api_failure_is_reported(self) -> None:
         client = _client(_limits(), [])
         client.streams.list.side_effect = ToolkitAPIError("streams unavailable")
-        rule = StreamRuleSet(resources=[], results=[_deployment([NEW_STREAM])], client=client)
+        rule = StreamRuleSet(client=client)
 
-        items = list(rule.validate())
+        items = list(rule.validate(ValidationInput(results=[_deployment([NEW_STREAM])])))
         assert ([type(item) for item in items], "streams unavailable" in items[0].message) == (
             [InternalValidatorException],
             True,

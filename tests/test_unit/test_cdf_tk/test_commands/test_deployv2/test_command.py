@@ -63,10 +63,11 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     Skipped,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, URL
-from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InsightList
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, DeployWarning, InsightList
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
+    SandboxUnavailableError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitValueError,
@@ -89,7 +90,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -458,9 +459,11 @@ class TestApplyPlan:
                             is_missing_write_acl=False,
                             created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
                             warnings=[
-                                LowSeverityWarning(
-                                    "FunctionId will be ignored in the schedule "
-                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')"
+                                DeployWarning(
+                                    code="REDUNDANT-PROPERTY",
+                                    message="FunctionId will be ignored in the schedule "
+                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')",
+                                    source_file=Path("functions/my.Schedule.yaml"),
                                 )
                             ],
                         )
@@ -633,6 +636,16 @@ class TestApplyPlan:
                 skipped.source_file = skipped.source_file.relative_to(tmp_path)
                 for full_path, rel_path in to_replace.items():
                     skipped.reason = skipped.reason.replace(full_path, rel_path)
+            # Warnings resolve relative source files against the working directory, so the expected
+            # warnings do as well.
+            item.warnings = [
+                warning.model_copy(
+                    update={"source_file": warning.source_file.relative_to(tmp_path.resolve()).resolve()}
+                )
+                if warning.source_file
+                else warning
+                for warning in item.warnings
+            ]
 
     def _set_up_mock_client(self, case: ApplyPlanTestCase, client: ToolkitClientMock):
         if case.acls_missing:
@@ -986,6 +999,21 @@ class TestDryRunDataSetPlaceholders:
         assert is_missing_read is False
         assert is_missing_write is False
         assert is_write_acl_unknown is True
+
+    @pytest.mark.parametrize("is_dry_run", [True, False])
+    def test_validate_access_sandbox_continues(self, is_dry_run: bool) -> None:
+        client = MagicMock()
+        client.token.verify_acls.side_effect = SandboxUnavailableError("Not available in sandbox")
+        loader = AssetIO(client)
+        resource = AssetRequest(name="my_asset", external_id="my_asset")
+
+        is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command.validate_access(
+            loader, [resource], is_dry_run=is_dry_run
+        )
+
+        assert is_missing_read is False
+        assert is_missing_write is False
+        assert is_write_acl_unknown is is_dry_run
 
     @pytest.mark.parametrize(
         "resources, expected_checked_acls",

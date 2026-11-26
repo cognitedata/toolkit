@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
@@ -25,15 +25,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
     WorkflowExecutionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.commands import ValidationCommand
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.resource_ios import TransformationIO, WorkflowIO
-from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet
+from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, ToolkitRuleSet
 from cognite_toolkit._cdf_tk.rules._failing_jobs import FailingJob
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 
 NOW = datetime_to_ms(datetime.now(UTC))
 RECENT = NOW - int(timedelta(days=1).total_seconds() * 1000)
 OLD = NOW - int(timedelta(days=30).total_seconds() * 1000)
+FROM_TIME = NOW - int(timedelta(days=7).total_seconds() * 1000)
 
 
 def _execution(
@@ -153,6 +156,7 @@ def _client() -> MagicMock:
         _execution("e4", RECENT, "Function task failed"),
     ]
     client.workflows.versions.retrieve.return_value = [_workflow_version()]
+    client.functions.status.return_value = FunctionsActivation(status="activated")
     client.functions.list.return_value = [
         _function(1, "fn_in_workflow", last_called=RECENT),
         _function(2, "fn_not_called_recently", last_called=OLD),
@@ -200,11 +204,25 @@ def _client() -> MagicMock:
 
 
 class TestFailingJobRuleSet:
+    def test_configured_rule_set_runs_as_validation_plan(self) -> None:
+        client = _client()
+        plan: list[ToolkitRuleSet] = [FailingJobRuleSet(client=client, lookback_period=timedelta(days=30))]
+
+        results = ValidationCommand(silent=True, skip_tracking=True).validate(
+            display=CommandDisplay(header=False, results=False), plan=plan
+        )
+
+        executions_filter = client.workflows.executions.list.call_args.kwargs["filter"]
+        assert ([result.name for result in results], executions_filter.created_time_start < FROM_TIME) == (
+            ["Failing Jobs"],
+            True,
+        )
+
     def test_load_failures(self) -> None:
         client = _client()
         rule = FailingJobRuleSet(client=client)
 
-        failures = rule._load_failures(client)
+        failures = rule._load_failures(client, FROM_TIME)
 
         assert [
             (failure.job_type, str(failure.identifier), failure.reason, failure.failed_executions)
@@ -223,7 +241,7 @@ class TestFailingJobRuleSet:
         client = _client()
         rule = FailingJobRuleSet(client=client)
 
-        rule._load_failures(client)
+        rule._load_failures(client, FROM_TIME)
 
         assert {
             "function_calls": [call.kwargs["function_id"] for call in client.functions.calls.list.call_args_list],
@@ -237,7 +255,7 @@ class TestFailingJobRuleSet:
         client.workflows.executions.list.return_value = []
         rule = FailingJobRuleSet(client=client)
 
-        failures = rule._load_failing_workflows(client)
+        failures = rule._load_failing_workflows(client, FROM_TIME)
 
         assert (failures, client.workflows.versions.retrieve.called) == ([], False)
 
@@ -249,7 +267,7 @@ class TestFailingJobRuleSet:
         ]
         rule = FailingJobRuleSet(client=client)
 
-        failures = rule._load_failing_workflows(client)
+        failures = rule._load_failing_workflows(client, FROM_TIME)
 
         assert (failures, client.workflows.versions.retrieve.called) == ([], False)
 
@@ -262,7 +280,7 @@ class TestFailingJobRuleSet:
         ]
         rule = FailingJobRuleSet(client=client)
 
-        assert rule._load_failing_functions(client) == []
+        assert rule._load_failing_functions(client, FROM_TIME) == []
 
     def test_count_failed_jobs_stops_paging_at_lookback_period(self) -> None:
         client = MagicMock()
@@ -280,9 +298,7 @@ class TestFailingJobRuleSet:
                 yield page
 
         client.transformations.jobs.iterate.side_effect = pages
-        rule = FailingJobRuleSet(client=client)
-
-        count = rule._count_failed_jobs(client, transformation_id=2)
+        count = FailingJobRuleSet._count_failed_jobs(client, transformation_id=2, from_time_epoch=FROM_TIME)
 
         assert (count, pages_read) == (2, [0, 1])
 
@@ -290,7 +306,7 @@ class TestFailingJobRuleSet:
         client = _client()
         rule = FailingJobRuleSet(client=client)
 
-        (failure,) = rule._load_failing_workflows(client)
+        (failure,) = rule._load_failing_workflows(client, FROM_TIME)
 
         assert {(io.__name__, identifier) for io, identifier in failure.dependencies} == {
             ("WorkflowIO", ExternalId(external_id="my_workflow")),
@@ -302,7 +318,7 @@ class TestFailingJobRuleSet:
         client = _client()
         rule = FailingJobRuleSet(client=client)
 
-        failures = rule._load_failures(client)
+        failures = rule._load_failures(client, FROM_TIME)
 
         assert {
             str(failure.identifier): (

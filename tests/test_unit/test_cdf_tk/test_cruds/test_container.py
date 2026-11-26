@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
+from cognite_toolkit._cdf_tk.data_classes._insights import DeployWarning
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
 
@@ -73,7 +73,7 @@ indexes: {}
         assert "usedFor" in dumped_no_local
 
     def test_only_in_cdf_properties_listed(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        warnings: list[ToolkitWarning] = []
+        warnings: list[DeployWarning] = []
         crud = ContainerIO(toolkit_client_approval.mock_client, on_warning=warnings.append)
         item_id = ContainerId(space="my_space", external_id="MyContainer")
 
@@ -87,7 +87,7 @@ indexes: {}
 
         crud._print_container_diff_warning(item_id, local_dict, cdf_dict)
 
-        assert len(warnings) == 1 and "attempted_deleted_field" in warnings[0].get_message()
+        assert len(warnings) == 1 and "attempted_deleted_field" in warnings[0].message
 
     def test_dump_resource_normalizes_empty_constraints_and_indexes_to_local_shape(
         self, toolkit_client_cheap: ToolkitClient, cdf_container: ContainerResponse

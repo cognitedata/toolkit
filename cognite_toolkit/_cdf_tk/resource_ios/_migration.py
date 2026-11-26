@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
@@ -53,10 +53,6 @@ class ResourceViewMappingIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return {"externalId": id.external_id}
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:

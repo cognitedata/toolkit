@@ -46,6 +46,7 @@ _METHOD_LABELS: dict[LoginFlow, str] = {
     "device_code": "Device code",
     "interactive": "Interactive",
     "token": "Token",
+    "no_auth": "No authentication",
 }
 
 _PROVIDER_LABELS: dict[Provider, str] = {
@@ -131,6 +132,7 @@ class AuthStatus:
     current_project: str | None
     projects: list[ProjectAccess]
     session: SessionDetails | None
+    permissions_available: bool = True
 
 
 def _load_environment() -> tuple[EnvironmentVariables | None, Exception | None]:
@@ -177,6 +179,9 @@ def collect_auth_status(
             client = environment.get_client()
         except (AuthenticationError, ToolkitMissingValueError, ToolkitKeyError) as exc:
             return _unauthenticated(environment, exc)
+
+    if client.config.is_sandbox:
+        return _sandbox_status(client, environment)
 
     try:
         inspected = client.token.inspect()
@@ -339,6 +344,9 @@ def render_auth_status(
         return
 
     console.print(_authentication_panel(status))
+    if not status.permissions_available:
+        console.print("\n[dim]Permissions are not available.[/dim]")
+        return
     if status.current_project and not any(project.is_current for project in status.projects):
         console.print(
             f"\n[yellow]The current project {escape(status.current_project)} "
@@ -377,6 +385,22 @@ def _unauthenticated(environment: EnvironmentVariables | None, failure: Exceptio
         current_project=environment.CDF_PROJECT if environment is not None else None,
         projects=[],
         session=_session_details(environment),
+    )
+
+
+def _sandbox_status(client: ToolkitClient, environment: EnvironmentVariables | None) -> AuthStatus:
+    """The sandbox blocks token inspection, so only the connection details are known."""
+    return AuthStatus(
+        authenticated=True,
+        failure=None,
+        method_label=_method_label(environment),
+        identity_provider=None,
+        subject=None,
+        cluster=_cluster_name(client),
+        current_project=client.config.project,
+        projects=[],
+        session=None,
+        permissions_available=False,
     )
 
 

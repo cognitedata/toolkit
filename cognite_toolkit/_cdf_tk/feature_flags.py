@@ -101,7 +101,7 @@ class Flags(Enum):
     )
     CDF_GROUP_EMAILS = FlagMetadata(
         visible=True,
-        description="Enables support for CDF group resources with members set to 'emails' and memberEmails set to a list of email addresses.",
+        description="Enables support for CDF group members given as users by email or service accounts by external ID.",
     )
     NEAT = FlagMetadata(
         visible=True,
@@ -125,8 +125,12 @@ class Flags(Enum):
         "the 'include' field.",
     )
     CHECK = FlagMetadata(
-        visible=False,
+        visible=True,
         description="Enables the check command plugin for checking CDF resources and configurations",
+    )
+    BUILD_VALIDATE = FlagMetadata(
+        visible=True,
+        description="Enables setting validation level for build command",
     )
 
     def is_enabled(self) -> bool:

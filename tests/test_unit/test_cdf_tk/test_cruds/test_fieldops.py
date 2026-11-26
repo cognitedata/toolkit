@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.data_classes._insights import DeployWarning
 from cognite_toolkit._cdf_tk.resource_ios import (
     GroupResourceScopedIO,
     InFieldCDMLocationConfigIO,
@@ -181,18 +182,17 @@ class TestInFieldCDMLocationConfigCRUD:
                 root_location_configurations=[RootLocationConfiguration(app_data_instance_space=legacy_space)]
             ),
         )
+        warnings: list[DeployWarning] = []
         with monkeypatch_toolkit_client() as client:
-            my_console = MagicMock(spec=Console)
-            client.console = my_console
             client.infield.apm_config.list.return_value = [legacy]
-            io = InFieldCDMLocationConfigIO(client)
+            io = InFieldCDMLocationConfigIO(client, on_warning=warnings.append)
 
             created = io.create([item])
 
             assert len(created) == 0
-            assert my_console.print.called
-            message = my_console.print.call_args[0][1]
-            assert message.startswith(f"Skipping creation of infield CDM location configs {item.as_id()!s}.")
+            assert len(warnings) == 1 and warnings[0].message.startswith(
+                f"Skipping creation of infield CDM location configs {item.as_id()!s}."
+            )
 
     def test_cdm_only_project_no_apm_config_view(self) -> None:
         item = InFieldCDMLocationConfigRequest(

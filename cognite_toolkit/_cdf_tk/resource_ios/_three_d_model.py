@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO, ResourceIO
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions, dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML
 
@@ -65,10 +64,6 @@ class ThreeDModelIO(
     @classmethod
     def dump_id(cls, id: NameId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: NameId) -> str:
-        return sanitize_filename(id.name)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ThreeDModelClassicRequest]) -> ScopeDefinition:

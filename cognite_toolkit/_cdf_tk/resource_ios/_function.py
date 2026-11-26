@@ -38,7 +38,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, WarningHandler
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -168,10 +167,6 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return id.dump()
 
     @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
-    @classmethod
     def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -294,20 +289,23 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         return dumped
 
-    def _is_activated(self, action: str) -> bool:
+    def _is_activated(self, action: Literal["create", "retrieve"]) -> bool:
         status = self.client.functions.status()
         if status.status == "activated":
             return True
+        source_url = self.client.functions.endpoint_url(action)
         if status.status == "requested":
-            self.on_warning(
-                HighSeverityWarning(f"Function service activation is in progress, cannot {action} functions.")
+            self._warn(
+                "INVALID-VALUE",
+                f"Function service activation is in progress, cannot {action} functions.",
+                source_url=source_url,
             )
             return False
         else:
-            self.on_warning(
-                HighSeverityWarning(
-                    "Function service has not been activated, activating now, this may take up to 2 hours..."
-                )
+            self._warn(
+                "INVALID-VALUE",
+                "Function service has not been activated, activating now, this may take up to 2 hours...",
+                source_url=source_url,
             )
             self.client.functions.activate()
         return False
@@ -444,8 +442,10 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             return
         # The server sets the CPU and Memory to the default values, if the user pass in a lower value.
         # This happens on Azure and AWS. Warning the user about this.
-        self.on_warning(
-            LowSeverityWarning(f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}")
+        self._warn(
+            "INVALID-VALUE",
+            f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}",
+            source_url=self.client.functions.endpoint_url("create"),
         )
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FunctionResponse]:
@@ -541,10 +541,6 @@ class FunctionScheduleIO(
         return FunctionScheduleId(function_external_id=item.function_external_id, name=item.name)
 
     @classmethod
-    def as_filename(cls, id: FunctionScheduleId) -> str:
-        return sanitize_filename(f"{id.function_external_id}-{id.name}")
-
-    @classmethod
     def get_dependencies(cls, resource: FunctionScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield FunctionIO, ExternalId(external_id=resource.function_external_id)
 
@@ -556,6 +552,12 @@ class FunctionScheduleIO(
         # is used to compare with the CDF resource.
         for resource in resources:
             identifier = self.get_id(resource)
+            if "functionId" in resource:
+                self._warn(
+                    "REDUNDANT-PROPERTY",
+                    f"FunctionId will be ignored in the schedule {identifier!r}",
+                    source_file=filepath,
+                )
             credentials = read_auth(
                 resource.get("authentication"),
                 self.client.config,
@@ -577,10 +579,7 @@ class FunctionScheduleIO(
         return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleRequest:
-        if "functionId" in resource:
-            identifier = self.get_id(resource)
-            self.on_warning(LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}"))
-            resource.pop("functionId", None)
+        resource.pop("functionId", None)
         # Remove authentication from resource dict as it contains clientId/clientSecret
         # which are stored separately in _authentication_by_id and converted to nonce at creation time
         resource.pop("authentication", None)

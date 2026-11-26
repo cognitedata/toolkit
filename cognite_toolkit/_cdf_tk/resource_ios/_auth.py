@@ -18,8 +18,8 @@ from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, final
 
+from pydantic import TypeAdapter
 from rich import print
-from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -65,16 +65,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    HighSeverityWarning,
-    MediumSeverityWarning,
-)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
 from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
+from cognite_toolkit._cdf_tk.yaml_classes.groups import GroupMember, UserMember
+
+_GROUP_MEMBER_ADAPTER: TypeAdapter[GroupMember] = TypeAdapter(GroupMember)
 
 
 @dataclass
@@ -149,10 +147,6 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
     @classmethod
     def dump_id(cls, id: NameId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: NameId) -> str:
-        return sanitize_filename(id.name)
 
     @classmethod
     def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -342,25 +336,40 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
 
-        if Flags.CDF_GROUP_EMAILS.is_enabled():
-            member_emails = substituted.pop("memberEmails", None)
-            if substituted.get("members") == "emails":
-                missing_ids: list[str] = []
-                member_ids: list[str] = []
-                for email in member_emails or []:
-                    user_id = self.client.lookup.users.user_id(email)
-                    if user_id:
-                        member_ids.append(user_id)
-                    else:
-                        missing_ids.append(email)
-                if missing_ids:
-                    raise ToolkitMissingResourceError(
-                        f"The following member emails could not be found in CDF: {missing_ids}."
-                        f" Please ensure that the users exist in CDF before deploying the group {self.get_id(substituted)!r}."
-                    )
-                substituted["members"] = member_ids
+        members = substituted.get("members")
+        if Flags.CDF_GROUP_EMAILS.is_enabled() and isinstance(members, list):
+            substituted["members"] = self._lookup_member_ids(members, self.get_id(substituted), is_dry_run)
 
         return GroupRequest._load(substituted)
+
+    def _lookup_member_ids(self, members: list[Any], group_id: NameId, is_dry_run: bool = False) -> list[str]:
+        member_ids: list[str] = []
+        missing: list[str] = []
+        for raw_member in members:
+            member = _GROUP_MEMBER_ADAPTER.validate_python(raw_member)
+            if isinstance(member, str):
+                member_ids.append(member)
+                continue
+            if isinstance(member, UserMember):
+                principal_id = self.client.lookup.principals.user_id(member.email, warn=False)
+                description = f"user with email {member.email!r}"
+                placeholder = f"dry-run-user-id-for-{member.email}"
+            else:
+                principal_id = self.client.lookup.principals.service_account_id(member.external_id, warn=False)
+                description = f"service account with external ID {member.external_id!r}"
+                placeholder = f"dry-run-service-account-id-for-{member.external_id}"
+            if principal_id:
+                member_ids.append(principal_id)
+            elif is_dry_run:
+                member_ids.append(placeholder)
+            else:
+                missing.append(description)
+        if missing:
+            raise ToolkitMissingResourceError(
+                f"The following members could not be found in CDF: {humanize_collection(missing, sort=False)}."
+                f" Please ensure that they exist in CDF before deploying the group {group_id!r}."
+            )
+        return member_ids
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -427,8 +436,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 try:
                     created = self.client.groups.create([item])
                 except ToolkitAPIError as e:
-                    self.on_warning(
-                        HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}")
+                    self._warn(
+                        "FAILED-REQUEST",
+                        f"Failed to {action} group {item.name}. Error: {e!s}",
+                        source_url=self.client.groups.endpoint_url("create"),
                     )
                 else:
                     created_list.extend(created)
@@ -462,21 +473,21 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         counts_by_name: dict[str, int] = defaultdict(int)
         for group in delete_candidates:
             if group.source_id in my_source_ids:
-                self.on_warning(
-                    HighSeverityWarning(
-                        f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
-                        f"the current service principal. If you want to delete this group, you must do it manually."
-                    )
+                self._warn(
+                    "UNSUPPORTED-RESOURCE-REMOVAL",
+                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by "
+                    "the current service principal. If you want to delete this group, you must do it manually.",
+                    source_url=self.client.groups.endpoint_url("delete"),
                 )
             else:
                 to_delete.append(group.id)
                 to_delete_groups.append(group)
                 counts_by_name[group.name] += 1
         if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"The following names are used by multiple groups (all will be deleted): {humanize_collection(duplicates)}"
-                )
+            self._warn(
+                "DUPLICATED-IDENTIFIER",
+                f"The following names are used by multiple groups (all will be deleted): {humanize_collection(duplicates)}",
+                source_url=self.client.groups.endpoint_url("delete"),
             )
 
         failed_deletes = []
@@ -499,12 +510,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 error_str = str(e)
                 failed_deletes.extend(to_delete)
         if failed_deletes:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Failed to delete groups: {humanize_collection(to_delete)}. "
-                    "These must be deleted manually in the Fusion UI."
-                    f"Error: {escape(error_str)}"
-                )
+            self._warn(
+                "FAILED-REQUEST",
+                f"Failed to delete groups: {humanize_collection(to_delete)}. "
+                f"These must be deleted manually in the Fusion UI. Error: {error_str}",
+                source_url=self.client.groups.endpoint_url("delete"),
             )
         failed = set(failed_deletes)
         return [NameId(name=group.name) for group in to_delete_groups if group.id not in failed]

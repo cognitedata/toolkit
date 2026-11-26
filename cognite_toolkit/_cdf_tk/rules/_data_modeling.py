@@ -1,8 +1,8 @@
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Self, TypeVar, cast
+from typing import Any, ClassVar, Literal, Self, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -48,6 +48,7 @@ from ._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     identifier_values,
     quote_identifier,
     with_position,
@@ -132,6 +133,24 @@ class DataModelingLimits(BaseModel):
         )
 
 
+@dataclass
+class _DataModelingInventory:
+    """The data modeling resources used by one validation.
+
+    The local resources are loaded up front. The CDF resources and limits are added as they are retrieved, such
+    that each is requested at most once, and a failure is only reported by the first check requesting it.
+    """
+
+    containers: dict[ContainerId, _LocalContainer] = field(default_factory=dict)
+    views: dict[ViewId, _LocalView] = field(default_factory=dict)
+    data_models: dict[DataModelId, _LocalDataModel] = field(default_factory=dict)
+    cdf_containers: dict[ContainerId, ContainerResponse] = field(default_factory=dict)
+    requested_container_ids: set[ContainerId] = field(default_factory=set)
+    cdf_views: dict[ViewId, ViewResponse] = field(default_factory=dict)
+    requested_view_ids: set[ViewId] = field(default_factory=set)
+    limits: DataModelingLimits | None = None
+
+
 def _count_phrase(count_by_resource: _CountByResource) -> str:
     """For example, '1 node and 2 edges'. Resource names are plural, such as 'nodes' and 'data models'."""
     return humanize_collection(
@@ -187,21 +206,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Data modeling"
 
-    def __init__(
-        self,
-        resources: Sequence[ResourceRef] | None = None,
-        results: Sequence[DeploymentResult] | None = None,
-        client: ToolkitClient | None = None,
-    ) -> None:
-        super().__init__(resources, results, client)
-        self._local_by_io: dict[type[Any], dict[Any, tuple[ResourceRef, Any]]] = {}
-        self._limits: DataModelingLimits | None = None
-        self._cdf_containers: dict[ContainerId, ContainerResponse] = {}
-        self._requested_container_ids: set[ContainerId] = set()
-        self._cdf_views: dict[ViewId, ViewResponse] = {}
-        self._requested_view_ids: set[ViewId] = set()
-
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if self.client is None:
             return RuleSetStatus(
                 code="reduced",
@@ -210,7 +215,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     "within the provided modules, but not validate against CDF."
                 ),
             )
-        if not self.results:
+        if not data.results:
             return RuleSetStatus(
                 code="ready",
                 message=(
@@ -226,69 +231,58 @@ class DataModelingRuleSet(ToolkitRuleSet):
             ),
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        yield from self._check_schema_references()
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
+        try:
+            inventory = self._load_inventory(data)
+        except Exception as e:
+            yield InternalValidatorException(
+                message=f"Failed to load local data modeling resources: {e}",
+                source="DataModeling",
+            )
+            return
+        yield from self._check_schema_references(inventory)
         if Flags.ALPHA_RULES.is_enabled():
-            yield from self._check_schema_design()
+            yield from self._check_schema_design(inventory)
         if self.client is None:
             return
-        yield from self._validate_data_modeling_changes(self.client)
-        yield from self._check_data_modeling_limits(self.client)
-        if self.results:
-            yield from self._check_data_modeling_capacity(self.client, self.results)
+        yield from self._validate_data_modeling_changes(self.client, inventory)
+        yield from self._check_data_modeling_limits(self.client, inventory)
+        if data.results:
+            yield from self._check_data_modeling_capacity(self.client, inventory, data.results)
 
-    def _check_schema_references(self) -> Iterable[Insight | InternalValidatorException]:
-        try:
-            local_containers = self._load_containers()
-            local_views = self._load_views()
-        except Exception as e:
-            yield InternalValidatorException(
-                message=f"Failed to load local containers and views: {e}",
-                source="DataModeling",
-            )
-            return
-        references = self._find_references(local_views)
-        yield from self._validate_references(references, local_containers, local_views)
+    def _check_schema_references(
+        self, inventory: _DataModelingInventory
+    ) -> Iterable[Insight | InternalValidatorException]:
+        references = self._find_references(inventory.views)
+        yield from self._validate_references(inventory, references)
 
-    def _check_schema_design(self) -> Iterable[Insight | InternalValidatorException]:
+    def _check_schema_design(self, inventory: _DataModelingInventory) -> Iterable[Insight | InternalValidatorException]:
         """Checks the implements graph of views, and the requires constraints and indexes needed for queries."""
-        try:
-            local_containers = self._load_containers()
-            local_views = self._load_views()
-        except Exception:
-            # Already reported by the schema reference check.
-            return
-        try:
-            local_data_models = self._load_data_models()
-        except Exception as e:
-            yield InternalValidatorException(
-                message=f"Failed to load local data models: {e}",
-                source="DataModeling",
-            )
-            local_data_models = {}
-        model_view_ids = {view_id for _, data_model in local_data_models.values() for view_id in data_model.views or []}
-        implements_graph, view_error = self._implements_graph(local_views, model_view_ids)
+        model_view_ids = {
+            view_id for _, data_model in inventory.data_models.values() for view_id in data_model.views or []
+        }
+        implements_graph, view_error = self._implements_graph(inventory, model_view_ids)
         if view_error is not None:
             yield view_error
         cycles = self._implements_cycles(implements_graph)
-        yield from self._check_implements_cycles(cycles, local_views)
+        yield from self._check_implements_cycles(cycles, inventory.views)
         in_cycle = {view_id for cycle in cycles for view_id in cycle}
-        yield from self._check_requires_constraints(local_containers, local_views, skip=in_cycle)
-        yield from self._check_reverse_relation_indexes(local_containers, local_views)
-        yield from self._check_missing_parent_views(local_data_models, implements_graph)
+        yield from self._check_requires_constraints(inventory, skip=in_cycle)
+        yield from self._check_reverse_relation_indexes(inventory)
+        yield from self._check_missing_parent_views(inventory.data_models, implements_graph)
 
     def _implements_graph(
-        self, local_views: dict[ViewId, _LocalView], other_view_ids: set[ViewId] | None = None
+        self, inventory: _DataModelingInventory, other_view_ids: set[ViewId] | None = None
     ) -> tuple[dict[ViewId, list[ViewId]], InternalValidatorException | None]:
         """The implemented views by view, for the local views, the other views, and the CDF views they implement,
         directly or transitively. Local views take precedence over their deployed version. Views not found are
         leaves."""
-        graph = {view_id: list(view_request.implements or []) for view_id, (_, view_request) in local_views.items()}
+        graph = {view_id: list(view_request.implements or []) for view_id, (_, view_request) in inventory.views.items()}
         first_error: InternalValidatorException | None = None
         frontier = {parent_id for parents in graph.values() for parent_id in parents if parent_id not in graph}
         frontier |= {view_id for view_id in other_view_ids or set() if view_id not in graph}
         while frontier:
-            cdf_views, error = self._retrieve_views(frontier)
+            cdf_views, error = self._retrieve_views(inventory, frontier)
             first_error = first_error or error
             for view_id in frontier:
                 graph[view_id] = list(cdf_views[view_id].implements or []) if view_id in cdf_views else []
@@ -408,16 +402,14 @@ class DataModelingRuleSet(ToolkitRuleSet):
         return ancestors
 
     def _check_requires_constraints(
-        self,
-        local_containers: dict[ContainerId, _LocalContainer],
-        local_views: dict[ViewId, _LocalView],
-        skip: set[ViewId],
+        self, inventory: _DataModelingInventory, skip: set[ViewId]
     ) -> Iterable[Insight | InternalValidatorException]:
         """Recommends requires constraints from the containers of a view to the containers of the views it implements.
 
         Queries through a view are optimized when one of its containers requires, directly or transitively,
         all the other containers the view maps to.
         """
+        local_containers, local_views = inventory.containers, inventory.views
         ancestors_by_view = {
             view_id: self._view_precedence(view_id, local_views)[1:]
             for view_id, (_, view_request) in local_views.items()
@@ -429,7 +421,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             for ancestor_id in ancestors
             if ancestor_id not in local_views
         }
-        cdf_views, view_error = self._retrieve_views(remote_ancestor_ids)
+        cdf_views, view_error = self._retrieve_views(inventory, remote_ancestor_ids)
         if view_error is not None:
             yield view_error
 
@@ -449,7 +441,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             has_unresolved = False
             first_error: InternalValidatorException | None = None
             for source in sources:
-                reachable, unresolved, error = self._required_containers({source}, local_containers)
+                reachable, unresolved, error = self._required_containers({source}, inventory)
                 first_error = first_error or error
                 has_unresolved = has_unresolved or bool(unresolved)
                 missing_by_source[source] = frozenset(targets - reachable)
@@ -461,7 +453,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             missing = min(missing_by_source.values(), key=lambda m: (len(m), sorted(str(c) for c in m)))
             best_sources = {source for source, source_missing in missing_by_source.items() if source_missing == missing}
             yield self._missing_requires_recommendation(
-                resource, view_id, best_sources, self._minimal_requires(set(missing), local_containers)
+                resource, view_id, best_sources, self._minimal_requires(set(missing), inventory)
             )
 
     @staticmethod
@@ -497,19 +489,20 @@ class DataModelingRuleSet(ToolkitRuleSet):
         return containers
 
     def _required_containers(
-        self, starts: set[ContainerId], local_containers: dict[ContainerId, _LocalContainer]
+        self, starts: set[ContainerId], inventory: _DataModelingInventory
     ) -> tuple[set[ContainerId], set[ContainerId], InternalValidatorException | None]:
         """The containers required, directly or transitively, by the start containers, including the start containers.
 
         Returns the reachable containers, the reachable containers that were not found locally or in CDF, and any
         error from retrieving containers from CDF.
         """
+        local_containers = inventory.containers
         reachable = set(starts)
         unresolved: set[ContainerId] = set()
         first_error: InternalValidatorException | None = None
         frontier = set(starts)
         while frontier:
-            cdf_containers, error = self._retrieve_containers(frontier - set(local_containers))
+            cdf_containers, error = self._retrieve_containers(inventory, frontier - set(local_containers))
             first_error = first_error or error
             next_frontier: set[ContainerId] = set()
             for container_id in frontier:
@@ -528,14 +521,12 @@ class DataModelingRuleSet(ToolkitRuleSet):
             frontier = next_frontier
         return reachable, unresolved, first_error
 
-    def _minimal_requires(
-        self, missing: set[ContainerId], local_containers: dict[ContainerId, _LocalContainer]
-    ) -> list[ContainerId]:
+    def _minimal_requires(self, missing: set[ContainerId], inventory: _DataModelingInventory) -> list[ContainerId]:
         """The missing containers that are not already required by another missing container."""
         # Retrieved in one request, instead of one request per container below.
-        self._retrieve_containers(missing - set(local_containers))
+        self._retrieve_containers(inventory, missing - set(inventory.containers))
         required_by = {
-            container_id: self._required_containers({container_id}, local_containers)[0] - {container_id}
+            container_id: self._required_containers({container_id}, inventory)[0] - {container_id}
             for container_id in missing
         }
         minimal = [
@@ -576,9 +567,10 @@ class DataModelingRuleSet(ToolkitRuleSet):
         )
 
     def _check_reverse_relation_indexes(
-        self, local_containers: dict[ContainerId, _LocalContainer], local_views: dict[ViewId, _LocalView]
+        self, inventory: _DataModelingInventory
     ) -> Iterable[Insight | InternalValidatorException]:
         """Recommends a cursorable B-tree index on the direct relations that reverse direct relations go through."""
+        local_containers, local_views = inventory.containers, inventory.views
         relations = [
             relation
             for relation in self._find_references(local_views).reverse_direct_relations
@@ -587,7 +579,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         needed_view_ids = {
             relation.through: self._reverse_fetch_ids(relation.through, local_views)[1] for relation in relations
         }
-        cdf_views, view_error = self._retrieve_views(set().union(*needed_view_ids.values()))
+        cdf_views, view_error = self._retrieve_views(inventory, set().union(*needed_view_ids.values()))
         if view_error is not None:
             yield view_error
 
@@ -605,7 +597,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             if property_id
             not in (local_containers[container_id][1].properties if container_id in local_containers else {})
         }
-        cdf_containers, container_error = self._retrieve_containers(remote_ids)
+        cdf_containers, container_error = self._retrieve_containers(inventory, remote_ids)
         if container_error is not None:
             yield container_error
 
@@ -701,11 +693,9 @@ class DataModelingRuleSet(ToolkitRuleSet):
         )
 
     def _validate_references(
-        self,
-        references: _SchemaReferences,
-        local_containers: dict[ContainerId, _LocalContainer],
-        local_views: dict[ViewId, _LocalView],
+        self, inventory: _DataModelingInventory, references: _SchemaReferences
     ) -> Iterable[Insight | InternalValidatorException]:
+        local_containers, local_views = inventory.containers, inventory.views
         missing_container_properties: list[_ContainerPropertyReference] = []
         for property_ref in references.container_properties:
             if contains_unresolved_variable(property_ref.label):
@@ -742,22 +732,20 @@ class DataModelingRuleSet(ToolkitRuleSet):
             yield from self._unverified_properties(missing_container_properties)
             yield from self._unverified_reverses(missing_reverses)
             return
-        yield from self._validate_missing_in_cdf(
-            missing_container_properties, missing_reverses, local_containers, local_views
-        )
+        yield from self._validate_missing_in_cdf(inventory, missing_container_properties, missing_reverses)
 
     def _validate_missing_in_cdf(
         self,
+        inventory: _DataModelingInventory,
         missing_properties: list[_ContainerPropertyReference],
         missing_reverses: list[_ReverseDirectRelationReference],
-        local_containers: dict[ContainerId, _LocalContainer],
-        local_views: dict[ViewId, _LocalView],
     ) -> Iterable[Insight | InternalValidatorException]:
+        local_containers, local_views = inventory.containers, inventory.views
         container_ids, view_ids = self._ids_to_fetch(missing_properties, missing_reverses, local_views)
-        cdf_containers, container_error = self._retrieve_containers(container_ids)
+        cdf_containers, container_error = self._retrieve_containers(inventory, container_ids)
         if container_error is not None:
             yield container_error
-        cdf_views, view_error = self._retrieve_views(view_ids)
+        cdf_views, view_error = self._retrieve_views(inventory, view_ids)
         if view_error is not None:
             yield view_error
 
@@ -940,41 +928,34 @@ class DataModelingRuleSet(ToolkitRuleSet):
             return cdf_container.properties[property_identifier]
         return None
 
-    def _load_containers(self) -> dict[ContainerId, _LocalContainer]:
-        return self._load_local(ContainerIO(self._load_client()))
-
-    def _load_views(self) -> dict[ViewId, _LocalView]:
-        return self._load_local(ViewIO(self._load_client()))
-
-    def _load_data_models(self) -> dict[DataModelId, _LocalDataModel]:
-        return self._load_local(DataModelIO(self._load_client()))
-
-    def _load_local(
-        self,
-        crud: ResourceIO[_resource_base.T_Identifier, _resource_base.T_RequestResource, Any, Any],
-    ) -> dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]]:
-        """Loads the local resources of the CRUD's type, the same way ``cdf deploy`` does. Cached per CRUD type."""
-        crud_type = type(crud)
-        if crud_type not in self._local_by_io:
-            local_by_id: dict[Any, tuple[ResourceRef, Any]] = {}
-            for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
-                if isinstance(resource.source, Path):
-                    local_by_id[crud.get_id(validatable.request)] = (resource, validatable.request)
-            self._local_by_io[crud_type] = local_by_id
-        return cast(
-            dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]],
-            self._local_by_io[crud_type],
+    def _load_inventory(self, data: ValidationInput) -> _DataModelingInventory:
+        client = self._load_client()
+        return _DataModelingInventory(
+            containers=self._load_local(data, ContainerIO(client)),
+            views=self._load_local(data, ViewIO(client)),
+            data_models=self._load_local(data, DataModelIO(client)),
         )
 
+    @staticmethod
+    def _load_local(
+        data: ValidationInput,
+        crud: ResourceIO[_resource_base.T_Identifier, _resource_base.T_RequestResource, Any, Any],
+    ) -> dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]]:
+        """Loads the local resources of the CRUD's type, the same way ``cdf deploy`` does."""
+        return {
+            crud.get_id(validatable.request): (resource, validatable.request)
+            for resource, validatable in data.get_refs_and_resource_of_type(crud)
+            if isinstance(resource.source, Path)
+        }
+
     def _retrieve_containers(
-        self, container_ids: set[ContainerId]
+        self, inventory: _DataModelingInventory, container_ids: set[ContainerId]
     ) -> tuple[dict[ContainerId, ContainerResponse], InternalValidatorException | None]:
-        """Retrieves containers from CDF. Each container is requested at most once, so a failure is only reported
-        to the first caller."""
+        """Retrieves containers from CDF, unless already requested for the inventory."""
         if not container_ids or self.client is None:
             return {}, None
-        to_request = container_ids - self._requested_container_ids
-        self._requested_container_ids.update(to_request)
+        to_request = container_ids - inventory.requested_container_ids
+        inventory.requested_container_ids.update(to_request)
         error: InternalValidatorException | None = None
         if to_request:
             try:
@@ -985,22 +966,21 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     source=ContainerIO.kind,
                 )
             else:
-                self._cdf_containers.update({item.as_id(): item for item in items})
+                inventory.cdf_containers.update({item.as_id(): item for item in items})
         return {
-            container_id: self._cdf_containers[container_id]
+            container_id: inventory.cdf_containers[container_id]
             for container_id in container_ids
-            if container_id in self._cdf_containers
+            if container_id in inventory.cdf_containers
         }, error
 
     def _retrieve_views(
-        self, view_ids: set[ViewId]
+        self, inventory: _DataModelingInventory, view_ids: set[ViewId]
     ) -> tuple[dict[ViewId, ViewResponse], InternalValidatorException | None]:
-        """Retrieves views, with inherited properties, from CDF. Each view is requested at most once, so a failure
-        is only reported to the first caller."""
+        """Retrieves views, with inherited properties, from CDF, unless already requested for the inventory."""
         if not view_ids or self.client is None:
             return {}, None
-        to_request = view_ids - self._requested_view_ids
-        self._requested_view_ids.update(to_request)
+        to_request = view_ids - inventory.requested_view_ids
+        inventory.requested_view_ids.update(to_request)
         error: InternalValidatorException | None = None
         if to_request:
             try:
@@ -1011,8 +991,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     source=ViewIO.kind,
                 )
             else:
-                self._cdf_views.update({item.as_id(): item for item in items})
-        return {view_id: self._cdf_views[view_id] for view_id in view_ids if view_id in self._cdf_views}, error
+                inventory.cdf_views.update({item.as_id(): item for item in items})
+        return {view_id: inventory.cdf_views[view_id] for view_id in view_ids if view_id in inventory.cdf_views}, error
 
     def _unverified_properties(self, missing_properties: list[_ContainerPropertyReference]) -> Iterable[Insight]:
         for ref in missing_properties:
@@ -1108,28 +1088,30 @@ class DataModelingRuleSet(ToolkitRuleSet):
         if resource not in resources:
             resources.append(resource)
 
-    def _validate_data_modeling_changes(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
+    def _validate_data_modeling_changes(
+        self, client: ToolkitClient, inventory: _DataModelingInventory
+    ) -> Iterable[Insight | InternalValidatorException]:
         """Reports local container, view and data model changes that CDF will silently drop on deploy.
 
         Containers cannot have properties removed, and views and data models are immutable per version.
         Today this is only discovered during (or after) ``cdf deploy``. This surfaces the same findings
         during ``cdf build``.
         """
-        yield from self._compare_data_modeling_resource(ContainerIO(client))
-        yield from self._compare_data_modeling_resource(ViewIO(client))
-        yield from self._compare_data_modeling_resource(DataModelIO(client))
+        yield from self._compare_data_modeling_resource(ContainerIO(client), inventory.containers)
+        yield from self._compare_data_modeling_resource(ViewIO(client), inventory.views)
+        yield from self._compare_data_modeling_resource(DataModelIO(client), inventory.data_models)
 
     def _compare_data_modeling_resource(
         self,
         crud: ResourceIO[
             _resource_base.T_Identifier, _resource_base.T_RequestResource, _resource_base.T_ResponseResource, Any
         ],
+        local_by_id: Mapping[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]],
     ) -> Iterable[Insight | InternalValidatorException]:
         """Compare one data-modeling resource type against CDF."""
+        if not local_by_id:
+            return
         try:
-            local_by_id = self._load_local(crud)
-            if not local_by_id:
-                return
             cdf_items = crud.retrieve(list(local_by_id.keys()))
         except ToolkitAPIError as e:
             yield InternalValidatorException(
@@ -1459,36 +1441,28 @@ class DataModelingRuleSet(ToolkitRuleSet):
                 keys=["views"],
             )
 
-    def _check_data_modeling_limits(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
+    def _check_data_modeling_limits(
+        self, client: ToolkitClient, inventory: _DataModelingInventory
+    ) -> Iterable[Insight | InternalValidatorException]:
         """Checks property and per-resource data modeling limits from the local configuration."""
-        try:
-            containers = self._load_containers()
-            views = self._load_views()
-            data_models = self._load_data_models()
-        except Exception as error:
-            yield InternalValidatorException(
-                message=f"Failed to load local data modeling resources for limit checks: {error}",
-                source="DataModeling",
-            )
+        if not (inventory.containers or inventory.views or inventory.data_models):
             return
-        if not (containers or views or data_models):
-            return
-        limits, limits_error = self._retrieve_limits(client)
+        limits, limits_error = self._retrieve_limits(client, inventory)
         if limits is None:
             if limits_error is not None:
                 yield limits_error
             return
-        yield from self._check_local_limits(limits, containers, views, data_models)
+        yield from self._check_local_limits(limits, inventory.containers, inventory.views, inventory.data_models)
 
     def _check_data_modeling_capacity(
-        self, client: ToolkitClient, results: Sequence[DeploymentResult]
+        self, client: ToolkitClient, inventory: _DataModelingInventory, results: Sequence[DeploymentResult]
     ) -> Iterable[Insight | InternalValidatorException]:
         """Checks that the project capacity (how many spaces, views, instances, and so on would exist
         after deploy) stays within the data modeling limits.
 
         Deployment results are the only way to know what would be created and deleted.
         """
-        limits, limits_error = self._retrieve_limits(client)
+        limits, limits_error = self._retrieve_limits(client, inventory)
         if limits is None:
             if limits_error is not None:
                 yield limits_error
@@ -1502,13 +1476,14 @@ class DataModelingRuleSet(ToolkitRuleSet):
             return
         yield from self._check_project_capacity(client, limits, statistics, results)
 
+    @staticmethod
     def _retrieve_limits(
-        self, client: ToolkitClient
+        client: ToolkitClient, inventory: _DataModelingInventory
     ) -> tuple[DataModelingLimits | None, InternalValidatorException | None]:
-        if self._limits is not None:
-            return self._limits, None
+        if inventory.limits is not None:
+            return inventory.limits, None
         try:
-            self._limits = DataModelingLimits.from_responses(
+            inventory.limits = DataModelingLimits.from_responses(
                 client.limits.list(limit=None, prefix=_DATA_MODELING_LIMIT_PREFIX)
             )
         except ToolkitAPIError as error:
@@ -1519,7 +1494,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             return None, InternalValidatorException(
                 message=f"Failed to parse data modeling limits: {error}", source="DataModeling"
             )
-        return self._limits, None
+        return inventory.limits, None
 
     def _check_local_limits(
         self,

@@ -4,7 +4,9 @@ import os
 import sys
 from unittest.mock import patch
 
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand, _parse_sys_args
+from cognite_toolkit._cdf_tk.tracker import Tracker
 
 
 class MockToolkitCommand(ToolkitCommand):
@@ -48,6 +50,25 @@ class TestTracker:
         *_, event_information = mock_track_internal.call_args.args
         assert event_information["invocationSource"] == "agent"
         assert event_information["codingAgent"] == "cursor"
+
+
+class TestTrackerSandbox:
+    def test_sandbox_skips_organization_lookup(self) -> None:
+        client = ToolkitClientMock()
+        client.config.is_sandbox = True
+        tracker = Tracker(skip_tracking=True)
+
+        properties = tracker._get_all_event_properties(client)
+
+        client.project.organization.assert_not_called()
+        assert properties["organization"] == "unknown"
+        assert properties["project"] == client.config.project
+        assert properties["sandbox"] is True
+
+    def test_sandbox_property_false_when_offline(self) -> None:
+        properties = Tracker(skip_tracking=True)._get_all_event_properties(None)
+
+        assert properties["sandbox"] is False
 
 
 class TestParseSystemArgs:

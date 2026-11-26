@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
-from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InsightCode, InsightList
+from cognite_toolkit._cdf_tk.data_classes._insights import DeployWarning, Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ResourceUpdateError,
     ResourceUpsertError,
+    SandboxUnavailableError,
     ToolkitError,
     ToolkitNotADirectoryError,
     ToolkitUserAbortError,
@@ -79,7 +80,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    EnvironmentVariableMissingWarning,
     LowSeverityWarning,
     ToolkitWarning,
 )
@@ -231,7 +231,7 @@ class DeploymentResult:
     is_missing_read_acl: bool = False
     is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
-    warnings: list[ToolkitWarning] = field(default_factory=list)
+    warnings: list[DeployWarning] = field(default_factory=list)
 
     @property
     def created_count(self) -> int:
@@ -831,7 +831,7 @@ class DeployV2Command(ToolkitCommand):
 
         results: list[DeploymentResult] = []
         console = console or client.console
-        collected_warnings: list[ToolkitWarning] = []
+        collected_warnings: list[DeployWarning] = []
         total_files = sum(len(step.files) for step in plan)
         task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
         with cls._print_warnings_on_error(collected_warnings, console):
@@ -942,15 +942,21 @@ class DeployV2Command(ToolkitCommand):
         progress.update(task_id, description=finished, completed=total_files)
         return results
 
-    @staticmethod
+    @classmethod
     @contextmanager
-    def _print_warnings_on_error(warnings: list[ToolkitWarning], console: Console) -> Generator[None, None, None]:
+    def _print_warnings_on_error(cls, warnings: list[DeployWarning], console: Console) -> Generator[None, None, None]:
         """Collected warnings are only shown in the results, which are never displayed if the deployment fails."""
         try:
             yield
         except BaseException:
-            for warning in warnings:
-                warning.print_warning(console=console)
+            if warnings:
+                console.print(
+                    ToolkitPanel(
+                        Group(*(cls._render_warning(warning) for warning in warnings)),
+                        title="Warnings",
+                        border_style=AuraColor.AMBER.rich,
+                    )
+                )
             raise
 
     @classmethod
@@ -999,9 +1005,9 @@ class DeployV2Command(ToolkitCommand):
         missing_env_vars: set[str] = set()
         forward_warning = crud.on_warning
 
-        def on_warning(warning: ToolkitWarning) -> None:
-            if isinstance(warning, EnvironmentVariableMissingWarning):
-                missing_env_vars.update(warning.variables)
+        def on_warning(warning: DeployWarning) -> None:
+            if warning.code == "UNRESOLVED-VARIABLE" and isinstance(warning.context, Set):
+                missing_env_vars.update(warning.context)
             else:
                 forward_warning(warning)
 
@@ -1025,7 +1031,8 @@ class DeployV2Command(ToolkitCommand):
         Returns:
             A tuple of (is_missing_read_acl, is_missing_write_acl, is_write_acl_unknown). The last flag is
             only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
-            so write-protected dataset ownership cannot be verified.
+            so write-protected dataset ownership cannot be verified, or when permissions cannot be inspected
+            (Cognite sandbox).
         """
 
         if not isinstance(crud, FunctionIO):
@@ -1065,11 +1072,13 @@ class DeployV2Command(ToolkitCommand):
             if dataset_owner:
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
-            return (
-                bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl))),
-                bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl))),
-                is_write_acl_unknown,
-            )
+            try:
+                is_missing_read_acl = bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl)))
+                is_missing_write_acl = bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl)))
+            except SandboxUnavailableError:
+                # Permissions cannot be inspected in a sandbox, so access is reported as unknown.
+                return False, False, True
+            return is_missing_read_acl, is_missing_write_acl, is_write_acl_unknown
         else:
             # Is not dry run
             read_write_acls: list[AclType] = []
@@ -1077,7 +1086,11 @@ class DeployV2Command(ToolkitCommand):
                 read_write_acls.extend(crud.create_acl({"READ", "WRITE"}, scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
-            if missing := crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls)):
+            try:
+                missing = crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls))
+            except SandboxUnavailableError:
+                return False, False, False
+            if missing:
                 raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
             return False, False, False
 
@@ -1607,17 +1620,20 @@ class DeployV2Command(ToolkitCommand):
         if verbose:
             cls._print_verbose_resources(results, is_dry_run, console)
 
+    @classmethod
+    def _warning_rows(cls, results: Sequence[DeploymentResult]) -> list[RenderableType]:
+        return [cls._render_warning(warning) for result in results for warning in result.warnings]
+
     @staticmethod
-    def _warning_rows(results: Sequence[DeploymentResult]) -> list[RenderableType]:
-        return [
-            hanging_indent(
-                "!",
-                f"[bold]{escape(result.resource_name)}[/] {warning.get_message()}",
-                marker_style="yellow",
-            )
-            for result in results
-            for warning in result.warnings
+    def _render_warning(warning: DeployWarning) -> RenderableType:
+        lines: list[RenderableType] = [
+            Text.assemble((warning.heading, "bold"), (f"  [{warning.code}]", "dim")),
+            Text(warning.display_location, style=f"underline {AuraColor.SKY.rich}"),
+            Text(warning.message),
         ]
+        if warning.fix:
+            lines.append(hanging_indent("→", Text(warning.fix), marker_style=AuraColor.GREEN.rich))
+        return hanging_indent("!", Group(*lines), marker_style="yellow")
 
     # Outcome order puts the long unchanged list last so creates, updates, deletes, and skips stay visible.
     _VERBOSE_OUTCOMES: tuple[tuple[str, str, str], ...] = (

@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     read_yaml_content,
     safe_read,
-    sanitize_filename,
     stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -65,10 +64,6 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[IntegrationRequest]) -> ScopeDefinition:
@@ -149,10 +144,6 @@ class IntegrationConfigsIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[IntegrationConfigRequest]) -> ScopeDefinition:

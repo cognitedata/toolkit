@@ -49,12 +49,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     TransformationTaskParameters,
     WorkflowVersionResponse,
 )
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
 )
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
@@ -75,9 +74,9 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 
 from ._base import (
     InternalValidatorException,
-    ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
+    ValidationInput,
     quote_identifier,
 )
 
@@ -144,18 +143,11 @@ class FailingJobRuleSet(ToolkitRuleSet):
     )
     CONTEXT = frozenset({"cdf"})
 
-    def __init__(
-        self,
-        resources: Sequence[ResourceRef] | None = None,
-        results: Sequence[DeploymentResult] | None = None,
-        client: ToolkitClient | None = None,
-        lookback_period: timedelta = timedelta(days=7),
-    ) -> None:
-        super().__init__(resources=resources, results=results, client=client)
+    def __init__(self, client: ToolkitClient | None = None, lookback_period: timedelta = timedelta(days=7)) -> None:
+        super().__init__(client=client)
         self.lookback_period = lookback_period
-        self.from_time_epoch = datetime_to_ms(datetime.now(UTC) - self.lookback_period)
 
-    def get_status(self) -> RuleSetStatus:
+    def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if self.client is None:
             return RuleSetStatus(
                 code="skip",
@@ -166,29 +158,30 @@ class FailingJobRuleSet(ToolkitRuleSet):
             message=f"Checks for failing jobs in CDF within the last {self.lookback_period.days} days.",
         )
 
-    def validate(self) -> Iterable[Insight | InternalValidatorException]:
+    def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
             return
-        failures = self._load_failures(self.client)
+        from_time_epoch = datetime_to_ms(datetime.now(UTC) - self.lookback_period)
+        failures = self._load_failures(self.client, from_time_epoch)
         yield from self._set_workflow_impact(self.client, failures)
         yield from self._diagnose_failures(self.client, failures)
         yield from self._report_failures(failures)
 
-    def _load_failures(self, client: ToolkitClient) -> list[FailingJob]:
-        """Loads the failing jobs from CDF.
+    def _load_failures(self, client: ToolkitClient, from_time_epoch: int) -> list[FailingJob]:
+        """Loads the jobs that are failing in CDF, considering the executions since from_time_epoch.
 
         Functions and transformations used by a failing workflow are not reported separately, as their failure
         is reported through the workflow.
         """
-        failures = self._load_failing_workflows(client)
-        failures.extend(self._load_failing_functions(client))
-        failures.extend(self._load_failing_transformations(client))
+        failures = self._load_failing_workflows(client, from_time_epoch)
+        failures.extend(self._load_failing_functions(client, from_time_epoch))
+        failures.extend(self._load_failing_transformations(client, from_time_epoch))
         failures.extend(self._load_failing_hosted_extractor_jobs(client))
         return failures
 
-    def _load_failing_workflows(self, client: ToolkitClient) -> list[FailingJob]:
+    def _load_failing_workflows(self, client: ToolkitClient, from_time_epoch: int) -> list[FailingJob]:
         finished_executions = client.workflows.executions.list(
-            filter=WorkflowExecutionFilter(status=FINISHED_WORKFLOW_STATUSES, created_time_start=self.from_time_epoch),
+            filter=WorkflowExecutionFilter(status=FINISHED_WORKFLOW_STATUSES, created_time_start=from_time_epoch),
             limit=None,
         )
         executions_by_id: dict[WorkflowVersionId, list[WorkflowExecutionResponse]] = defaultdict(list)
@@ -233,14 +226,14 @@ class FailingJobRuleSet(ToolkitRuleSet):
             return set()
         return set(io.get_dependencies(resource_yaml))
 
-    def _load_failing_functions(self, client: ToolkitClient) -> list[FailingJob]:
+    def _load_failing_functions(self, client: ToolkitClient, from_time_epoch: int) -> list[FailingJob]:
         failed_calls_by_function: list[tuple[FunctionResponse, list[FunctionCallResponse]]] = []
         for function in client.functions.list(limit=None):
-            if function.last_called is None or function.last_called < self.from_time_epoch:
+            if function.last_called is None or function.last_called < from_time_epoch:
                 continue
             calls = client.functions.calls.list(
                 function_id=function.id,
-                filter=FunctionCallFilter(start_time=EpochTimestampRange(min=self.from_time_epoch)),
+                filter=FunctionCallFilter(start_time=EpochTimestampRange(min=from_time_epoch)),
                 limit=None,
             )
             finished_calls = [call for call in calls if call.status.casefold() != RUNNING_FUNCTION_CALL_STATUS]
@@ -286,14 +279,14 @@ class FailingJobRuleSet(ToolkitRuleSet):
         )
         return {schedule.id: schedule.session_id for schedule in schedules if schedule.session_id is not None}
 
-    def _load_failing_transformations(self, client: ToolkitClient) -> list[FailingJob]:
+    def _load_failing_transformations(self, client: ToolkitClient, from_time_epoch: int) -> list[FailingJob]:
         io = TransformationIO(client)
         failures: list[FailingJob] = []
         for transformation in client.transformations.list(limit=None):
             last_job = transformation.last_finished_job
-            if last_job and last_job.status.casefold() == "failed" and last_job.created_time >= self.from_time_epoch:
+            if last_job and last_job.status.casefold() == "failed" and last_job.created_time >= from_time_epoch:
                 reason = last_job.error
-                failed_executions: int | None = self._count_failed_jobs(client, transformation.id)
+                failed_executions: int | None = self._count_failed_jobs(client, transformation.id, from_time_epoch)
             elif transformation.blocked:
                 # Blocked transformations are always reported, even if they were blocked before the lookback
                 # period, as they are still failing.
@@ -354,12 +347,13 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 impact.add(f"destination of type {destination.type}")
         return impact
 
-    def _count_failed_jobs(self, client: ToolkitClient, transformation_id: int) -> int:
+    @staticmethod
+    def _count_failed_jobs(client: ToolkitClient, transformation_id: int, from_time_epoch: int) -> int:
         """Counts the failed jobs within the lookback period. Jobs are returned newest first, so we stop
         paging once we reach a job older than the lookback period."""
         count = 0
         for jobs in client.transformations.jobs.iterate(transformation_id=transformation_id, limit=None):
-            recent_jobs = [job for job in jobs if job.created_time >= self.from_time_epoch]
+            recent_jobs = [job for job in jobs if job.created_time >= from_time_epoch]
             count += sum(1 for job in recent_jobs if job.status.casefold() == "failed")
             if len(recent_jobs) < len(jobs):
                 break
@@ -547,6 +541,9 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     can_verify_sessions = False
                 else:
                     invalid_status_by_session_id = self._invalid_sessions(client, session_ids)
+            except SandboxUnavailableError:
+                # Permissions cannot be inspected in a sandbox, so session status is not verified.
+                can_verify_sessions = False
             except (ToolkitAPIError, AuthorizationError) as e:
                 yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
 
