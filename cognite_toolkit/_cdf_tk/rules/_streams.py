@@ -66,8 +66,8 @@ def _streams_phrase(count: int) -> str:
 
 
 class StreamRuleSet(ToolkitRuleSet):
-    """Validates that the streams that deploying would create use a template available in the project, and that
-    the project has capacity for them.
+    """Validates that the project has capacity for the streams that deploying would create, and, as an alpha rule,
+    that they use a template available in the project.
 
     This requires deployment results, as they are the only way to know which streams would be created and deleted.
     """
@@ -84,6 +84,11 @@ class StreamRuleSet(ToolkitRuleSet):
                     "Stream capacity validation requires a client and deployment results. "
                     "Run as part of a deploy to check that the project has room for new streams."
                 ),
+            )
+        if not Flags.ALPHA_RULES.is_enabled():
+            return RuleSetStatus(
+                code="ready",
+                message="Will validate that the project has capacity for the streams to be created.",
             )
         return RuleSetStatus(
             code="ready",
@@ -102,7 +107,7 @@ class StreamRuleSet(ToolkitRuleSet):
         try:
             limits = StreamLimits.from_responses(self.client.limits.list(prefix=_STREAMS_LIMIT_PREFIX, limit=None))
             existing = self.client.streams.list()
-            templates = self.client.streams.list_templates()
+            templates = self.client.streams.list_templates() if Flags.ALPHA_RULES.is_enabled() else None
         except ToolkitAPIError as error:
             yield InternalValidatorException(
                 message=f"Failed to retrieve stream limits, streams, or stream templates: {error}", source="Streams"
@@ -114,9 +119,10 @@ class StreamRuleSet(ToolkitRuleSet):
             )
             return
         created_streams = self._created_streams(self.client, data, created_ids)
-        yield from self._check_template_names(
-            created_streams, templates, self.client.config.create_api_url(_TEMPLATES_ENDPOINT)
-        )
+        if templates is not None:
+            yield from self._check_template_names(
+                created_streams, templates, self.client.config.create_api_url(_TEMPLATES_ENDPOINT)
+            )
         deleted_existing = [stream for stream in existing if stream.as_id() in deleted_ids]
         endpoint_url = self.client.config.create_api_url(_STREAMS_ENDPOINT)
         yield from self._check_capacity(
@@ -179,7 +185,7 @@ class StreamRuleSet(ToolkitRuleSet):
                     ),
                     source_file=source_file,
                     source_url=None if source_file else templates_url,
-                    alpha=Flags.ALPHA_RULES.is_enabled(),
+                    alpha=True,
                 ),
                 values=[template],
             )

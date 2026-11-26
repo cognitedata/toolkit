@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InternalValidatorException
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceType, StreamIO
 from cognite_toolkit._cdf_tk.rules._base import ValidationInput
 from cognite_toolkit._cdf_tk.rules._streams import StreamLimits, StreamRuleSet
@@ -130,20 +131,35 @@ class TestStreamLimits:
 
 
 class TestStreamTemplateName:
-    def test_unknown_template_is_reported(self, tmp_path: Path) -> None:
+    def test_unknown_template_is_reported(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
         rule = StreamRuleSet(client=_client(_limits(), [], _templates("BasicArchive", "BasicLiveData")))
         resource = _stream_resource(tmp_path, NEW_STREAM.external_id, "NotATemplate")
         data = ValidationInput(resources=[resource], results=[_deployment([NEW_STREAM])])
 
         insights = [item for item in rule.validate(data) if isinstance(item, BuildError)]
-        assert [(insight.code, insight.source_file, insight.line, insight.fix) for insight in insights] == [
+        assert [
+            (insight.code, insight.source_file, insight.line, insight.fix, insight.alpha) for insight in insights
+        ] == [
             (
                 "INVALID-VALUE",
                 resource.source_path,
                 4,
                 "Use one of the available templates: BasicArchive or BasicLiveData.",
+                True,
             )
         ]
+
+    def test_skipped_without_alpha_rules(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: False)
+        client = _client(_limits(), [], _templates("BasicArchive"))
+        rule = StreamRuleSet(client=client)
+        data = ValidationInput(
+            resources=[_stream_resource(tmp_path, NEW_STREAM.external_id, "NotATemplate")],
+            results=[_deployment([NEW_STREAM])],
+        )
+
+        assert (list(rule.validate(data)), client.streams.list_templates.called) == ([], False)
 
 
 class TestStreamCapacity:
