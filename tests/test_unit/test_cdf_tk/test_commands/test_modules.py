@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import httpx2
 import pytest
 import respx
+import typer
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from packaging.version import Version
@@ -199,6 +200,18 @@ class TestModulesCommand:
         new_yaml_file_count = len(list(modules.rglob("*.yaml")))
 
         assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
+
+    def test_init_interactive_offers_empty_package(self, tmp_path: Path) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+
+        def select_empty_package(choices: list[Choice]) -> Package:
+            return next(c.value for c in choices if isinstance(c.value, Package) and c.value.name == "empty")
+
+        answers = [select_empty_package, False, True]
+        with MockQuestionary(ModulesCommand.__module__, answers), pytest.raises(typer.Exit):
+            cmd.init(tmp_path, user_environments=["dev"], user_download_data=False)
+
+        assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*")) == ["config.dev.yaml", MODULES]
 
     def test_context_manager_scope(self):
         with ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES) as cmd:
