@@ -34,7 +34,6 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.data_classes._insights import Insight, RuleDefinition
 from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -182,7 +181,7 @@ _EXCEEDED_RESOURCE_LIMIT = RuleDefinition(
     resource_types=("Container", "View", "Data model"),
     severity="Error",
     context="Build with CDF",
-    reported_when="The resource has more properties, or the data model has more views, than the project allows.",
+    reported_when="The container or view has more properties, or the data model has more views, than the project allows.",
 )
 _EXCEEDED_PROJECT_CAPACITY = RuleDefinition(
     code="EXCEEDED-LIMIT",
@@ -365,8 +364,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             )
             return
         yield from self._check_schema_references(inventory)
-        if Flags.ALPHA_RULES.is_enabled():
-            yield from self._check_schema_design(inventory)
+        yield from self._check_schema_design(inventory)
         if self.client is None:
             return
         yield from self._validate_data_modeling_changes(self.client, inventory)
