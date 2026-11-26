@@ -364,6 +364,10 @@ class ModulesCommand(ToolkitCommand):
 
         print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
+        packages.setdefault(
+            "empty",
+            Package(name="empty", title="Empty", description="Start with an empty project without any modules"),
+        )
         if user_select is None:
             selected = self._select_packages(packages)
         else:
