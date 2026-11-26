@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Any, cast
 from unittest.mock import MagicMock
@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 
 from . import ToolkitClientConfig
 from .api.agents import AgentsAPI
@@ -387,6 +388,27 @@ class ToolkitClientMock(ToolkitClient):
         self.postgres_gateway.users = MagicMock(spec_set=PostgresGatewayUsersAPI)
         self.postgres_gateway.tables = MagicMock(spec_set=PostgresGatewayTablesAPI)
         self.units = MagicMock(spec_set=UnitsAPI)
+
+        self._mock_endpoint_urls()
+
+    def _mock_endpoint_urls(self) -> None:
+        """Deploy warnings use the endpoint URL of an API as their source, which must be a valid URL."""
+        parents: list[Any] = [self]
+        while parents:
+            parent = parents.pop()
+            for name, api in vars(parent).items():
+                if name.startswith("_") or not isinstance(api, MagicMock):
+                    continue
+                if isinstance(api, CDFResourceAPI):
+                    api.endpoint_url.side_effect = self._create_endpoint_url(api.__class__.__name__)
+                parents.append(api)
+
+    def _create_endpoint_url(self, api_name: str) -> Callable[[str], str]:
+        # The config is looked up on each call, as tests replace it after the mock is created.
+        def endpoint_url(method: str) -> str:
+            return f"{self.config.base_url}/api/v1/projects/{self.config.project}/{api_name}/{method}"
+
+        return endpoint_url
 
 
 @contextmanager

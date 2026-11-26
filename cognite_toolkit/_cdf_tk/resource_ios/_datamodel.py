@@ -98,7 +98,6 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_FOLDER_ENCODING,
     CONTAINER_UPSERT_BATCH_LIMIT,
     HAS_DATA_FILTER_LIMIT,
-    HINT_LEAD_TEXT,
     URL,
     VIEW_UPSERT_BATCH_LIMIT,
 )
@@ -117,7 +116,6 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     SuccessExtra,
     WarningHandler,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_hash,
@@ -225,10 +223,10 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         existing = self.client.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Spaces {humanize_collection(is_global)} are global and cannot be deleted, skipping delete, for these."
-                )
+            self._warn(
+                "UNSUPPORTED-RESOURCE-REMOVAL",
+                f"Spaces {humanize_collection(is_global)} are global and cannot be deleted, skipping delete, for these.",
+                source_url=self.client.spaces.endpoint_url("delete"),
             )
         to_delete = [space_ref for space_ref in ids if space_ref.space not in is_global]
         self.client.spaces.delete(to_delete)
@@ -458,11 +456,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, containers_by_id, CONTAINER_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
-                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-                )
+            self._warn(
+                "EXCEEDED-LIMIT",
+                f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
+                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits.",
+                source_url=self.client.containers.endpoint_url("upsert"),
             )
         return batches
 
@@ -540,17 +538,22 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             "This warning will persist until the discrepancies are resolved.",
         ]
         if only_in_cdf_props:
-            lines.append(f"• Properties missing in your local YAML: [bold]{', '.join(only_in_cdf_props)}[/bold]")
+            lines.append(f"• Properties missing in your local YAML: {', '.join(only_in_cdf_props)}")
         if only_in_cdf_constraints:
-            lines.append(f"• Constraints missing in your local YAML: [bold]{', '.join(only_in_cdf_constraints)}[/bold]")
+            lines.append(f"• Constraints missing in your local YAML: {', '.join(only_in_cdf_constraints)}")
         if only_in_cdf_indexes:
-            lines.append(f"• Indexes missing in your local YAML: [bold]{', '.join(only_in_cdf_indexes)}[/bold]")
+            lines.append(f"• Indexes missing in your local YAML: {', '.join(only_in_cdf_indexes)}")
 
-        lines.append(
-            f"{HINT_LEAD_TEXT}To remove this warning, you can run [bold]cdf modules pull[/bold] to retrieve the missing container config from CDF. This will overwrite your local YAML file(s)."
+        self._warn(
+            "INVALID-RESOURCE-CHANGE",
+            "\n".join(lines),
+            source_url=self.client.containers.endpoint_url("upsert"),
+            fix=(
+                "To remove this warning, you can run 'cdf modules pull' to retrieve the missing container config "
+                "from CDF. This will overwrite your local YAML file(s). "
+                f"For more details on allowed container changes, see {URL.dm_changes_docs}"
+            ),
         )
-        lines.append(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see {URL.dm_changes_docs}")
-        self.on_warning(HighSeverityWarning("\n".join(lines)))
 
         is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
         if is_verbose:
@@ -642,10 +645,10 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             for container in retrieved_containers:
                 self._container_by_id[container.as_id()] = container
         if warn and (missing_container_ids := set(container_ids) - set(self._container_by_id.keys())):
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Containers {humanize_collection(missing_container_ids)} not found or you don't have permission to access them."
-                )
+            self._warn(
+                "UNVERIFIED-REFERENCED-RESOURCE",
+                f"Containers {humanize_collection(missing_container_ids)} not found or you don't have permission to access them.",
+                source_url=self.client.containers.endpoint_url("retrieve"),
             )
         return {
             container_id: self._container_by_id[container_id]
@@ -834,7 +837,11 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
                     view_id.dump() for view_id in self.topological_sort_implements(resource.implements)
                 ]
             except ToolkitCycleError as e:
-                self.on_warning(MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}"))
+                self._warn(
+                    "INVALID-VALUE",
+                    f"Failed to sort implements for view {resource.as_id()}: {e}",
+                    source_url=self.client.views.endpoint_url("retrieve"),
+                )
 
         for key in ["filter", "name", "description"]:
             if dumped.get(key) is None and key not in local:
@@ -931,11 +938,11 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, views_by_id, VIEW_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
-                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-                )
+            self._warn(
+                "EXCEEDED-LIMIT",
+                f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
+                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits.",
+                source_url=self.client.views.endpoint_url("upsert"),
             )
         return batches
 
@@ -1056,10 +1063,10 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         view_by_ids = self._lookup_views(view_ids)
         if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Views {humanize_collection(missing_view_ids)} not found or you don't have permission to access them, skipping dependency check."
-                )
+            self._warn(
+                "UNVERIFIED-REFERENCED-RESOURCE",
+                f"Views {humanize_collection(missing_view_ids)} not found or you don't have permission to access them, skipping dependency check.",
+                source_url=self.client.views.endpoint_url("retrieve"),
             )
             return view_ids, []
 
@@ -1615,7 +1622,7 @@ class GraphQLIO(
             original_filepath=filepath,
         )
         if warning:
-            self.on_warning(warning)
+            self._warn_missing_environment_variables(warning, filepath)
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
         for item in raw_list:
@@ -1661,7 +1668,9 @@ class GraphQLIO(
             hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
-                self.on_warning(LowSeverityWarning(f"Description is above limit for {model_id}. Truncating..."))
+                self._warn(
+                    "EXCEEDED-LIMIT", f"Description is above limit for {model_id}. Truncating...", source_file=filepath
+                )
                 description = description[: 1024 - len(suffix) + 1 - 3] + "..."
             description += f" {suffix}"
             item["description"] = description

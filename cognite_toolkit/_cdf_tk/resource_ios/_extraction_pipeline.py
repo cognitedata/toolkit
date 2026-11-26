@@ -49,9 +49,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    HighSeverityWarning,
-)
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
     load_yaml_inject_variables,
@@ -311,41 +308,48 @@ class ExtractionPipelineConfigIO(
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
                 replaced["config"] = original.get("config")
-                return [replaced]
+            resources = [replaced]
+        elif isinstance(original, list) and isinstance(replaced, list):
+            for orig_item, repl_item in zip(original, replaced):
+                if isinstance(orig_item, dict) and isinstance(repl_item, dict) and "config" in orig_item:
+                    repl_item["config"] = orig_item.get("config")
+            resources = replaced
+        else:
+            resources = replaced if isinstance(replaced, list) else [replaced]
 
-        for orig_item, repl_item in zip(original, replaced):
-            if "config" in orig_item:
-                repl_item["config"] = orig_item.get("config")  # type: ignore
-        return replaced if isinstance(replaced, list) else [replaced]
+        for resource in resources:
+            if isinstance(config_raw := resource.get("config"), str):
+                self._validate_config(config_raw, resource, source_file=filepath)
+        return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigRequest:
-        config_raw = resource.get("config")
-        if isinstance(config_raw, str):
-            self._validate_config(config_raw, resource)
         return ExtractionPipelineConfigRequest.model_validate(resource)
 
-    def _validate_config(self, config_raw: str, resource: dict[str, Any]) -> dict[str, Any]:
+    def _validate_config(
+        self, config_raw: str, resource: dict[str, Any], source_file: Path | None = None
+    ) -> dict[str, Any]:
         """The extraction pipeline API specifies config to be a string. However, it should be a valid YAML mapping,
-        so we validate that here and warn if it is not."""
+        so we validate that here and warn if it is not. Without a source file, the config is retrieved from CDF."""
         try:
             result = read_yaml_content(config_raw)
         except yaml.YAMLError as e:
             id_ = self._get_id(resource, default="missing")
-            self.on_warning(
-                HighSeverityWarning(
-                    f"Configuration for {id_!r} could not be parsed "
-                    f"as valid YAML, which is the recommended format. Error: {e}"
-                )
+            message = (
+                f"Configuration for {id_!r} could not be parsed "
+                f"as valid YAML, which is the recommended format. Error: {e}"
             )
         else:
             if isinstance(result, dict):
                 return result
             id_ = self._get_id(resource, default="missing")
-            self.on_warning(
-                HighSeverityWarning(
-                    f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
-                )
+            message = (
+                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
             )
+        if source_file is None:
+            source_url = self.client.extraction_pipelines.configs.endpoint_url("retrieve")
+            self._warn("INVALID-VALUE", message, source_url=source_url)
+        else:
+            self._warn("INVALID-VALUE", message, source_file=source_file)
         return {}
 
     def _get_id(self, resource: dict[str, Any], default: str) -> str:

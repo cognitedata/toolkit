@@ -34,6 +34,7 @@ InsightCode: TypeAlias = Literal[
     "DEPRECATED-FEATURE",
     "DUPLICATED-IDENTIFIER",
     "EXCEEDED-LIMIT",
+    "FAILED-REQUEST",
     "FAILING-JOB",
     "INVALID-CREDENTIALS",
     "INVALID-FIELD",
@@ -61,6 +62,7 @@ InsightCode: TypeAlias = Literal[
     "UNRECOGNIZED-FIELD",
     "UNRECOGNIZED-VALUE",
     "UNRESOLVED-VARIABLE",
+    "UNSUPPORTED-RESOURCE-CREATION",
     "UNSUPPORTED-RESOURCE-REMOVAL",
     "UNTRIGGERED-RESOURCE",
     "UNUSED-RESOURCE",
@@ -211,6 +213,18 @@ class BuildWarning(InsightDefinition):
 
     insight_type: Literal["Warning"] = WARNING_TYPE
     severity = 20
+
+
+class DeployWarning(InsightDefinition):
+    """A potential problem that could not be confirmed, or an issue that does not block the deployment.
+
+    The context holds unstructured data for the code handling the warning, for example, the names of
+    missing environment variables. It is not serialized.
+    """
+
+    insight_type: Literal["Warning"] = WARNING_TYPE
+    severity = 20
+    context: Any = Field(default=None, exclude=True)
 
 
 Insight = Annotated[

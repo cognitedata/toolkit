@@ -515,6 +515,11 @@ class TestCDFResourceAPI:
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
             api.unique(("author",), limit=10001)
 
+    def test_endpoint_url(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = ContainersAPI(HTTPClient(toolkit_config))
+
+        assert api.endpoint_url("retrieve") == toolkit_config.create_api_url("/models/containers/byids")
+
     def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:

@@ -91,8 +91,7 @@ class TestExternalDataSourceIO:
         credentials = dumped.get("settings", {}).get("credentials", {})
         assert "clientSecret" not in credentials
 
-    def test_dump_resource_with_local_returns_identifier(self, toolkit_client_cheap: ToolkitClient) -> None:
-        loader = ExternalDataSourceIO(toolkit_client_cheap)
+    def test_dump_resource_with_local_returns_identifier(self) -> None:
         local = {
             "externalId": "fabric-lakehouse-prod",
             "settings": {
@@ -103,7 +102,9 @@ class TestExternalDataSourceIO:
                 }
             },
         }
-        dumped = loader.dump_resource(_make_response(), local)
+        with monkeypatch_toolkit_client() as client:
+            loader = ExternalDataSourceIO(client)
+            dumped = loader.dump_resource(_make_response(), local)
         assert dumped == {"externalId": "fabric-lakehouse-prod"}
 
     def test_prepare_resources_create(self, toolkit_client_approval: ApprovalToolkitClient) -> None:

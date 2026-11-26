@@ -182,7 +182,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             original_filepath=filepath,
         )
         if warning:
-            self.on_warning(warning)
+            self._warn_missing_environment_variables(warning, filepath)
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind.lower())].rstrip(".")

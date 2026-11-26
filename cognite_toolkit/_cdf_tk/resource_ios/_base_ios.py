@@ -7,6 +7,7 @@ from types import GenericAlias
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from rich.markup import escape
 from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -18,17 +19,17 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning, DeployWarning, InsightCode
 
 T_YamlResource = TypeVar("T_YamlResource")
-WarningHandler: TypeAlias = Callable[[ToolkitWarning], None]
+WarningHandler: TypeAlias = Callable[["DeployWarning"], None]
 
 
 class ReadExtra(BaseModel):
@@ -270,8 +271,33 @@ class ResourceIO(
         self.console = client.console
         self.on_warning = on_warning or self._print_warning
 
-    def _print_warning(self, warning: ToolkitWarning) -> None:
-        warning.print_warning(console=self.console)
+    def _print_warning(self, warning: "DeployWarning") -> None:
+        self.console.print(f"[bold yellow]WARNING:[/] {escape(warning.message)}")
+        if warning.fix:
+            self.console.print(f"{HINT_LEAD_TEXT}{escape(warning.fix)}")
+
+    def _warn(
+        self,
+        code: "InsightCode",
+        message: str,
+        *,
+        source_file: Path | None = None,
+        source_url: str | None = None,
+        fix: str | None = None,
+        context: Any = None,
+    ) -> None:
+        """Passes a deploy warning to the warning handler. Exactly one of source_file and source_url must be set."""
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.data_classes._insights import DeployWarning
+
+        self.on_warning(
+            DeployWarning(
+                code=code, message=message, source_file=source_file, source_url=source_url, fix=fix, context=context
+            )
+        )
+
+    def _warn_missing_environment_variables(self, warning: EnvironmentVariableMissingWarning, filepath: Path) -> None:
+        self._warn("UNRESOLVED-VARIABLE", warning.get_message(), source_file=filepath, context=warning.variables)
 
     @classmethod
     def as_crud_type(cls) -> ResourceType:
@@ -374,7 +400,7 @@ class ResourceIO(
             original_filepath=filepath,
         )
         if warning:
-            self.on_warning(warning)
+            self._warn_missing_environment_variables(warning, filepath)
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_RequestResource:

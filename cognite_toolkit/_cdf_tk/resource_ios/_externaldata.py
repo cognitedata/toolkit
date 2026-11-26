@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 
@@ -96,11 +95,11 @@ class ExternalDataSourceIO(
         # is create-only (support_update = False), an always-changed resource is deleted and
         # recreated on every deploy, not upserted.
         if local:
-            self.on_warning(
-                HighSeverityWarning(
-                    "External data sources will always be considered different, and thus will always be "
-                    "deleted and re-created on deploy."
-                )
+            self._warn(
+                "UNVERIFIED-CREDENTIALS",
+                "External data sources will always be considered different, and thus will always be "
+                "deleted and re-created on deploy.",
+                source_url=self.client.transformations.external_data_sources.endpoint_url("list"),
             )
             return self.dump_id(self.get_id(resource))
         dumped = resource.dump()

@@ -20,7 +20,6 @@ from typing import Any, Literal, final
 
 from pydantic import TypeAdapter
 from rich import print
-from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -66,10 +65,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    HighSeverityWarning,
-    MediumSeverityWarning,
-)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
@@ -441,8 +436,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 try:
                     created = self.client.groups.create([item])
                 except ToolkitAPIError as e:
-                    self.on_warning(
-                        HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}")
+                    self._warn(
+                        "FAILED-REQUEST",
+                        f"Failed to {action} group {item.name}. Error: {e!s}",
+                        source_url=self.client.groups.endpoint_url("create"),
                     )
                 else:
                     created_list.extend(created)
@@ -476,21 +473,21 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         counts_by_name: dict[str, int] = defaultdict(int)
         for group in delete_candidates:
             if group.source_id in my_source_ids:
-                self.on_warning(
-                    HighSeverityWarning(
-                        f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
-                        f"the current service principal. If you want to delete this group, you must do it manually."
-                    )
+                self._warn(
+                    "UNSUPPORTED-RESOURCE-REMOVAL",
+                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by "
+                    "the current service principal. If you want to delete this group, you must do it manually.",
+                    source_url=self.client.groups.endpoint_url("delete"),
                 )
             else:
                 to_delete.append(group.id)
                 to_delete_groups.append(group)
                 counts_by_name[group.name] += 1
         if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"The following names are used by multiple groups (all will be deleted): {humanize_collection(duplicates)}"
-                )
+            self._warn(
+                "DUPLICATED-IDENTIFIER",
+                f"The following names are used by multiple groups (all will be deleted): {humanize_collection(duplicates)}",
+                source_url=self.client.groups.endpoint_url("delete"),
             )
 
         failed_deletes = []
@@ -513,12 +510,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 error_str = str(e)
                 failed_deletes.extend(to_delete)
         if failed_deletes:
-            self.on_warning(
-                MediumSeverityWarning(
-                    f"Failed to delete groups: {humanize_collection(to_delete)}. "
-                    "These must be deleted manually in the Fusion UI."
-                    f"Error: {escape(error_str)}"
-                )
+            self._warn(
+                "FAILED-REQUEST",
+                f"Failed to delete groups: {humanize_collection(to_delete)}. "
+                f"These must be deleted manually in the Fusion UI. Error: {error_str}",
+                source_url=self.client.groups.endpoint_url("delete"),
             )
         failed = set(failed_deletes)
         return [NameId(name=group.name) for group in to_delete_groups if group.id not in failed]
