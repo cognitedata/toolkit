@@ -8,6 +8,7 @@ from ._failing_jobs import FailingJobRuleSet
 from ._functions import FunctionRuleSet
 from ._groups import GroupRuleSet
 from ._infield import InFieldCDMRuleSet
+from ._library import get_rules_library
 from ._streams import StreamRuleSet
 from ._unused import UnusedRuleSet
 
@@ -26,4 +27,5 @@ __all__ = [
     "UnusedRuleSet",
     "ValidationInput",
     "get_global_rules_registry",
+    "get_rules_library",
 ]
