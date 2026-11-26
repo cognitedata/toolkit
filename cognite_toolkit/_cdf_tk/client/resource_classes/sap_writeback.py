@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
     ResponseResource,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WritebackRequestId
 
@@ -113,8 +114,8 @@ class SchemaMapping(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class SchemaMappingRequest(SchemaMapping, RequestResource):
-    """Request resource for creating schema mappings."""
+class SchemaMappingRequest(SchemaMapping, UpdatableRequestResource):
+    """Request resource for creating and updating schema mappings."""
 
 
 class SchemaMappingResponse(SchemaMapping, ResponseResource[SchemaMappingRequest]):
