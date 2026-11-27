@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from typing import Self
+from pathlib import Path
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.alias_generators import to_snake
@@ -9,7 +10,11 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    StreamRequest,
+    StreamResponse,
+    StreamTemplateResponse,
+)
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
@@ -18,12 +23,14 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import StreamIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, ValidationInput
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, ValidationInput, with_position
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 _STREAMS_LIMIT_PREFIX = "streams."
 _TEMPLATE_PREFIX = "template."
 _MAX_ACTIVE_STREAMS = "max_active_streams"
 _STREAMS_ENDPOINT = "/streams"
+_TEMPLATES_ENDPOINT = "/streams/templates"
 # The deployment result resource name, which is the StreamIO display name.
 _STREAMS_RESOURCE_NAME = "streams"
 
@@ -59,7 +66,8 @@ def _streams_phrase(count: int) -> str:
 
 
 class StreamRuleSet(ToolkitRuleSet):
-    """Validates that the project has capacity for the streams that deploying would create.
+    """Validates that the project has capacity for the streams that deploying would create, and, as an alpha rule,
+    that they use a template available in the project.
 
     This requires deployment results, as they are the only way to know which streams would be created and deleted.
     """
@@ -77,9 +85,17 @@ class StreamRuleSet(ToolkitRuleSet):
                     "Run as part of a deploy to check that the project has room for new streams."
                 ),
             )
+        if not Flags.ALPHA_RULES.is_enabled():
+            return RuleSetStatus(
+                code="ready",
+                message="Will validate that the project has capacity for the streams to be created.",
+            )
         return RuleSetStatus(
             code="ready",
-            message="Will validate that the project has capacity for the streams to be created.",
+            message=(
+                "Will validate that the streams to be created use an available template "
+                "and that the project has capacity for them."
+            ),
         )
 
     def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
@@ -91,14 +107,22 @@ class StreamRuleSet(ToolkitRuleSet):
         try:
             limits = StreamLimits.from_responses(self.client.limits.list(prefix=_STREAMS_LIMIT_PREFIX, limit=None))
             existing = self.client.streams.list()
+            templates = self.client.streams.list_templates() if Flags.ALPHA_RULES.is_enabled() else None
         except ToolkitAPIError as error:
             yield InternalValidatorException(
-                message=f"Failed to retrieve stream limits or streams: {error}", source="Streams"
+                message=f"Failed to retrieve stream limits, streams, or stream templates: {error}", source="Streams"
             )
             return
         except ValidationError as error:
-            yield InternalValidatorException(message=f"Failed to parse stream limits: {error}", source="Streams")
+            yield InternalValidatorException(
+                message=f"Failed to parse stream limits or stream templates: {error}", source="Streams"
+            )
             return
+        created_streams = self._created_streams(self.client, data, created_ids)
+        if templates is not None:
+            yield from self._check_template_names(
+                created_streams, templates, self.client.config.create_api_url(_TEMPLATES_ENDPOINT)
+            )
         deleted_existing = [stream for stream in existing if stream.as_id() in deleted_ids]
         endpoint_url = self.client.config.create_api_url(_STREAMS_ENDPOINT)
         yield from self._check_capacity(
@@ -109,9 +133,8 @@ class StreamRuleSet(ToolkitRuleSet):
             limit=limits.max_active_streams,
             endpoint_url=endpoint_url,
         )
-        yield from self._check_template_capacity(
-            limits, existing, deleted_existing, self._local_templates(self.client, data, created_ids), endpoint_url
-        )
+        created_templates = [request.settings.template.name for _, request in created_streams]
+        yield from self._check_template_capacity(limits, existing, deleted_existing, created_templates, endpoint_url)
 
     @staticmethod
     def _deployed_stream_ids(results: Sequence[DeploymentResult]) -> tuple[list[ExternalId], set[ExternalId]]:
@@ -125,14 +148,47 @@ class StreamRuleSet(ToolkitRuleSet):
         return created, deleted
 
     @staticmethod
-    def _local_templates(client: ToolkitClient, data: ValidationInput, created_ids: Sequence[ExternalId]) -> list[str]:
-        """The template of each stream that deploying would create, as configured locally."""
+    def _created_streams(
+        client: ToolkitClient, data: ValidationInput, created_ids: Sequence[ExternalId]
+    ) -> list[tuple[Path | Literal["cdf"], StreamRequest]]:
+        """The source and local configuration of each stream that deploying would create."""
         created = set(created_ids)
         return [
-            validatable.request.settings.template.name
+            (validatable.source, validatable.request)
             for validatable in data.get_resource_of_type(StreamIO(client))
             if validatable.request.as_id() in created
         ]
+
+    @staticmethod
+    def _check_template_names(
+        created_streams: Sequence[tuple[Path | Literal["cdf"], StreamRequest]],
+        templates: Sequence[StreamTemplateResponse],
+        templates_url: str,
+    ) -> Iterable[Insight]:
+        available = {template.name for template in templates}
+        for source, request in created_streams:
+            template = request.settings.template.name
+            if template in available:
+                continue
+            source_file = source if isinstance(source, Path) else None
+            yield with_position(
+                BuildError(
+                    code="INVALID-VALUE",
+                    message=(
+                        f"Stream {request.external_id!r} uses the template {template!r}, "
+                        "which is not available in the project."
+                    ),
+                    fix=(
+                        f"Use one of the available templates: {humanize_collection(available, bind_word='or')}."
+                        if available
+                        else "The project has no stream templates available. Contact Cognite support."
+                    ),
+                    source_file=source_file,
+                    source_url=None if source_file else templates_url,
+                    alpha=True,
+                ),
+                values=[template],
+            )
 
     @classmethod
     def _check_template_capacity(
