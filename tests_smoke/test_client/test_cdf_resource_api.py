@@ -28,6 +28,12 @@ from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
+from cognite_toolkit._cdf_tk.client.api.extractors import (
+    ExtractorReleasesAPI,
+    ExtractorsAPI,
+    ExtractorSolutionsAPI,
+    ExtractorSourceSystemsAPI,
+)
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -161,6 +167,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.extractor import ExtractorReleaseResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
@@ -406,6 +413,11 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         UserProfilesAPI,
         # Metering is read-only (list/retrieve) and alpha.
         MeteringAPI,
+        # The extractor catalog is read-only and global, so it has no create, update, or delete.
+        ExtractorsAPI,
+        ExtractorReleasesAPI,
+        ExtractorSolutionsAPI,
+        ExtractorSourceSystemsAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
         DocumentsAPI,
         # Special handling due to need for file Id and update.
@@ -3223,6 +3235,40 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(endpoints["retrieve"].path, f"Retrieving limit failed: {e!s}") from e
         if len(retrieved) != 1 or retrieved[0].as_id() != limit_id:
             raise EndpointAssertionError(endpoints["retrieve"].path, f"Expected {limit_id}, got {retrieved}")
+
+    def test_extractor_catalog(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test the read-only extractor catalog: list and retrieve each API, and fetch one schema."""
+        extractors = toolkit_client.extractors
+
+        def list_and_retrieve(name: str, api: Any) -> Any:
+            endpoints = api._method_endpoint_map
+            try:
+                listed = api.list(limit=1)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Listing {name} failed: {e!s}") from e
+            if len(listed) != 1:
+                raise EndpointAssertionError(endpoints["list"].path, f"Expected 1 listed {name}, got {len(listed)}")
+            item_id = listed[0].as_id()
+            try:
+                retrieved = api.retrieve([item_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["retrieve"].path, f"Retrieving {name} failed: {e!s}") from e
+            if len(retrieved) != 1 or retrieved[0].as_id() != item_id:
+                raise EndpointAssertionError(endpoints["retrieve"].path, f"Expected {item_id}, got {retrieved}")
+            return listed[0]
+
+        list_and_retrieve("extractors", extractors)
+        list_and_retrieve("solutions", extractors.solutions)
+        list_and_retrieve("source systems", extractors.source_systems)
+        release: ExtractorReleaseResponse = list_and_retrieve("releases", extractors.releases)
+
+        schema_path = extractors._schema_path
+        try:
+            schema = extractors.schema(release.external_id, release.version)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(schema_path, f"Getting schema for {release.as_id()} failed: {e!s}") from e
+        if not isinstance(schema, dict):
+            raise EndpointAssertionError(schema_path, f"Expected a JSON schema object, got {type(schema).__name__}")
 
     def test_documents_list_search_aggregate(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test Documents API list, search, and aggregate helpers (read-only)."""
