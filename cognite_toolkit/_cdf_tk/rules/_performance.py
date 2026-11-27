@@ -67,8 +67,18 @@ class _Compute:
 
 @dataclass(frozen=True)
 class _Peak:
+    """The most runs at the same time, the first time (ms since epoch) it happens, and the names of those runs."""
+
     count: int
+    time: int
     names: list[str]
+
+
+@dataclass(frozen=True)
+class _ScheduledPeak(_Peak):
+    """A peak based on schedules, with the number of minutes more than MAX_CONCURRENT_RUNS are running."""
+
+    congested_minutes: int
 
 
 class PerformanceRuleSet(ToolkitRuleSet):
@@ -131,9 +141,9 @@ class PerformanceRuleSet(ToolkitRuleSet):
                 )
                 continue
             if scheduled := self._scheduled_peak(compute, now):
-                yield self._scheduled_warning(compute, *scheduled)
+                yield self._scheduled_warning(compute, scheduled)
             if observed := self._observed_peak(compute):
-                yield self._observed_warning(compute, *observed)
+                yield self._observed_warning(compute, observed)
 
     # 1. Load
 
@@ -236,7 +246,7 @@ class PerformanceRuleSet(ToolkitRuleSet):
 
     # 2. Find peaks
 
-    def _scheduled_peak(self, compute: _Compute, now: int) -> tuple[_Peak, int, int] | None:
+    def _scheduled_peak(self, compute: _Compute, now: int) -> _ScheduledPeak | None:
         """The most schedules running in the same minute within the horizon, the first time they do so, and the
         number of minutes within the horizon more than MAX_CONCURRENT_RUNS are running."""
         window_start = ms_to_datetime(now - now % _MINUTE_MS)
@@ -266,10 +276,10 @@ class PerformanceRuleSet(ToolkitRuleSet):
         names = [schedule.name for schedule, minutes in running_minutes_by_schedule if peak_minute in minutes]
         congested_minutes = sum(1 for count in running_count_by_minute if count > MAX_CONCURRENT_RUNS)
         peak_time = datetime_to_ms(window_start) + peak_minute * _MINUTE_MS
-        return _Peak(count=peak_count, names=names), peak_time, congested_minutes
+        return _ScheduledPeak(count=peak_count, time=peak_time, names=names, congested_minutes=congested_minutes)
 
     @staticmethod
-    def _observed_peak(compute: _Compute) -> tuple[_Peak, int] | None:
+    def _observed_peak(compute: _Compute) -> _Peak | None:
         """The most runs that ran at the same time within the lookback period, and when it first happened."""
         # Ends sort before starts at the same time, such that back-to-back runs do not count as running together.
         events = sorted([(run.start, 1) for run in compute.runs] + [(run.end, -1) for run in compute.runs])
@@ -281,19 +291,17 @@ class PerformanceRuleSet(ToolkitRuleSet):
         if peak_count <= MAX_CONCURRENT_RUNS:
             return None
         names = [run.name for run in compute.runs if run.start <= peak_time < run.end]
-        return _Peak(count=peak_count, names=names), peak_time
+        return _Peak(count=peak_count, time=peak_time, names=names)
 
     # 3. Report
 
-    def _scheduled_warning(
-        self, compute: _Compute, peak: _Peak, peak_time: int, congested_minutes: int
-    ) -> BuildWarning:
+    def _scheduled_warning(self, compute: _Compute, peak: _ScheduledPeak) -> BuildWarning:
         return BuildWarning(
             code="CONGESTED-SCHEDULE",
             message=(
                 f"Up to {peak.count} {compute.kind} are scheduled to run at the same time, next at "
-                f"{_format_time(peak_time)} UTC: {_humanize_names(peak.names)}. More than {MAX_CONCURRENT_RUNS} "
-                f"run at the same time during {congested_minutes} minutes in the next {self.horizon.days} days, "
+                f"{_format_time(peak.time)} UTC: {_humanize_names(peak.names)}. More than {MAX_CONCURRENT_RUNS} "
+                f"run at the same time during {peak.congested_minutes} minutes in the next {self.horizon.days} days, "
                 f"based on their schedules and median run time in the last {self.lookback_period.days} days. "
                 "Running many at once can exceed concurrency limits, which delays or fails runs."
             ),
@@ -302,12 +310,12 @@ class PerformanceRuleSet(ToolkitRuleSet):
             alpha=Flags.ALPHA_RULES.is_enabled(),
         )
 
-    def _observed_warning(self, compute: _Compute, peak: _Peak, peak_time: int) -> BuildWarning:
+    def _observed_warning(self, compute: _Compute, peak: _Peak) -> BuildWarning:
         return BuildWarning(
             code="CONGESTED-SCHEDULE",
             message=(
                 f"{peak.count} runs of {compute.kind} were running at the same time at "
-                f"{_format_time(peak_time)} UTC, the most in the last "
+                f"{_format_time(peak.time)} UTC, the most in the last "
                 f"{self.lookback_period.days} days: {_humanize_names(peak.names)}. Running many at once can exceed "
                 "concurrency limits, which delays or fails runs."
             ),
