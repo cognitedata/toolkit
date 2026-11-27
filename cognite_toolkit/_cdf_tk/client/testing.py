@@ -46,6 +46,8 @@ from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from .api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.function_app_calls import FunctionAppCallsAPI
+from .api.function_apps import FunctionAppsAPI
 from .api.function_calls import FunctionCallsAPI
 from .api.function_schedules import FunctionSchedulesAPI
 from .api.functions import FunctionsAPI
@@ -314,6 +316,8 @@ class ToolkitClientMock(ToolkitClient):
         self.functions = MagicMock(spec=FunctionsAPI)
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.functions.apps = MagicMock(spec=FunctionAppsAPI)
+        self.functions.apps.calls = MagicMock(spec_set=FunctionAppCallsAPI)
         self.groups = MagicMock(spec_set=GroupsAPI)
         self.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
