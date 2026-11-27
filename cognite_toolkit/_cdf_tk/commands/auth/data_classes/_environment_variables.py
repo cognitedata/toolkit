@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 from dataclasses import Field, dataclass, field, fields
 from typing import Any
 
@@ -14,7 +15,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.config import parse_cdf_cluster
 from cognite_toolkit._cdf_tk.client.http_client._credential_provider import NoCredentials
-from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
+from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens, resolve_idp_base_url
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT, TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
@@ -24,6 +25,18 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection, is_cognite_sandbo
 from ._constants import CLIENT_NAME, PROVIDERS, parse_login_flow
 from ._env_options import ALL_CASES, EnvOptions, all_providers
 from ._types import LoginFlow, Provider
+
+
+class SessionToken(Token):
+    """Token for a Cognite IdP session.
+
+    ``token_url`` points at the IdP the session signed in against, so the client sends auth host requests,
+    e.g. applications, to the same IdP instead of the production default.
+    """
+
+    def __init__(self, token: Callable[[], str], idp_base_url: str) -> None:
+        super().__init__(token)
+        self.token_url = f"{idp_base_url}/oauth2/token"
 
 
 @dataclass
@@ -337,7 +350,7 @@ class EnvironmentVariables:
                 session = self._require_fresh_session()
             return session.access_token
 
-        return Token(token_factory)
+        return SessionToken(token_factory, resolve_idp_base_url(session.org))
 
     def _get_no_auth_credentials(self) -> NoCredentials:
         return NoCredentials()
