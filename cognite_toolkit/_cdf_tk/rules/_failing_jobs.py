@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
 )
@@ -53,7 +52,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
 )
-from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, SandboxUnavailableError
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
@@ -72,6 +71,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     WorkflowVersionYAML,
 )
 
+from ._access import invalid_session_status, retrieve_sessions, transformation_session_ids
 from ._base import (
     InternalValidatorException,
     RuleSetStatus,
@@ -92,7 +92,6 @@ RUNNING_FUNCTION_CALL_STATUS = "running"
 FAILED_HOSTED_EXTRACTOR_JOB_STATUSES = frozenset(
     {"startup_error", "connection_error", "transform_error", "cdf_write_error"}
 )
-VALID_SESSION_STATUSES = frozenset({"READY", "ACTIVE"})
 COMPLETED_TASK_STATUS = "COMPLETED"
 READ_ONLY_CDF_REQUEST_SUFFIXES = ("/list", "/byids", "/search", "/aggregate", "/query", "/sync", "/filter")
 
@@ -304,11 +303,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     failed_executions=failed_executions,
                     impact=impact,
                     dependencies=self._dependencies(io, transformation, TransformationYAML),
-                    session_ids={
-                        session.session_id
-                        for session in (transformation.source_session, transformation.destination_session)
-                        if session is not None
-                    },
+                    session_ids=transformation_session_ids(transformation),
                 )
             )
         return failures
@@ -533,19 +528,20 @@ class FailingJobRuleSet(ToolkitRuleSet):
 
         invalid_status_by_session_id: dict[int, str] = {}
         can_verify_sessions = True
-        if session_ids := set().union(*(failure.session_ids for failure in failures)):
-            try:
-                # Without sessionsAcl:LIST, retrieving sessions silently returns nothing, which would
-                # wrongly mark every session as not found.
-                if client.token.verify_acls([SessionsAcl(actions=["LIST"], scope=AllScope())]):
-                    can_verify_sessions = False
-                else:
-                    invalid_status_by_session_id = self._invalid_sessions(client, session_ids)
-            except SandboxUnavailableError:
-                # Permissions cannot be inspected in a sandbox, so session status is not verified.
+        session_ids: set[int] = set().union(*(failure.session_ids for failure in failures))
+        try:
+            sessions = retrieve_sessions(client, session_ids)
+        except (ToolkitAPIError, AuthorizationError) as e:
+            yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
+        else:
+            if sessions is None:
                 can_verify_sessions = False
-            except (ToolkitAPIError, AuthorizationError) as e:
-                yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
+            else:
+                invalid_status_by_session_id = {
+                    session_id: status
+                    for session_id in session_ids
+                    if (status := invalid_session_status(sessions.get(session_id)))
+                }
 
         for failure in failures:
             self._set_suggested_fix(
@@ -558,22 +554,6 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 },
                 can_verify_sessions=can_verify_sessions,
             )
-
-    @staticmethod
-    def _invalid_sessions(client: ToolkitClient, session_ids: set[int]) -> dict[int, str]:
-        """Returns the status of the sessions that are not valid, including those that do not exist."""
-        sessions = {
-            session.id: session
-            for session in client.sessions.retrieve(InternalId.from_ids(sorted(session_ids)), ignore_unknown_ids=True)
-        }
-        invalid: dict[int, str] = {}
-        for session_id in session_ids:
-            session = sessions.get(session_id)
-            if session is None:
-                invalid[session_id] = "not found"
-            elif session.status is not None and session.status not in VALID_SESSION_STATUSES:
-                invalid[session_id] = session.status.lower().replace("_", " ")
-        return invalid
 
     @staticmethod
     def _set_suggested_fix(

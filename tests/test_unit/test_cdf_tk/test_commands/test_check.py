@@ -5,6 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands import CheckCommand, CheckType
 from cognite_toolkit._cdf_tk.rules import (
+    AccessRuleSet,
     FailingJobRuleSet,
     ToolkitRuleSet,
     UnusedRuleSet,
@@ -16,6 +17,7 @@ class TestCheckCommand:
     @pytest.mark.parametrize(
         "checks, expected",
         [
+            pytest.param({CheckType.access}, {AccessRuleSet}, id="access"),
             pytest.param({CheckType.failing}, {FailingJobRuleSet}, id="failing"),
             pytest.param({CheckType.unused}, {UnusedRuleSet}, id="unused"),
             pytest.param(

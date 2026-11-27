@@ -1,3 +1,4 @@
+from ._access import AccessRuleSet
 from ._agents import AgentRuleSet
 from ._base import ToolkitRuleSet, ValidationInput, get_global_rules_registry
 from ._classic import ClassicDeprecationRuleSet
@@ -12,6 +13,7 @@ from ._streams import StreamRuleSet
 from ._unused import UnusedRuleSet
 
 __all__ = [
+    "AccessRuleSet",
     "AgentRuleSet",
     "ClassicDeprecationRuleSet",
     "DataModelingRuleSet",
