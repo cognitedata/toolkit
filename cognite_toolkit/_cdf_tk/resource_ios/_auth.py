@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
@@ -85,7 +84,7 @@ class ReplaceMethod:
     id_name: str
 
 
-class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
+class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML], ABC):
     folder_name = "auth"
     kind = "Group"
     resource_cls = GroupResponse
