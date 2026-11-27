@@ -157,12 +157,32 @@ def color_dot(color: str, size: int = 12) -> str:
     )
 
 
+LEGEND_SCRIPT = """
+<script>
+  const hiddenCategories = new Set();
+  function toggleCategory(row, category) {
+    const hide = !hiddenCategories.has(category);
+    hide ? hiddenCategories.add(category) : hiddenCategories.delete(category);
+    row.style.opacity = hide ? 0.4 : 1;
+    row.style.textDecoration = hide ? "line-through" : "none";
+    nodes.update(nodes.get({filter: node => node.category === category}).map(node => ({id: node.id, hidden: hide})));
+  }
+</script>
+"""
+
+
 def legend_html() -> str:
-    rows = "".join(f"<tr><td>{color_dot(color, 14)}{category}</td></tr>" for category, color in CATEGORY_COLORS.items())
+    rows = "".join(
+        f'<tr style="cursor:pointer;user-select:none" onclick="toggleCategory(this, \'{category}\')">'
+        f"<td>{color_dot(color, 14)}{category}</td></tr>"
+        for category, color in CATEGORY_COLORS.items()
+    )
     return (
         '<div style="position:fixed;top:10px;left:10px;z-index:1000;background:white;'
         'border:1px solid #ccc;border-radius:4px;padding:8px;font-family:sans-serif;font-size:13px">'
-        f"<table><tr><th style='text-align:left'>Category</th></tr>{rows}</table></div>"
+        f"<table><tr><th style='text-align:left'>Category</th></tr>{rows}</table>"
+        '<div style="color:#888;font-size:11px">Click to show/hide</div></div>'
+        f"{LEGEND_SCRIPT}"
     )
 
 
@@ -212,6 +232,7 @@ def add_node(net: Network, io_cls: type[ResourceIO]) -> None:
         label=node_name(io_cls),
         title=f"{io_cls.__name__} ({category}, {len(io_cls.dependencies)} dependencies)",
         color=CATEGORY_COLORS[category],
+        category=category,
     )
 
 
