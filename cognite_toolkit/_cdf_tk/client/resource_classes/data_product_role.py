@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field, JsonValue
+from pydantic import ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -43,6 +43,14 @@ class DataProductRoleResponse(DataProductRole, ResponseResource[DataProductRoleR
         return DataProductRoleRequest.model_validate(dumped, extra="ignore")
 
 
+class DataProductRoleAccessMutationCondition(BaseModelObject):
+    """A top-level ``and`` of ``equals`` and ``in`` filters for upsert and delete, without resource access."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    and_: list[dict[str, JsonValue]] = Field(alias="and")
+
+
 class DataProductRoleAccessCondition(BaseModelObject):
     """A top-level ``and`` of ``equals`` and ``in`` filters. An empty ``and`` grants access to all instances."""
 
@@ -51,15 +59,16 @@ class DataProductRoleAccessCondition(BaseModelObject):
 
 
 class DataProductRoleAccessFilterRequest(BaseModelObject):
-    """Grants a role read access, and optionally upsert and delete access, to one view.
+    """Grants a role read access, and optionally write, upsert and delete access, to one view.
 
     The view is identified by space and external ID, the server resolves the version.
     """
 
     view: ViewNoVersionUntypedId
     read: DataProductRoleAccessCondition
-    upsert: DataProductRoleAccessCondition | None = None
-    delete: DataProductRoleAccessCondition | None = None
+    write: DataProductRoleAccessCondition | None = None
+    upsert: DataProductRoleAccessMutationCondition | None = None
+    delete: DataProductRoleAccessMutationCondition | None = None
 
 
 class DataProductRoleAccessFilter(BaseModelObject):
@@ -67,7 +76,7 @@ class DataProductRoleAccessFilter(BaseModelObject):
     view: ViewNoVersionUntypedId
     read: DataProductRoleAccessCondition | None = None
     write: DataProductRoleAccessCondition | None = None
-    upsert: DataProductRoleAccessCondition | None = None
-    delete: DataProductRoleAccessCondition | None = None
+    upsert: DataProductRoleAccessMutationCondition | None = None
+    delete: DataProductRoleAccessMutationCondition | None = None
     created_time: int
     last_updated_time: int

@@ -27,17 +27,6 @@ class DataProductVersionTerms(BaseModelObject):
     limitations: str | None = None
 
 
-class RuleSetVersionRef(BaseModelObject):
-    """Wire representation of a RuleSetVersionReference as defined in the API spec."""
-
-    external_id: str
-    version: SemanticVersion
-
-
-class DataProductVersionQuality(BaseModelObject):
-    rules: list[RuleSetVersionRef] = Field(default_factory=list)
-
-
 class DataProductVersion(BaseModelObject):
     data_product_external_id: str = Field(exclude=True)
     version: SemanticVersion
@@ -45,7 +34,6 @@ class DataProductVersion(BaseModelObject):
     status: Literal["draft", "published", "deprecated"] = "draft"
     description: str | None = None
     terms: DataProductVersionTerms | None = None
-    quality: DataProductVersionQuality | None = None
 
     def as_id(self) -> DataProductVersionId:
         return DataProductVersionId(
@@ -78,7 +66,9 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
             else:
                 update[key] = {"set": dumped[key]}
 
-        if "terms" in dumped and dumped["terms"] is not None:
+        if mode == "replace" and dumped.get("terms") is None:
+            update["terms"] = {"modify": {"usage": {"setNull": True}, "limitations": {"setNull": True}}}
+        elif "terms" in dumped and dumped["terms"] is not None:
             terms_modify: dict[str, Any] = {}
             for sub_key in ("usage", "limitations"):
                 if sub_key in dumped["terms"]:

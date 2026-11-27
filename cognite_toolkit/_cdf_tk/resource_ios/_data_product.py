@@ -49,7 +49,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
             yield SpaceIO, SpaceId(space=resource.schema_space)
         for scope in resource.instance_scope or []:
             yield ViewIO, ViewNoVersionId(space=scope.source.space, external_id=scope.source.external_id)
-            for space in [scope.source.space, *scope.read, *scope.upsert, *scope.delete]:
+            for space in [scope.source.space, *scope.read, *scope.write, *scope.upsert, *scope.delete]:
                 yield SpaceIO, SpaceId(space=space)
 
     @classmethod
@@ -96,7 +96,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
 
     @staticmethod
     def _strip_scope_defaults(dumped_scope: list[dict[str, Any]], local_scope: list[dict[str, Any]] | None) -> None:
-        """Remove source type and empty upsert/delete lists that the local entry for the same view leaves out."""
+        """Remove source type and empty write/upsert/delete lists that the local entry for the same view leaves out."""
         local_by_view = {
             (entry.get("source", {}).get("space"), entry.get("source", {}).get("externalId")): entry
             for entry in local_scope or []
@@ -107,7 +107,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
                 continue
             if "type" not in local_entry["source"]:
                 entry["source"].pop("type", None)
-            for key in ("upsert", "delete"):
+            for key in ("write", "upsert", "delete"):
                 if entry.get(key) == [] and key not in local_entry:
                     entry.pop(key)
 

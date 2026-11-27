@@ -4,7 +4,6 @@ from typing import ClassVar
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
-    DataProductVersionQuality,
     DataProductVersionRequest,
     DataProductVersionResponse,
     DataProductVersionView,
@@ -45,47 +44,6 @@ class TestDataProductVersionIODependencies:
 
 
 class TestDataProductVersionIODumpResource:
-    def test_dump_resource_without_quality_does_not_raise(self) -> None:
-        """Regression test for CDF-27689: dump_resource must not crash when the API
-        response omits the optional 'quality' field."""
-        client = ToolkitClientMock()
-        io = DataProductVersionIO(client)
-
-        resource = DataProductVersionResponse(
-            data_product_external_id="my-product",
-            version="1.0.0",
-            created_time=0,
-            last_updated_time=0,
-            quality=None,
-        )
-
-        dumped = io.dump_resource(resource)
-
-        assert "quality" not in dumped
-
-    def test_dump_resource_with_quality_preserved_when_in_local(self) -> None:
-        """When quality is present in the local file it must not be stripped from the dump."""
-        client = ToolkitClientMock()
-        io = DataProductVersionIO(client)
-
-        resource = DataProductVersionResponse(
-            data_product_external_id="my-product",
-            version="1.0.0",
-            created_time=0,
-            last_updated_time=0,
-            quality=DataProductVersionQuality(rules=[]),
-        )
-
-        local = {
-            "dataProductExternalId": "my-product",
-            "version": "1.0.0",
-            "quality": None,
-        }
-
-        dumped = io.dump_resource(resource, local)
-
-        assert "quality" in dumped
-
     def test_dump_resource_ignores_stored_instance_spaces(self) -> None:
         client = ToolkitClientMock()
         io = DataProductVersionIO(client)
@@ -185,19 +143,12 @@ class TestDataProductVersionRequest:
 
         assert update["update"]["views"] == {"add": [self._v_cdm_3d]}
 
-    def test_as_update_quality_always_omitted(self) -> None:
-        """quality is create-only (not in DataProductVersionPatch) so it must never appear in update payloads."""
-        request = DataProductVersionRequest.model_validate(
-            {
-                "dataProductExternalId": "my-product",
-                "version": "1.0.0",
-                "quality": {"rules": [{"externalId": "my-ruleset", "version": "1.0.0"}]},
-            }
-        )
+    def test_as_update_replace_clears_terms_when_unset(self) -> None:
+        request = DataProductVersionRequest.model_validate({"dataProductExternalId": "my-product", "version": "1.0.0"})
 
-        for mode in ("patch", "replace"):
-            update = request.as_update(mode=mode)  # type: ignore[arg-type]
-            assert "quality" not in update["update"], f"quality must not appear in {mode} update payload"
+        update = request.as_update(mode="replace", cdf_views=[])
+
+        assert update["update"]["terms"] == {"modify": {"usage": {"setNull": True}, "limitations": {"setNull": True}}}
 
     def test_as_update_replace_view_removed_locally_is_ignored(self) -> None:
         """View refs are immutable/append-only in the API — a view present in CDF but

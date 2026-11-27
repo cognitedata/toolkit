@@ -23,6 +23,7 @@ class TestDataProductInstanceScope:
                     {
                         "source": {"space": "sales_schema", "externalId": "Order"},
                         "read": ["sales_prod"],
+                        "write": ["sales_us"],
                         "upsert": ["sales_eu"],
                     }
                 ],
@@ -36,6 +37,7 @@ class TestDataProductInstanceScope:
             (SpaceIO, SpaceId(space="sales_schema")),
             (SpaceIO, SpaceId(space="sales_prod")),
             (SpaceIO, SpaceId(space="sales_eu")),
+            (SpaceIO, SpaceId(space="sales_us")),
         }
 
     def test_yaml_rejects_duplicate_scope_views(self) -> None:
@@ -65,7 +67,7 @@ class TestDataProductInstanceScope:
         update = request.as_update(mode="replace")
 
         assert update["update"]["instanceScope"] == {
-            "set": [{"source": SCOPE_SOURCE, "read": ["sales_prod"], "upsert": [], "delete": []}]
+            "set": [{"source": SCOPE_SOURCE, "read": ["sales_prod"], "write": [], "upsert": [], "delete": []}]
         }
 
     def test_as_update_without_instance_scope_omits_it(self) -> None:
@@ -87,7 +89,9 @@ class TestDataProductInstanceScope:
                 "domains": [],
                 "createdTime": 0,
                 "lastUpdatedTime": 0,
-                "instanceScope": [{"source": SCOPE_SOURCE, "read": ["sales_prod"], "upsert": [], "delete": []}],
+                "instanceScope": [
+                    {"source": SCOPE_SOURCE, "read": ["sales_prod"], "write": [], "upsert": [], "delete": []}
+                ],
             }
         )
         local = {

@@ -136,15 +136,26 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         by_parent: defaultdict[str, builtins.list[str]] = defaultdict(list)
         for id_ in ids:
             by_parent[id_.data_product_external_id].append(id_.version)
+        item_limit = self._method_endpoint_map["delete"].item_limit
         for data_product_external_id, versions in by_parent.items():
             url = self._make_url(self._method_endpoint_map["delete"].path.format(externalId=data_product_external_id))
-            request = RequestMessage(
-                endpoint_url=url,
-                method="POST",
-                body_content={"items": [{"version": v} for v in versions]},
-                api_version=self._api_version,
-            )
-            self._http_client.request_single_retries(request).get_success_or_raise(request)
+            for start in range(0, len(versions), item_limit):
+                request = RequestMessage(
+                    endpoint_url=url,
+                    method="POST",
+                    body_content={"items": [{"version": v} for v in versions[start : start + item_limit]]},
+                    api_version=self._api_version,
+                )
+                self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def paginate(
+        self, data_product_external_id: str, limit: int = 10, cursor: str | None = None
+    ) -> PagedResponse[DataProductVersionResponse]:
+        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
+        page = self._paginate(limit=limit, cursor=cursor, endpoint_path=path)
+        for item in page.items:
+            item.data_product_external_id = data_product_external_id
+        return page
 
     def iterate(
         self, data_product_external_id: str, limit: int | None = 10

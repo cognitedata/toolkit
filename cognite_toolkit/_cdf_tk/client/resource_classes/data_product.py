@@ -15,6 +15,7 @@ class DataProductInstanceScope(BaseModelObject):
 
     source: ViewNoVersionId
     read: list[str] = Field(min_length=1, max_length=100)
+    write: list[str] = Field(default_factory=list, max_length=100)
     upsert: list[str] = Field(default_factory=list, max_length=100)
     delete: list[str] = Field(default_factory=list, max_length=100)
 
@@ -33,7 +34,8 @@ class DataProductRequest(DataProduct, UpdatableRequestResource):
     """Request resource for creating/updating data products."""
 
     container_fields: ClassVar[frozenset[str]] = frozenset({"tags"})
-    # instanceScope is replaced as a whole with "set"; the API has no "setNull".
+    # instanceScope is replaced as a whole with "set", an empty list clears it. The API has no "setNull",
+    # and an unset instanceScope is left unchanged since Toolkit only manages a scope the YAML declares.
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"instance_scope"})
 
     description: str | None = None
@@ -47,9 +49,6 @@ class DataProductRequest(DataProduct, UpdatableRequestResource):
         update = update_item.get("update", {})
         # schemaSpace is immutable after creation — the API rejects it in updates.
         update.pop("schemaSpace", None)
-        # The instance scope patch only supports set, an empty list clears it.
-        if update.get("instanceScope") == {"setNull": True}:
-            update["instanceScope"] = {"set": []}
         return update_item
 
 
