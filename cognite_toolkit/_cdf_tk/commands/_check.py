@@ -11,13 +11,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import ValidationResultList
 from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightList
-from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, PerformanceRuleSet, ToolkitRuleSet, UnusedRuleSet
+from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet, ToolkitRuleSet, UnusedRuleSet
 
 
 class CheckType(StrEnum):
     failing = "failing"
     unused = "unused"
-    performance = "performance"
     all = "all"
 
 
@@ -34,7 +33,7 @@ class CheckCommand(ValidationCommand):
         Args:
             checks: The checks to run.
             client: The ToolkitClient for the CDF project to check.
-            lookback_period: The number of days back in time to look for failing jobs and run times.
+            lookback_period: The number of days back in time to look for failing jobs.
             min_age: The minimum number of days since a resource was created for it to be reported as unused.
         """
         plan = self._create_check_plan(set(checks), client, lookback_period, min_age)
@@ -63,6 +62,4 @@ class CheckCommand(ValidationCommand):
             plan.append(FailingJobRuleSet(client=client, lookback_period=timedelta(days=lookback_period)))
         if checks & {CheckType.all, CheckType.unused}:
             plan.append(UnusedRuleSet(client=client, created_before=timedelta(days=min_age)))
-        if checks & {CheckType.all, CheckType.performance}:
-            plan.append(PerformanceRuleSet(client=client, lookback_period=timedelta(days=lookback_period)))
         return plan

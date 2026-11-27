@@ -537,7 +537,7 @@ class CoreApp(typer.Typer):
                 "--lookback-period",
                 "-l",
                 min=1,
-                help="The number of days back in time to look for failing jobs and run times.",
+                help="The number of days back in time to look for failing jobs.",
             ),
         ] = 3,
         min_age: Annotated[

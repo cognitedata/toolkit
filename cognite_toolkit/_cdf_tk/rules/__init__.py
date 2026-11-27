@@ -8,7 +8,6 @@ from ._failing_jobs import FailingJobRuleSet
 from ._functions import FunctionRuleSet
 from ._groups import GroupRuleSet
 from ._infield import InFieldCDMRuleSet
-from ._performance import PerformanceRuleSet
 from ._streams import StreamRuleSet
 from ._unused import UnusedRuleSet
 
@@ -22,7 +21,6 @@ __all__ = [
     "FunctionRuleSet",
     "GroupRuleSet",
     "InFieldCDMRuleSet",
-    "PerformanceRuleSet",
     "StreamRuleSet",
     "ToolkitRuleSet",
     "UnusedRuleSet",
