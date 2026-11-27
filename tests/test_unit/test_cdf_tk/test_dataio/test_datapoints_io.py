@@ -269,6 +269,21 @@ class TestDatapointsUploadConversion:
             "log": [("file.csv rows 1 to 3", "Skipped rows that could not be converted", Severity.warning)],
         }
 
+    def test_upload_without_instance_space(self, datapoints_io: tuple[DatapointsIO, RecordingLogger]) -> None:
+        selector = DataPointsInstanceSpaceSelector()
+        rows: dict[str, JsonVal] = {"space": ["sp"], "externalId": ["ts_a"], "timestamp": [1], "value": [1.0]}
+        io, _ = datapoints_io
+        resource = io.row_to_resource("rows", rows, selector)
+
+        assert resource.datapoints == DataPointInsertionRequest(
+            items=[
+                DataPointInsertionItem(
+                    instanceId=InstanceId(space="sp", externalId="ts_a"),
+                    numericDatapoints=NumericDatapoints(datapoints=[NumericDatapoint(timestamp=1, value=1.0)]),
+                )
+            ]
+        )
+
     def test_empty_cells_are_skipped_and_status_codes_are_uploaded(
         self, datapoints_io: tuple[DatapointsIO, RecordingLogger]
     ) -> None:

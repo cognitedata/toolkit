@@ -196,7 +196,7 @@ class DatapointsIO(
         self, selector: DataPointsDataSetSelector, limit: int | None
     ) -> Iterable[list[dict[str, JsonVal]]]:
         pages = self.client.timeseries.iterate(
-            data_set_external_ids=[selector.data_set_external_id],
+            data_set_external_ids=[self._required_data_set(selector)],
             is_string=selector.data_type.lower() == "string",
             advanced_filter=Exists(TimeSeriesProperty.external_id).dump(),
             limit=limit,
@@ -218,11 +218,23 @@ class DatapointsIO(
                 if nodes := page[start : start + self.DOWNLOAD_CHUNK_SIZE]:
                     yield [{"instanceId": node.as_id().dump(include_instance_type=False)} for node in nodes]
 
+    @staticmethod
+    def _required_data_set(selector: DataPointsDataSetSelector) -> str:
+        if selector.data_set_external_id is None:
+            raise ToolkitValueError("A data set external ID is required to download datapoints by data set.")
+        return selector.data_set_external_id
+
+    @staticmethod
+    def _required_instance_space(selector: DataPointsInstanceSpaceSelector) -> str:
+        if selector.instance_space is None:
+            raise ToolkitValueError("An instance space is required to download datapoints by instance space.")
+        return selector.instance_space
+
     def _instance_space_filter(self, selector: DataPointsInstanceSpaceSelector) -> dict[str, JsonVal]:
         view = self.TIMESERIES_VIEW
         return {
             "and": [
-                {"equals": {"property": ["node", "space"], "value": selector.instance_space}},
+                {"equals": {"property": ["node", "space"], "value": self._required_instance_space(selector)}},
                 {
                     "equals": {
                         "property": [view.space, f"{view.external_id}/{view.version}", "type"],
@@ -373,7 +385,7 @@ class DatapointsIO(
         if isinstance(selector, DataPointsDataSetSelector):
             count = self.client.timeseries.count(
                 filter={
-                    "dataSetIds": [{"externalId": selector.data_set_external_id}],
+                    "dataSetIds": [{"externalId": self._required_data_set(selector)}],
                     "isString": selector.data_type == "string",
                 },
                 # We only want time series that have externalID set.

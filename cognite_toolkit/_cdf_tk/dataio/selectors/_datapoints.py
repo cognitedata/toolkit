@@ -75,17 +75,23 @@ class DataPointsDataSetSelector(DataPointsSelector):
     optional_columns: ClassVar[frozenset[str]] = frozenset({STATUS_CODE_COLUMN})
     type: Literal["datapointsDataSet"] = "datapointsDataSet"
 
-    data_set_external_id: str
+    # Only required for download, upload identifies the time series by the externalId column.
+    data_set_external_id: str | None = None
     start: int | str | None = None
     end: int | str | None = None
     data_type: Literal["numeric", "string"] = "numeric"
 
     def __str__(self) -> str:
+        if self.data_set_external_id is None:
+            return f"datapoints_dataset_{self.data_type}"
         return f"datapoints_dataset_{self.data_set_external_id}_{self.data_type}"
 
     @property
     def display_name(self) -> str:
-        message = f"{self.data_type} {self.kind} in dataset {self.data_set_external_id}"
+        if self.data_set_external_id is None:
+            message = f"{self.data_type} {self.kind} by externalId"
+        else:
+            message = f"{self.data_type} {self.kind} in dataset {self.data_set_external_id}"
         if self.start:
             message += f" start={self.start}"
         if self.end:
@@ -102,12 +108,15 @@ class DataPointsInstanceSpaceSelector(DataPointsSelector):
     optional_columns: ClassVar[frozenset[str]] = frozenset({STATUS_CODE_COLUMN})
     type: Literal["datapointsInstanceSpace"] = "datapointsInstanceSpace"
 
-    instance_space: str
+    # Only required for download, upload identifies the time series by the space and externalId columns.
+    instance_space: str | None = None
     start: int | str | None = None
     end: int | str | None = None
     data_type: Literal["numeric", "string", "state"] = "numeric"
 
     def __str__(self) -> str:
+        if self.instance_space is None:
+            return f"datapoints_instance_space_{self.data_type}"
         return f"datapoints_instance_space_{self.instance_space}_{self.data_type}"
 
     @property
@@ -118,7 +127,10 @@ class DataPointsInstanceSpaceSelector(DataPointsSelector):
 
     @property
     def display_name(self) -> str:
-        message = f"{self.data_type} {self.kind} in instance space {self.instance_space}"
+        if self.instance_space is None:
+            message = f"{self.data_type} {self.kind} by instance ID"
+        else:
+            message = f"{self.data_type} {self.kind} in instance space {self.instance_space}"
         if self.start:
             message += f" start={self.start}"
         if self.end:
