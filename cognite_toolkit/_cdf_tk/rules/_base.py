@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
     InternalValidatorException,
+    RuleDefinition,
     T_Insight,
 )
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
@@ -176,6 +177,8 @@ class ToolkitRuleSet(ABC):
     RESOURCE_TYPES: ClassVar[frozenset[ResourceType | Literal["ALL"]]] = frozenset()
     CONTEXT: ClassVar[frozenset[Literal["local", "cdf"]]] = frozenset()
     DISPLAY_NAME: ClassVar[str]
+    # The rules reported by the rule set. Rule sets not yet migrated are documented in _library.py.
+    RULES: ClassVar[tuple[RuleDefinition, ...]] = ()
 
     def __init__(self, client: ToolkitClient | None = None) -> None:
         self.client = client

@@ -5,6 +5,8 @@ It is not used in production and is only intended to be used for development pur
 
 import itertools
 import re
+from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, get_args
 
@@ -15,6 +17,11 @@ import marko.inline
 import typer
 from packaging.version import Version, parse
 from rich import print
+
+# Imported first, as importing the rules or data classes packages first fails on a circular import.
+import cognite_toolkit._cdf_tk.commands  # noqa: F401
+from cognite_toolkit._cdf_tk.data_classes._insights import RuleDefinition
+from cognite_toolkit._cdf_tk.rules import get_rules_library
 
 REPO_ROOT = Path(__file__).parent
 CHANGELOG = REPO_ROOT / "CHANGELOG.cdf-tk.md"
@@ -27,6 +34,12 @@ VALID_BUMP_OPTIONS = get_args(BUMP_OPTIONS)
 LAST_GIT_MESSAGE_FILE = REPO_ROOT / "last_git_message.txt"
 CHANGELOG_ENTRY_FILE = REPO_ROOT / "last_changelog_entry.md"
 LAST_VERSION = REPO_ROOT / "last_version.txt"
+RULES_LIBRARY_MDX = Path("docs/cdf/deploy/cdf_toolkit/references/rules_library.mdx")
+RULES_TABLE_JSX = Path("docs/snippets/toolkit/rules-table.jsx")
+# Resource types kept capitalized when listed after the first resource type in the rules library tables.
+PROPER_NOUN_PREFIXES = ("CDF", "InField", "RAW", "Streamlit")
+CODE_HEADING = re.compile(r"^### ([A-Z-]+) \{#[a-z-]+\}$")
+JSX_RULES_ARRAY = re.compile(r"(const TOOLKIT_RULES = \[\n).*?(\n\];)", re.DOTALL)
 VERSION_PLACEHOLDER = "0.0.0"
 VERSION_FILES = [
     REPO_ROOT / "pyproject.toml",
@@ -262,6 +275,112 @@ def _validate_entries(items: list[marko.element.Element], section: str) -> None:
         else:
             print(f"Unexpected item in changelog: {item}.")
             raise SystemExit(1)
+
+
+@app.command("rules-docs")
+def generate_rules_docs(
+    docs_repo: Path = typer.Argument(..., help="Path to a clone of the docs.cognite.com repository."),
+) -> None:
+    """Regenerates the rule tables of the Toolkit rules library page in the docs repository.
+
+    The code sections, and their descriptions and fixes, are written by hand. Only the table in each code section
+    and the rows of the filterable table are generated.
+    """
+    rules = get_rules_library()
+    mdx_path, jsx_path = docs_repo / RULES_LIBRARY_MDX, docs_repo / RULES_TABLE_JSX
+    mdx, missing_sections, unknown_sections = replace_mdx_tables(mdx_path.read_text(encoding="utf-8"), rules)
+    mdx_path.write_text(mdx, encoding="utf-8", newline="\n")
+    jsx_path.write_text(replace_jsx_rows(jsx_path.read_text(encoding="utf-8"), rules), encoding="utf-8", newline="\n")
+    print(f"Wrote {len(rules)} rules to {mdx_path} and {jsx_path}.")
+    for code in missing_sections:
+        print(f"[yellow]Add a section '### {code} {{#{code.lower()}}}' with a table to {mdx_path}.[/yellow]")
+    for code in unknown_sections:
+        print(f"[yellow]The section for {code} has no rules. Remove it or move it to the reserved codes.[/yellow]")
+
+
+def replace_mdx_tables(content: str, rules: Sequence[RuleDefinition]) -> tuple[str, list[str], list[str]]:
+    """Replaces the first table after each '### CODE' heading with the rules of the code.
+
+    Returns the new content, the codes without a section, and the sections without rules.
+    """
+    rules_by_code: dict[str, list[RuleDefinition]] = defaultdict(list)
+    for rule in rules:
+        rules_by_code[rule.code].append(rule)
+    output: list[str] = []
+    seen_codes: list[str] = []
+    code: str | None = None
+    in_table = False
+    for line in content.split("\n"):
+        if heading := CODE_HEADING.match(line):
+            code, in_table = heading.group(1), False
+            seen_codes.append(code)
+        elif line.startswith("|") and code is not None:
+            if not in_table and code in rules_by_code:
+                output.append(render_mdx_table(rules_by_code[code]))
+            in_table = True
+            if code in rules_by_code:
+                continue
+        elif in_table:
+            in_table, code = False, None
+        output.append(line)
+    missing = [code for code in rules_by_code if code not in seen_codes]
+    unknown = [code for code in seen_codes if code not in rules_by_code]
+    return "\n".join(output), missing, unknown
+
+
+def render_mdx_table(rules: Sequence[RuleDefinition]) -> str:
+    """A Markdown table of the rules of one code. The 'Reported when' column is only needed for several rules."""
+    header = ["Resource type", "Severity", "Context", "Alpha"]
+    show_reported_when = len(rules) > 1
+    if show_reported_when:
+        header.append("Reported when")
+    rows = [
+        [
+            _display_resource_types(rule.resource_types),
+            rule.severity,
+            rule.context,
+            "Yes" if rule.alpha else "No",
+            *([rule.reported_when] if show_reported_when else []),
+        ]
+        for rule in rules
+    ]
+    widths = [max(len(cell) for cell in column) for column in zip(header, *rows)]
+
+    def as_line(cells: list[str]) -> str:
+        return "| " + " | ".join(cell.ljust(width) for cell, width in zip(cells, widths)) + " |"
+
+    separator = "|" + "|".join("-" * (width + 2) for width in widths) + "|"
+    return "\n".join([as_line(header), separator, *(as_line(row) for row in rows)])
+
+
+def _display_resource_types(resource_types: Sequence[str]) -> str:
+    """For example, 'View, container', following sentence case."""
+    return ", ".join(
+        name if index == 0 or name.startswith(PROPER_NOUN_PREFIXES) else name[:1].lower() + name[1:]
+        for index, name in enumerate(resource_types)
+    )
+
+
+def replace_jsx_rows(content: str, rules: Sequence[RuleDefinition]) -> str:
+    """Replaces the rows of the TOOLKIT_RULES array in the filterable rules table."""
+    if not JSX_RULES_ARRAY.search(content):
+        raise ValueError("Could not find 'const TOOLKIT_RULES = [' in the rules table snippet.")
+    rows = "\n".join(_jsx_row(rule) for rule in rules)
+    return JSX_RULES_ARRAY.sub(lambda match: f"{match.group(1)}{rows}{match.group(2)}", content, count=1)
+
+
+def _jsx_row(rule: RuleDefinition) -> str:
+    resources = ", ".join(_js_string(name) for name in rule.resource_types)
+    # The table cells are plain text, so Markdown code spans would show their backticks.
+    summary = _js_string(rule.reported_when.replace("`", ""))
+    return (
+        f"  {{ code: {_js_string(rule.code)}, resources: [{resources}], severity: {_js_string(rule.severity)}, "
+        f"context: {_js_string(rule.context)}, alpha: {str(rule.alpha).lower()}, summary: {summary} }},"
+    )
+
+
+def _js_string(text: str) -> str:
+    return "'" + text.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
 # This is just for demo purposes, to test the secret plugin in the Toolkit CLI

@@ -235,6 +235,58 @@ Insight = Annotated[
 
 InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 
+RuleSeverity: TypeAlias = Literal["Error", "Warning", "Recommendation", "Skipped"]
+RuleContext: TypeAlias = Literal["Build", "Build with CDF", "Build capacity", "Deploy", "Check"]
+
+
+class RuleDefinition(BaseModel, frozen=True):
+    """A rule as listed in the rules library: a code reported for some resource types, in one context.
+
+    Several rules can share a code, for example, INVALID-RESOURCE-CHANGE for containers and for views.
+    The rules library documentation is generated from these definitions.
+
+    Args:
+        code: The insight code reported by the rule.
+        resource_types: The display names of the resource types the rule applies to, or "All".
+        severity: The severity of the insights. "Skipped" rules are reasons for skipping a resource on deploy.
+        context: When the rule runs, for example, "Build with CDF" for rules that need CDF credentials.
+        reported_when: A one-sentence description of the problem the rule reports.
+        alpha: Whether the rule only runs with the alpha-rules flag enabled.
+    """
+
+    code: InsightCode
+    resource_types: tuple[str, ...]
+    severity: RuleSeverity
+    context: RuleContext
+    reported_when: str
+    alpha: bool = False
+
+    def create(
+        self,
+        message: str,
+        fix: str | None = None,
+        source_file: Path | None = None,
+        source_url: str | None = None,
+    ) -> BuildError | BuildWarning | Recommendation:
+        """Creates an insight reported by this rule."""
+        insight_cls: type[BuildError | BuildWarning | Recommendation]
+        if self.severity == "Error":
+            insight_cls = BuildError
+        elif self.severity == "Warning":
+            insight_cls = BuildWarning
+        elif self.severity == "Recommendation":
+            insight_cls = Recommendation
+        else:
+            raise ValueError(f"Rules with severity {self.severity!r} are not reported as insights.")
+        return insight_cls(
+            code=self.code,
+            message=message,
+            fix=fix,
+            source_file=source_file,
+            source_url=source_url,
+            alpha=self.alpha,
+        )
+
 
 def _normalize_csv_cell(text: str) -> str:
     """Normalize line breaks so CSV cells stay readable and consistent across platforms."""

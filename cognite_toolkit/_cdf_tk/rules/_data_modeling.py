@@ -32,14 +32,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.statistics import ProjectSt
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.constants import URL
-from cognite_toolkit._cdf_tk.data_classes._insights import (
-    BuildError,
-    BuildWarning,
-    Insight,
-    Recommendation,
-)
+from cognite_toolkit._cdf_tk.data_classes._insights import Insight, RuleDefinition
 from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -80,6 +74,124 @@ _LocalView = tuple[ResourceRef, ViewRequest]
 _LocalDataModel = tuple[ResourceRef, DataModelRequest]
 _CountByResource = dict[str, int]
 _Container = ContainerRequest | ContainerResponse
+
+_UNVERIFIED_REFERENCED_PROPERTY = RuleDefinition(
+    code="UNVERIFIED-REFERENCED-PROPERTY",
+    resource_types=("View",),
+    severity="Warning",
+    context="Build",
+    reported_when=(
+        "A view maps a container property, or a reverse direct relation goes through a direct relation, "
+        "that isn't in your modules, and the Toolkit has no CDF credentials to check CDF."
+    ),
+)
+_MISSING_REFERENCED_PROPERTY = RuleDefinition(
+    code="MISSING-REFERENCED-PROPERTY",
+    resource_types=("View",),
+    severity="Error",
+    context="Build with CDF",
+    reported_when=(
+        "A view maps a container property, or a reverse direct relation goes through a direct relation, "
+        "that doesn't exist."
+    ),
+)
+_NOT_DIRECT_RELATION = RuleDefinition(
+    code="INVALID-REFERENCED-PROPERTY",
+    resource_types=("View",),
+    severity="Error",
+    context="Build",
+    reported_when="A reverse direct relation goes through a property that isn't a direct relation.",
+)
+_IMPLEMENTS_CYCLE = RuleDefinition(
+    code="INVALID-VALUE",
+    resource_types=("View",),
+    severity="Error",
+    context="Build",
+    alpha=True,
+    reported_when="Views implement each other in a cycle.",
+)
+_MISSING_PARENT_VIEWS = RuleDefinition(
+    code="MISSING-VALUE",
+    resource_types=("Data model",),
+    severity="Recommendation",
+    context="Build",
+    alpha=True,
+    reported_when="The data model doesn't include views that its views implement, so its GraphQL schema is invalid.",
+)
+_MISSING_REQUIRES_CONSTRAINT = RuleDefinition(
+    code="DEGRADED-PERFORMANCE",
+    resource_types=("View",),
+    severity="Recommendation",
+    context="Build",
+    alpha=True,
+    reported_when="None of the containers of the view require the containers mapped by the views it implements.",
+)
+_MISSING_REVERSE_RELATION_INDEX = RuleDefinition(
+    code="DEGRADED-PERFORMANCE",
+    resource_types=("View", "Container"),
+    severity="Recommendation",
+    context="Build",
+    alpha=True,
+    reported_when="A reverse direct relation goes through a direct relation that has no cursorable B-tree index.",
+)
+_INVALID_CONTAINER_CHANGE = RuleDefinition(
+    code="INVALID-RESOURCE-CHANGE",
+    resource_types=("Container",),
+    severity="Error",
+    context="Build with CDF",
+    reported_when="A deployed property is changed in a way CDF doesn't support, or `usedFor` is changed.",
+)
+_INVALID_VIEW_CHANGE = RuleDefinition(
+    code="INVALID-RESOURCE-CHANGE",
+    resource_types=("View",),
+    severity="Error",
+    context="Build with CDF",
+    reported_when="Properties or `implements` are changed without a new view version.",
+)
+_INVALID_DATA_MODEL_CHANGE = RuleDefinition(
+    code="INVALID-RESOURCE-CHANGE",
+    resource_types=("Data model",),
+    severity="Error",
+    context="Build with CDF",
+    reported_when="The version of a view in the data model is changed without a new data model version.",
+)
+_UNSUPPORTED_CONTAINER_REMOVAL = RuleDefinition(
+    code="UNSUPPORTED-RESOURCE-REMOVAL",
+    resource_types=("Container",),
+    severity="Warning",
+    context="Build with CDF",
+    reported_when="Properties, or enum values of a property, that are deployed are missing from the local file.",
+)
+_UNSUPPORTED_VIEW_REMOVAL = RuleDefinition(
+    code="UNSUPPORTED-RESOURCE-REMOVAL",
+    resource_types=("View",),
+    severity="Warning",
+    context="Build with CDF",
+    reported_when="Properties that are deployed for the same view version are missing from the local file.",
+)
+_UNSUPPORTED_DATA_MODEL_REMOVAL = RuleDefinition(
+    code="UNSUPPORTED-RESOURCE-REMOVAL",
+    resource_types=("Data model",),
+    severity="Warning",
+    context="Build with CDF",
+    reported_when="Views that are deployed for the same data model version are missing from the local file.",
+)
+_EXCEEDED_RESOURCE_LIMIT = RuleDefinition(
+    code="EXCEEDED-LIMIT",
+    resource_types=("Container", "View", "Data model"),
+    severity="Error",
+    context="Build with CDF",
+    reported_when="The container or view has more properties, or the data model has more views, than the project allows.",
+)
+_EXCEEDED_PROJECT_CAPACITY = RuleDefinition(
+    code="EXCEEDED-LIMIT",
+    resource_types=("Space", "Container", "View", "Data model", "Instance"),
+    severity="Error",
+    context="Build capacity",
+    reported_when=(
+        "The deployment would take the project total over its limit, including the limit for soft-deleted instances."
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -169,15 +281,9 @@ def _source_file(ref: ResourceRef) -> Path:
     return ref.source
 
 
-def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str] = ()) -> BuildError:
+def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str] = ()) -> Insight:
     return with_position(
-        BuildError(
-            code="EXCEEDED-LIMIT",
-            message=message,
-            fix=fix,
-            source_file=_source_file(ref),
-            alpha=Flags.ALPHA_RULES.is_enabled(),
-        ),
+        _EXCEEDED_RESOURCE_LIMIT.create(message=message, fix=fix, source_file=_source_file(ref)),
         keys=keys,
         values=identifier_values(ref.identifier),
         variables=ref.variables,
@@ -205,6 +311,23 @@ class DataModelingRuleSet(ToolkitRuleSet):
     )
     CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Data modeling"
+    RULES = (
+        _UNVERIFIED_REFERENCED_PROPERTY,
+        _MISSING_REFERENCED_PROPERTY,
+        _NOT_DIRECT_RELATION,
+        _IMPLEMENTS_CYCLE,
+        _MISSING_PARENT_VIEWS,
+        _MISSING_REQUIRES_CONSTRAINT,
+        _MISSING_REVERSE_RELATION_INDEX,
+        _INVALID_CONTAINER_CHANGE,
+        _INVALID_VIEW_CHANGE,
+        _INVALID_DATA_MODEL_CHANGE,
+        _UNSUPPORTED_CONTAINER_REMOVAL,
+        _UNSUPPORTED_VIEW_REMOVAL,
+        _UNSUPPORTED_DATA_MODEL_REMOVAL,
+        _EXCEEDED_RESOURCE_LIMIT,
+        _EXCEEDED_PROJECT_CAPACITY,
+    )
 
     def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if self.client is None:
@@ -241,8 +364,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             )
             return
         yield from self._check_schema_references(inventory)
-        if Flags.ALPHA_RULES.is_enabled():
-            yield from self._check_schema_design(inventory)
+        yield from self._check_schema_design(inventory)
         if self.client is None:
             return
         yield from self._validate_data_modeling_changes(self.client, inventory)
@@ -300,12 +422,10 @@ class DataModelingRuleSet(ToolkitRuleSet):
             resource, _ = local_views[local_view_id]
             path = " -> ".join(str(view_id) for view_id in (*cycle, cycle[0]))
             yield with_position(
-                BuildError(
-                    code="INVALID-VALUE",
+                _IMPLEMENTS_CYCLE.create(
                     message=f"Detected a cycle of view implements: {path}.",
                     fix="Remove one of the implements in the cycle. Views cannot inherit from themselves.",
                     source_file=_source_file(resource),
-                    alpha=Flags.ALPHA_RULES.is_enabled(),
                 ),
                 keys=["implements"],
                 variables=resource.variables,
@@ -373,8 +493,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             noun = "view" if len(missing) == 1 else "views"
             labels = humanize_collection([f"'{view_id}'" for view_id in missing], sort=False)
             yield with_position(
-                Recommendation(
-                    code="MISSING-VALUE",
+                _MISSING_PARENT_VIEWS.create(
                     message=(
                         f"Data model {quote_identifier(model_id)} is missing the {noun} {labels}, implemented by "
                         "its views. Implemented views become interfaces in the GraphQL schema of the data model, "
@@ -382,7 +501,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     ),
                     fix=f"Add {labels} to the views of the data model.",
                     source_file=_source_file(resource),
-                    alpha=Flags.ALPHA_RULES.is_enabled(),
                 ),
                 keys=["views"],
                 variables=resource.variables,
@@ -539,7 +657,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
     @staticmethod
     def _missing_requires_recommendation(
         resource: ResourceRef, view_id: ViewId, sources: set[ContainerId], to_require: list[ContainerId]
-    ) -> Recommendation:
+    ) -> Insight:
         source_names = [f"'{container_id}'" for container_id in sorted(sources, key=str)]
         source_text = (
             f"container {source_names[0]}"
@@ -549,8 +667,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         required = humanize_collection([f"'{container_id}'" for container_id in to_require], sort=False)
         constraints = "a 'requires' constraint" if len(to_require) == 1 else "'requires' constraints"
         return with_position(
-            Recommendation(
-                code="DEGRADED-PERFORMANCE",
+            _MISSING_REQUIRES_CONSTRAINT.create(
                 message=(
                     f"View '{view_id}' is not optimized for querying. None of its own containers require "
                     f"{required}, mapped by the views it implements."
@@ -560,7 +677,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     f"must then exist in {required} before they can be written to the requiring container."
                 ),
                 source_file=_source_file(resource),
-                alpha=Flags.ALPHA_RULES.is_enabled(),
             ),
             keys=["implements"],
             variables=resource.variables,
@@ -653,8 +769,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
     ) -> Iterable[Insight]:
         for resource in relation.resources:
             yield with_position(
-                Recommendation(
-                    code="DEGRADED-PERFORMANCE",
+                _MISSING_REVERSE_RELATION_INDEX.create(
                     message=(
                         f"The reverse direct relation through '{relation.through}' in "
                         f"{self._referenced_by(resource)} cannot be queried efficiently, since the direct relation "
@@ -665,7 +780,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
                         f"in container '{container_id}'."
                     ),
                     source_file=_source_file(resource),
-                    alpha=Flags.ALPHA_RULES.is_enabled(),
                 ),
                 values=[relation.through.identifier],
                 variables=resource.variables,
@@ -998,8 +1112,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for ref in missing_properties:
             for resource in ref.resources:
                 yield with_position(
-                    BuildWarning(
-                        code="UNVERIFIED-REFERENCED-PROPERTY",
+                    _UNVERIFIED_REFERENCED_PROPERTY.create(
                         message=(
                             f"Missing container property '{ref.label}'. "
                             f"It is referenced by {self._referenced_by(resource)}."
@@ -1018,8 +1131,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for ref in missing_reverses:
             for resource in ref.resources:
                 yield with_position(
-                    BuildWarning(
-                        code="UNVERIFIED-REFERENCED-PROPERTY",
+                    _UNVERIFIED_REFERENCED_PROPERTY.create(
                         message=(
                             f"Missing direct relation '{ref.through}'. "
                             f"It is referenced by {self._referenced_by(resource)}."
@@ -1037,8 +1149,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
     def _unknown_property_errors(self, ref: _ContainerPropertyReference) -> Iterable[Insight]:
         for resource in ref.resources:
             yield with_position(
-                BuildError(
-                    code="MISSING-REFERENCED-PROPERTY",
+                _MISSING_REFERENCED_PROPERTY.create(
                     message=f"Container property '{ref.label}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the container property exists or remove the reference to it.",
@@ -1051,8 +1162,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
     def _unknown_reverse_errors(self, ref: _ReverseDirectRelationReference) -> Iterable[Insight]:
         for resource in ref.resources:
             yield with_position(
-                BuildError(
-                    code="MISSING-REFERENCED-PROPERTY",
+                _MISSING_REFERENCED_PROPERTY.create(
                     message=f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the direct relation exists or remove the reference to it.",
@@ -1065,8 +1175,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
     def _not_direct_errors(self, ref: _ReverseDirectRelationReference) -> Iterable[Insight]:
         for resource in ref.resources:
             yield with_position(
-                BuildError(
-                    code="INVALID-REFERENCED-PROPERTY",
+                _NOT_DIRECT_RELATION.create(
                     message=(
                         f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
                         "which is not a direct relation."
@@ -1239,8 +1348,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             removed = sorted(set(cdf_properties) - set(local_properties))
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
-                BuildError(
-                    code="INVALID-RESOURCE-CHANGE",
+                _INVALID_CONTAINER_CHANGE.create(
                     message=(
                         f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
@@ -1255,8 +1363,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
             yield with_position(
-                BuildWarning(
-                    code="UNSUPPORTED-RESOURCE-REMOVAL",
+                _UNSUPPORTED_CONTAINER_REMOVAL.create(
                     message=(
                         f"Local config for container {container_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
@@ -1277,8 +1384,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             if not removed_values:
                 continue
             yield with_position(
-                BuildWarning(
-                    code="UNSUPPORTED-RESOURCE-REMOVAL",
+                _UNSUPPORTED_CONTAINER_REMOVAL.create(
                     message=(
                         f"Local config for container {container_id} is missing enum values "
                         f"{humanize_collection([f'{value!r}' for value in removed_values])} of property {name!r} that have previously been deployed to CDF. "
@@ -1299,8 +1405,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             # usedFor cannot change once set; every other top-level container field (name, description)
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield with_position(
-                BuildError(
-                    code="INVALID-RESOURCE-CHANGE",
+                _INVALID_CONTAINER_CHANGE.create(
                     message=(
                         f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
                         f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
@@ -1334,8 +1439,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         if changed:
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
-                BuildError(
-                    code="INVALID-RESOURCE-CHANGE",
+                _INVALID_VIEW_CHANGE.create(
                     message=(
                         f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support without a version bump. Deploying the current local YAML config will not apply "
@@ -1350,8 +1454,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             )
         elif removed:
             yield with_position(
-                BuildWarning(
-                    code="UNSUPPORTED-RESOURCE-REMOVAL",
+                _UNSUPPORTED_VIEW_REMOVAL.create(
                     message=(
                         f"Local config for view {view_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF for the "
@@ -1368,8 +1471,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             # implements can break clients relying on inherited properties, so it requires a version bump.
             # name, description and filter are metadata/query-only and can always change.
             yield with_position(
-                BuildError(
-                    code="INVALID-RESOURCE-CHANGE",
+                _INVALID_VIEW_CHANGE.create(
                     message=(
                         f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
                     ),
@@ -1408,8 +1510,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     for view_id, local_version in version_changed
                 ]
             )
-            insight = BuildError(
-                code="INVALID-RESOURCE-CHANGE",
+            insight = _INVALID_DATA_MODEL_CHANGE.create(
                 message=(
                     f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
                     "View version used by a data model can only be updated if you also update the data model version."
@@ -1426,8 +1527,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
 
         if removed:
             yield with_position(
-                BuildWarning(
-                    code="UNSUPPORTED-RESOURCE-REMOVAL",
+                _UNSUPPORTED_DATA_MODEL_REMOVAL.create(
                     message=(
                         f"Local config for data model {data_model_id} is missing the view(s) "
                         f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "
@@ -1583,8 +1683,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             change = f"create {_count_phrase(created)} and delete {_count_phrase(deleted)}, changing"
         else:
             change = f"create {_count_phrase(created)}, increasing"
-        yield BuildError(
-            code="EXCEEDED-LIMIT",
+        yield _EXCEEDED_PROJECT_CAPACITY.create(
             message=(
                 f"Deploying would {change} the total number of {noun} from {current} to {projected}, "
                 f"which exceeds the project limit of {limit}."
@@ -1594,7 +1693,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
                 f"The project currently has {current} of {limit} {noun}."
             ),
             source_url=endpoint_url,
-            alpha=Flags.ALPHA_RULES.is_enabled(),
         )
 
     @classmethod
@@ -1606,8 +1704,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         projected = current + deleted_count
         if not deleted_count or projected <= limit:
             return
-        yield BuildError(
-            code="EXCEEDED-LIMIT",
+        yield _EXCEEDED_PROJECT_CAPACITY.create(
             message=(
                 f"Deploying would delete {_count_phrase(deleted)}, increasing the number of soft-deleted instances "
                 f"from {current} to {projected}, which exceeds the project limit of {limit}."
@@ -1617,7 +1714,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
                 f"{limit}. The project currently has {current} soft-deleted instances."
             ),
             source_url=endpoint_url,
-            alpha=Flags.ALPHA_RULES.is_enabled(),
         )
 
     @staticmethod
