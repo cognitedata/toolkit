@@ -15,6 +15,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
     DocumentAggregateCountItem,
+    DocumentAILanguage,
+    DocumentAnswer,
     DocumentElement,
     DocumentElementsResponse,
     DocumentPassage,
@@ -22,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
     DocumentResponse,
     DocumentSearchHit,
     DocumentStatusResponse,
+    DocumentSummary,
     DocumentTemporaryLink,
     DocumentUniqueBucket,
 )
@@ -32,6 +35,8 @@ _UNIQUE_AGGREGATE_LIMIT_MAX = 10_000
 _SEARCH_HIGHLIGHT_MAX_LIMIT = 20
 _PASSAGES_SEARCH_MAX_LIMIT = 10
 _STATUS_ITEM_LIMIT = 1000
+_ASK_ITEM_LIMIT = 100
+_SUMMARIZE_ITEM_LIMIT = 1
 
 
 class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
@@ -287,6 +292,70 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
             body = {"items": [item.dump() for item in chunk], "ignoreUnknownIds": ignore_unknown_ids}
             response = self._post("/documents/status", body, api_version="beta")
             results.extend(ResponseItems[DocumentStatusResponse].model_validate_json(response.body).items)
+        return results
+
+    def ask(
+        self,
+        question: str,
+        items: Sequence[InternalId | ExternalId | InstanceId],
+        language: DocumentAILanguage | str | None = None,
+        additional_context: str | None = None,
+        ignore_unknown_ids: bool = False,
+    ) -> DocumentAnswer:
+        """Ask a question about one or more PDF documents using a language model.
+
+        Args:
+            question: The question to ask, 1 to 2048 characters.
+            items: The documents, at most 100.
+            language: The language of the answer.
+            additional_context: Context the model can use to improve its answer, 10 to 2048 characters.
+            ignore_unknown_ids: Whether to answer from the available documents when some are missing or
+                not fully processed.
+
+        Returns:
+            The answer, in parts with references to the document locations they are sourced from.
+
+        See https://api-docs.cognite.com/20230101/tag/Document-AI/operation/document_questioning_ai_tools_documents_ask_post
+        """
+        if not 0 < len(items) <= _ASK_ITEM_LIMIT:
+            raise ValueError(f"Number of documents must be between 1 and {_ASK_ITEM_LIMIT}, got {len(items)}.")
+        body: dict[str, Any] = {
+            "question": question,
+            "fileIds": [item.dump() for item in items],
+            "ignoreUnknownIds": ignore_unknown_ids,
+        }
+        if language is not None:
+            body["language"] = language
+        if additional_context is not None:
+            body["additionalContext"] = additional_context
+        response = self._post("/ai/tools/documents/ask", body)
+        return DocumentAnswer.model_validate_json(response.body)
+
+    def summarize(
+        self,
+        items: Sequence[InternalId | ExternalId | InstanceId],
+        language: DocumentAILanguage | str | None = None,
+        ignore_unknown_ids: bool = False,
+    ) -> builtins.list[DocumentSummary]:
+        """Summarize documents using a language model. The API takes one document per request.
+
+        Args:
+            items: The documents.
+            language: The language of the summaries.
+            ignore_unknown_ids: Whether to skip documents that do not exist.
+
+        Returns:
+            The summary of each document.
+
+        See https://api-docs.cognite.com/20230101/tag/Document-AI/operation/documents_summary_ai_tools_documents_summarize_post
+        """
+        results: builtins.list[DocumentSummary] = []
+        for chunk in chunker_sequence(items, _SUMMARIZE_ITEM_LIMIT):
+            body: dict[str, Any] = {"items": [item.dump() for item in chunk], "ignoreUnknownIds": ignore_unknown_ids}
+            if language is not None:
+                body["language"] = language
+            response = self._post("/ai/tools/documents/summarize", body)
+            results.extend(ResponseItems[DocumentSummary].model_validate_json(response.body).items)
         return results
 
     def preview_image(self, document_id: int, page_number: int = 1) -> bytes:

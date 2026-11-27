@@ -5,8 +5,10 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
+    DocumentSummaryByExternalId,
+    DocumentSummaryById,
     DocumentTableElement,
     DocumentTextElement,
     DocumentUnknownElement,
@@ -54,3 +56,67 @@ class TestDocumentsAPI:
             DocumentTableElement,
             DocumentUnknownElement,
         ]
+
+    def test_ask_sends_question_and_parses_answer(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        location = {"pageNumber": 2, "left": 0.1, "right": 0.9, "top": 0.2, "bottom": 0.3}
+        route = respx_mock.post(toolkit_config.create_api_url("/ai/tools/documents/ask")).mock(
+            return_value=httpx2.Response(
+                200,
+                json={
+                    "content": [
+                        {
+                            "text": "The pump runs at 50 Hz.",
+                            "references": [{"fileId": 1, "fileName": "pump.pdf", "locations": [location]}],
+                        }
+                    ]
+                },
+            )
+        )
+
+        answer = toolkit_client.documents.ask(
+            "What frequency does the pump run at?",
+            [InternalId(id=1), ExternalId(external_id="manual")],
+            language="English",
+        )
+
+        assert (json.loads(route.calls[0].request.content), answer.dump()) == (
+            {
+                "question": "What frequency does the pump run at?",
+                "fileIds": [{"id": 1}, {"externalId": "manual"}],
+                "ignoreUnknownIds": False,
+                "language": "English",
+            },
+            {
+                "content": [
+                    {
+                        "text": "The pump runs at 50 Hz.",
+                        "references": [{"fileId": 1, "fileName": "pump.pdf", "locations": [location]}],
+                    }
+                ]
+            },
+        )
+
+    def test_summarize_sends_one_document_per_request(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.post(toolkit_config.create_api_url("/ai/tools/documents/summarize")).mock(
+            side_effect=[
+                httpx2.Response(200, json={"items": [{"id": 1, "summary": "About pumps."}]}),
+                httpx2.Response(200, json={"items": [{"externalId": "manual", "summary": "About valves."}]}),
+            ]
+        )
+
+        summaries = toolkit_client.documents.summarize([InternalId(id=1), ExternalId(external_id="manual")])
+
+        assert ([json.loads(call.request.content) for call in route.calls], summaries) == (
+            [
+                {"items": [{"id": 1}], "ignoreUnknownIds": False},
+                {"items": [{"externalId": "manual"}], "ignoreUnknownIds": False},
+            ],
+            [
+                DocumentSummaryById(id=1, summary="About pumps."),
+                DocumentSummaryByExternalId(external_id="manual", summary="About valves."),
+            ],
+        )

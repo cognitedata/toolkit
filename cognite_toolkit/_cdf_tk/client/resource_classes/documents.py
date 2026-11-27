@@ -255,3 +255,96 @@ class DocumentStatusResponse(BaseModelObject):
 class DocumentTemporaryLink(BaseModelObject):
     temporary_link: str
     expiration_time: int
+
+
+DocumentAILanguage: TypeAlias = Literal[
+    "Chinese",
+    "Dutch",
+    "English",
+    "French",
+    "German",
+    "Italian",
+    "Japanese",
+    "Korean",
+    "Latvian",
+    "Norwegian",
+    "Portuguese",
+    "Spanish",
+    "Swedish",
+]
+
+
+class DocumentAnswerLocation(BaseModelObject):
+    """A bounding box on a page of a document. Pages start at 1."""
+
+    page_number: int
+    left: float
+    right: float
+    top: float
+    bottom: float
+
+
+class DocumentAnswerReference(BaseModelObject):
+    """A document, and the locations in it, that a part of an answer is sourced from."""
+
+    file_id: int
+    file_name: str
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    locations: list[DocumentAnswerLocation]
+
+
+class DocumentAnswerContent(BaseModelObject):
+    """A part of an answer with the document locations it is sourced from."""
+
+    text: str
+    references: list[DocumentAnswerReference] = Field(default_factory=list)
+
+
+class DocumentAnswer(BaseModelObject):
+    """An answer to a question about documents, from ``POST /ai/tools/documents/ask``."""
+
+    content: list[DocumentAnswerContent]
+
+    @property
+    def text(self) -> str:
+        return "".join(part.text for part in self.content)
+
+
+class DocumentSummaryBase(BaseModelObject):
+    """A summary of a document, from ``POST /ai/tools/documents/summarize``."""
+
+    summary: str
+
+
+class DocumentSummaryById(DocumentSummaryBase):
+    id: int
+
+
+class DocumentSummaryByExternalId(DocumentSummaryBase):
+    external_id: str
+
+
+class DocumentSummaryByInstanceId(DocumentSummaryBase):
+    instance_id: NodeUntypedId
+
+
+def _summary_tag(value: Any) -> str:
+    if isinstance(value, DocumentSummaryByInstanceId):
+        return "instance_id"
+    if isinstance(value, DocumentSummaryByExternalId):
+        return "external_id"
+    if isinstance(value, dict):
+        if "instanceId" in value or "instance_id" in value:
+            return "instance_id"
+        if "externalId" in value or "external_id" in value:
+            return "external_id"
+    return "id"
+
+
+DocumentSummary: TypeAlias = Annotated[
+    Annotated[DocumentSummaryById, Tag("id")]
+    | Annotated[DocumentSummaryByExternalId, Tag("external_id")]
+    | Annotated[DocumentSummaryByInstanceId, Tag("instance_id")],
+    Discriminator(_summary_tag),
+]
