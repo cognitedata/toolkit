@@ -50,10 +50,6 @@ class Flags(Enum):
         visible=True,
         description="Enables support for the resources create command under dev plugin",
     )
-    FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
-        visible=True,
-        description="Enables validation of function requirements.txt during build using pip dry-run",
-    )
     DATA_PRODUCTS = FlagMetadata(
         visible=True,
         description="Enables support for data product and rule set resources and workflow task lineage annotations",
