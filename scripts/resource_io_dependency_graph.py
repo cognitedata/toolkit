@@ -1,7 +1,17 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "pyvis>=0.3.2",
+#     "cognite-toolkit",
+# ]
+#
+# [tool.uv.sources]
+# cognite-toolkit = { path = "..", editable = true }
+# ///
 """Visualize the dependencies between all concrete ResourceIO classes.
 
 Usage:
-    uv run --with pyvis python scripts/resource_io_dependency_graph.py [output.html]
+    uv run scripts/resource_io_dependency_graph.py [output.html]
 """
 
 import sys
