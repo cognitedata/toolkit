@@ -24,12 +24,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowTriggerIO,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.cron import (
-    MINUTES_PER_DAY,
-    MINUTES_PER_WEEK,
-    cron_minutes_of_week,
-    utc_offset_minutes,
-)
+from cognite_toolkit._cdf_tk.utils.cron import cron_starts
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms, ms_to_datetime
 
 from ._base import InternalValidatorException, RuleSetStatus, ToolkitRuleSet, ValidationInput
@@ -39,8 +34,6 @@ MAX_CONCURRENT_RUNS = 10
 
 _MINUTE_MS = 60 * 1000
 _MAX_LISTED_NAMES = 10
-_MAX_LISTED_TIMES = 3
-_WEEKDAY_NAMES = ("Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays")
 
 
 @dataclass(frozen=True)
@@ -81,9 +74,9 @@ class _Peak:
 class PerformanceRuleSet(ToolkitRuleSet):
     """Checks for thundering herds: many transformations, functions, or workflows running at the same time.
 
-    Two sources are used. The schedules of each type of compute are expanded to the minutes of the week they run
-    in, using the median run time of each schedule within the lookback period. In addition, the runs within the
-    lookback period are checked for the most that actually ran at the same time.
+    Two sources are used. Looking forward, the schedules of each type of compute are expanded to the minutes they
+    run in within the horizon from now, using the median run time of each schedule within the lookback period.
+    Looking back, the runs within the lookback period are checked for the most that actually ran at the same time.
     """
 
     DISPLAY_NAME = "Performance"
@@ -99,9 +92,15 @@ class PerformanceRuleSet(ToolkitRuleSet):
     )
     CONTEXT = frozenset({"cdf"})
 
-    def __init__(self, client: ToolkitClient | None = None, lookback_period: timedelta = timedelta(days=7)) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient | None = None,
+        lookback_period: timedelta = timedelta(days=7),
+        horizon: timedelta = timedelta(days=31),
+    ) -> None:
         super().__init__(client=client)
         self.lookback_period = lookback_period
+        self.horizon = horizon
 
     def get_status(self, data: ValidationInput) -> RuleSetStatus:
         if self.client is None:
@@ -113,13 +112,14 @@ class PerformanceRuleSet(ToolkitRuleSet):
         return RuleSetStatus(
             code="ready",
             message="Checks for transformations, functions, and workflows running at the same time, based on "
-            f"their schedules and their runs in CDF within the last {self.lookback_period.days} days.",
+            f"their schedules in the next {self.horizon.days} days and their runs in CDF within the last "
+            f"{self.lookback_period.days} days.",
         )
 
     def validate(self, data: ValidationInput) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
             return
-        now = datetime_to_ms(datetime.now(UTC))
+        now = datetime_to_ms(_utc_now())
         from_time = now - int(self.lookback_period.total_seconds() * 1000)
         loaders = (self._load_transformations, self._load_functions, self._load_workflows)
         for loader in loaders:
@@ -130,7 +130,7 @@ class PerformanceRuleSet(ToolkitRuleSet):
                     message=f"Failed to retrieve compute resources from CDF: {error}", source="Performance"
                 )
                 continue
-            if scheduled := self._scheduled_peak(compute):
+            if scheduled := self._scheduled_peak(compute, now):
                 yield self._scheduled_warning(compute, *scheduled)
             if observed := self._observed_peak(compute):
                 yield self._observed_warning(compute, *observed)
@@ -236,29 +236,37 @@ class PerformanceRuleSet(ToolkitRuleSet):
 
     # 2. Find peaks
 
-    @staticmethod
-    def _scheduled_peak(compute: _Compute) -> tuple[_Peak, list[int], int] | None:
-        """The most schedules running in the same minute of the week, the minutes they do so, and the number of
-        minutes of the week more than MAX_CONCURRENT_RUNS are running."""
+    def _scheduled_peak(self, compute: _Compute, now: int) -> tuple[_Peak, int, int] | None:
+        """The most schedules running in the same minute within the horizon, the first time they do so, and the
+        number of minutes within the horizon more than MAX_CONCURRENT_RUNS are running."""
+        window_start = ms_to_datetime(now - now % _MINUTE_MS)
+        horizon_minutes = int(self.horizon.total_seconds() // 60)
+        window_end = window_start + timedelta(minutes=horizon_minutes)
         duration_by_key = _median_duration_minutes(compute.runs)
-        running_count_by_minute = [0] * MINUTES_PER_WEEK
+        running_count_by_minute = [0] * horizon_minutes
         running_minutes_by_schedule: list[tuple[_Schedule, set[int]]] = []
         for schedule in compute.schedules:
+            duration = min(duration_by_key.get(schedule.key, 1), horizon_minutes)
             try:
-                starts = cron_minutes_of_week(schedule.cron_expression, utc_offset_minutes(schedule.timezone))
+                # Starting earlier includes the runs that are still running when the window starts.
+                starts = cron_starts(
+                    schedule.cron_expression, window_start - timedelta(minutes=duration), window_end, schedule.timezone
+                )
             except ValueError:
                 continue
-            running_minutes = _running_minutes(starts, duration_by_key.get(schedule.key, 1))
+            offsets = [int((start - window_start).total_seconds() // 60) for start in starts]
+            running_minutes = _running_minutes(offsets, duration, horizon_minutes)
             for minute in running_minutes:
                 running_count_by_minute[minute] += 1
             running_minutes_by_schedule.append((schedule, running_minutes))
-        peak_count = max(running_count_by_minute)
+        peak_count = max(running_count_by_minute, default=0)
         if peak_count <= MAX_CONCURRENT_RUNS:
             return None
-        peak_minutes = [minute for minute, count in enumerate(running_count_by_minute) if count == peak_count]
-        names = [schedule.name for schedule, minutes in running_minutes_by_schedule if peak_minutes[0] in minutes]
+        peak_minute = running_count_by_minute.index(peak_count)
+        names = [schedule.name for schedule, minutes in running_minutes_by_schedule if peak_minute in minutes]
         congested_minutes = sum(1 for count in running_count_by_minute if count > MAX_CONCURRENT_RUNS)
-        return _Peak(count=peak_count, names=names), peak_minutes, congested_minutes
+        peak_time = datetime_to_ms(window_start) + peak_minute * _MINUTE_MS
+        return _Peak(count=peak_count, names=names), peak_time, congested_minutes
 
     @staticmethod
     def _observed_peak(compute: _Compute) -> tuple[_Peak, int] | None:
@@ -278,16 +286,16 @@ class PerformanceRuleSet(ToolkitRuleSet):
     # 3. Report
 
     def _scheduled_warning(
-        self, compute: _Compute, peak: _Peak, peak_minutes: list[int], congested_minutes: int
+        self, compute: _Compute, peak: _Peak, peak_time: int, congested_minutes: int
     ) -> BuildWarning:
         return BuildWarning(
             code="CONGESTED-SCHEDULE",
             message=(
-                f"Up to {peak.count} {compute.kind} are scheduled to run at the same time, "
-                f"{_describe_minutes_of_week(peak_minutes)}: {_humanize_names(peak.names)}. More than "
-                f"{MAX_CONCURRENT_RUNS} run at the same time during {congested_minutes} minutes of the week, based on "
-                f"their schedules and median run time in the last {self.lookback_period.days} days. Running many at "
-                "once can exceed concurrency limits, which delays or fails runs."
+                f"Up to {peak.count} {compute.kind} are scheduled to run at the same time, next at "
+                f"{_format_time(peak_time)} UTC: {_humanize_names(peak.names)}. More than {MAX_CONCURRENT_RUNS} "
+                f"run at the same time during {congested_minutes} minutes in the next {self.horizon.days} days, "
+                f"based on their schedules and median run time in the last {self.lookback_period.days} days. "
+                "Running many at once can exceed concurrency limits, which delays or fails runs."
             ),
             source_url=compute.url,
             fix=_fix(compute.kind),
@@ -299,7 +307,7 @@ class PerformanceRuleSet(ToolkitRuleSet):
             code="CONGESTED-SCHEDULE",
             message=(
                 f"{peak.count} runs of {compute.kind} were running at the same time at "
-                f"{ms_to_datetime(peak_time).strftime('%Y-%m-%d %H:%M')} UTC, the most in the last "
+                f"{_format_time(peak_time)} UTC, the most in the last "
                 f"{self.lookback_period.days} days: {_humanize_names(peak.names)}. Running many at once can exceed "
                 "concurrency limits, which delays or fails runs."
             ),
@@ -320,26 +328,23 @@ def _median_duration_minutes(runs: Sequence[_Run]) -> dict[str, int]:
     }
 
 
-def _running_minutes(starts: set[int], duration_minutes: int) -> set[int]:
-    if duration_minutes >= MINUTES_PER_WEEK:
-        return set(range(MINUTES_PER_WEEK))
-    return {(start + offset) % MINUTES_PER_WEEK for start in starts for offset in range(duration_minutes)}
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
-def _describe_minutes_of_week(minutes_of_week: Sequence[int]) -> str:
-    times = sorted({minute % MINUTES_PER_DAY for minute in minutes_of_week})
-    weekdays = sorted({minute // MINUTES_PER_DAY for minute in minutes_of_week})
-    clock_times = [f"{time_of_day // 60:02d}:{time_of_day % 60:02d}" for time_of_day in times]
-    if len(times) == 24 and len({time_of_day % 60 for time_of_day in times}) == 1:
-        minute = times[0] % 60
-        description = "every hour, on the hour" if minute == 0 else f"every hour, {minute} minutes past the hour"
-    elif len(times) <= _MAX_LISTED_TIMES:
-        description = f"at {humanize_collection(clock_times, sort=False)} UTC"
-    else:
-        description = f"{len(times)} minutes a day, for example, at {clock_times[0]} UTC"
-    if len(weekdays) < 7:
-        description += f" on {humanize_collection([_WEEKDAY_NAMES[day] for day in weekdays], sort=False)}"
-    return description
+def _running_minutes(start_offsets: Sequence[int], duration_minutes: int, horizon_minutes: int) -> set[int]:
+    """The minutes within the horizon a schedule is running, given its sorted start offsets from the window start."""
+    running: set[int] = set()
+    covered_until = 0
+    for offset in start_offsets:
+        end = min(offset + duration_minutes, horizon_minutes)
+        running.update(range(max(offset, covered_until), end))
+        covered_until = max(covered_until, end)
+    return running
+
+
+def _format_time(timestamp: int) -> str:
+    return ms_to_datetime(timestamp).strftime("%Y-%m-%d %H:%M")
 
 
 def _humanize_names(names: Sequence[str]) -> str:

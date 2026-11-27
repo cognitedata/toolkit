@@ -7,10 +7,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Trans
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
-from cognite_toolkit._cdf_tk.rules import PerformanceRuleSet, ValidationInput
+from cognite_toolkit._cdf_tk.rules import PerformanceRuleSet, ValidationInput, _performance
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms, ms_to_datetime
 
-NOW = datetime_to_ms(datetime.now(UTC))
+NOW_DATETIME = datetime(2026, 12, 1, 0, 5, tzinfo=UTC)
+NOW = datetime_to_ms(NOW_DATETIME)
 DAY_MS = int(timedelta(days=1).total_seconds() * 1000)
 MINUTE_MS = 60 * 1000
 
@@ -54,6 +55,11 @@ def _execution(id_: int, start_time: int, end_time: int) -> WorkflowExecutionRes
     )
 
 
+@pytest.fixture(autouse=True)
+def fixed_now(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(_performance, "_utc_now", lambda: NOW_DATETIME)
+
+
 class TestPerformanceRuleSet:
     def test_schedules_overlapping_by_their_run_time(self) -> None:
         client = MagicMock()
@@ -79,10 +85,10 @@ class TestPerformanceRuleSet:
             (
                 "CONGESTED-SCHEDULE",
                 "/transformations/",
-                "Up to 11 transformations are scheduled to run at the same time, every hour, 15 minutes past the "
-                "hour: 'tr_0', 'tr_1', 'tr_10', 'tr_2', 'tr_3', 'tr_4', 'tr_5', 'tr_6', 'tr_7', 'tr_8' and 1 more. "
-                "More than 10 run at the same time during 168 minutes of the week, based on their schedules and "
-                "median run time in the last 7 days. Running many at once can exceed concurrency limits, which "
+                "Up to 11 transformations are scheduled to run at the same time, next at 2026-12-01 00:15 UTC: "
+                "'tr_0', 'tr_1', 'tr_10', 'tr_2', 'tr_3', 'tr_4', 'tr_5', 'tr_6', 'tr_7', 'tr_8' and 1 more. "
+                "More than 10 run at the same time during 744 minutes in the next 31 days, based on their schedules "
+                "and median run time in the last 7 days. Running many at once can exceed concurrency limits, which "
                 "delays or fails runs.",
             )
         ]
