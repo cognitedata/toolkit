@@ -26,6 +26,11 @@ class DataProductInstanceScope(BaseModelResource):
         min_length=1,
         max_length=100,
     )
+    write: list[Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN)]] = Field(
+        default_factory=list,
+        description="Instance spaces that can be written through this view when using the data product.",
+        max_length=100,
+    )
     upsert: list[Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN)]] = Field(
         default_factory=list,
         description="Instance spaces that can be upserted through this view when using the data product.",

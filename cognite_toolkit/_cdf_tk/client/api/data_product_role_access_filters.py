@@ -6,7 +6,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ViewNoVersionUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_role import (
     DataProductRoleAccessFilter,
     DataProductRoleAccessFilterRequest,
@@ -43,7 +43,7 @@ class DataProductRoleAccessFiltersAPI(CDFResourceAPI[DataProductRoleAccessFilter
         *,
         add: DataProductRoleAccessFilterRequest | None = None,
         update: DataProductRoleAccessFilterRequest | None = None,
-        remove: ViewNoVersionId | None = None,
+        remove: ViewNoVersionUntypedId | None = None,
     ) -> builtins.list[DataProductRoleAccessFilter]:
         """Add, update, or remove the access filter of a role for one view each.
 

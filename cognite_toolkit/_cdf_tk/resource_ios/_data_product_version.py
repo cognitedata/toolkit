@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delet
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from ._data_product import DataProductIO
-from ._rulesets import RuleSetVersionIO
 
 
 @final
@@ -32,7 +31,7 @@ class DataProductVersionIO(
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductIO, RuleSetVersionIO, ViewIO})
+    dependencies = frozenset({DataProductIO, ViewIO})
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
@@ -74,9 +73,6 @@ class DataProductVersionIO(
     @classmethod
     def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield DataProductIO, ExternalId(external_id=resource.data_product_external_id)
-        if resource.quality:
-            for rule in resource.quality.rules:
-                yield RuleSetVersionIO, rule.as_id()
         for view in resource.views:
             yield ViewIO, ViewId(space=view.space, external_id=view.external_id, version=str(view.version))
 
@@ -106,7 +102,6 @@ class DataProductVersionIO(
             "description": None,
             "terms": None,
             "views": [],
-            "quality": None,
         }
         for key, default in defaults.items():
             if dumped.get(key) == default and key not in local:
