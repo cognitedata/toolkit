@@ -115,7 +115,7 @@ class TestLoadResources:
         }
 
 
-class TestFileMetadataCRUDUpdate:
+class TestFileMetadataIOUpdate:
     @pytest.mark.parametrize(
         "cdf_hash, local_hash, expect_upload",
         [

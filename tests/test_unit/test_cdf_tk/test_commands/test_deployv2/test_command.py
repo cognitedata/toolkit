@@ -69,6 +69,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     SandboxUnavailableError,
     ToolkitNotADirectoryError,
+    ToolkitNotSupported,
     ToolkitValidationError,
     ToolkitValueError,
     ToolkitYAMLFormatError,
@@ -79,6 +80,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     CogniteFileIO,
     ContainerIO,
     DataSetsIO,
+    FunctionAppIO,
     FunctionIO,
     FunctionScheduleIO,
     GroupAllScopedIO,
@@ -294,7 +296,25 @@ class TestCreateDeploymentPlan:
 
         assert actual_plan == expected_plan
 
+    def test_create_deployment_plan_rejects_unsupported_resource_before_apply(self) -> None:
+        read_dir = ReadBuildDirectory(
+            path=Path("build"),
+            resource_directories=[
+                ResourceDirectory(
+                    directory=Path("build/functions"),
+                    files_by_crud={FunctionAppIO: [Path("build/functions/app.FunctionApp.yaml")]},
+                )
+            ],
+        )
+
+        with pytest.raises(ToolkitNotSupported, match="alpha resource supports build only"):
+            DeployV2Command.create_deployment_plan(read_dir)
+
     def test_create_deployment_plan_all_resource_types_no_cycles(self) -> None:
+        deployable_by_folder = {
+            folder: [crud for crud in cruds if crud.support_deploy]
+            for folder, cruds in RESOURCE_IO_BY_FOLDER_NAME.items()
+        }
         read_dir = ReadBuildDirectory(
             path=Path("build"),
             resource_directories=[
@@ -302,15 +322,13 @@ class TestCreateDeploymentPlan:
                     Path(f"build/{folder}"),
                     files_by_crud={crud: [Path(f"build/{folder}/my.{crud.kind}.yaml")] for crud in cruds},
                 )
-                for folder, cruds in RESOURCE_IO_BY_FOLDER_NAME.items()
+                for folder, cruds in deployable_by_folder.items()
             ],
         )
 
         plan = DeployV2Command.create_deployment_plan(read_dir)
 
-        assert {step.crud_cls for step in plan} == {
-            crud for cruds in RESOURCE_IO_BY_FOLDER_NAME.values() for crud in cruds
-        }
+        assert {step.crud_cls for step in plan} == {crud for cruds in deployable_by_folder.values() for crud in cruds}
 
 
 @dataclass
