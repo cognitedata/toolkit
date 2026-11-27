@@ -124,11 +124,12 @@ class ToolkitClientConfig(ClientConfig):
         base_path = f"/apps/v1/projects/{self.project}{endpoint}"
         return urljoin(self.base_url, base_path)
 
-    def create_auth_url(self, endpoint: str) -> str:
+    def create_auth_url(self, endpoint: str, version: Literal["v1", "v0"] = "v1") -> str:
         """Create a full Auth URL for the given endpoint.
 
         Args:
             endpoint (str): The Auth endpoint to append to the base URL.
+            version (Literal["v1", "v0"]): The version of the Auth API to use. Defaults to "v1".
 
         The auth host is derived from the token URL of the credentials when available,
         e.g. 'https://auth-dev.cognitedata-development.cognite.ai/oauth2/token'. Falls back
@@ -136,7 +137,7 @@ class ToolkitClientConfig(ClientConfig):
         """
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
-        return f"{self._auth_base_url}/api/v1{endpoint}"
+        return f"{self._auth_base_url}/api/{version}{endpoint}"
 
     @property
     def _auth_base_url(self) -> str:
