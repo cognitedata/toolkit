@@ -2,6 +2,7 @@
 
 import contextlib
 import os
+import sys
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -201,12 +202,16 @@ class CoreApp(typer.Typer):
                 display_path = relative_to_if_possible(env_path)
                 print(
                     "  [bold yellow]WARNING:[/] Overriding the following environment variables with values "
-                    f"from {display_path.as_posix()!r} file: {humanize_collection(overridden_vars)}"
+                    f"from {display_path.as_posix()!r} file: {humanize_collection(overridden_vars)}",
+                    file=sys.stderr,
                 )
         has_loaded = load_dotenv(env_path, override=override_env)
         if not has_loaded:
             display_path = relative_to_if_possible(env_path)
-            print(f"  [bold yellow]WARNING:[/] No environment variables found in {display_path.as_posix()!r} file.")
+            print(
+                f"  [bold yellow]WARNING:[/] No environment variables found in {display_path.as_posix()!r} file.",
+                file=sys.stderr,
+            )
 
     def build_v2(
         self,

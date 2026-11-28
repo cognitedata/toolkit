@@ -6,6 +6,7 @@ import sys
 import tempfile
 import zipfile
 from collections import Counter
+from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal, Self
@@ -920,14 +921,15 @@ class ModulesCommand(ToolkitCommand):
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         effective_build_env = build_env_name or DEFAULT_ENV
-        verify_module_directory(organization_dir, effective_build_env)
-        config_yaml_input = config_yaml
-        lineage = BuildV2Command(
-            print_warning=self.print_warning,
-            skip_tracking=True,
-            silent=self.silent,
-            client=self._client,
-        ).tmp_build(organization_dir, config_yaml=config_yaml_input, client=self._client)
+        # Directory checks and the temporary build can both print diagnostics before rendering the list.
+        with redirect_stdout(sys.stderr) if output_format == "json" else nullcontext():
+            verify_module_directory(organization_dir, effective_build_env)
+            lineage = BuildV2Command(
+                print_warning=self.print_warning,
+                skip_tracking=True,
+                silent=self.silent,
+                client=self._client,
+            ).tmp_build(organization_dir, config_yaml=config_yaml, client=self._client)
 
         if output_format == "json":
             output = {
