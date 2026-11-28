@@ -10,6 +10,7 @@ from typing import Any, ClassVar, Self
 
 from packaging.version import Version
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH, EnvType, clean_name
@@ -219,7 +220,7 @@ class CDFToml:
             if not alpha_flags and "feature_flags" in raw:
                 MediumSeverityWarning(
                     "The 'feature_flags' section has been renamed to 'alpha_flags'. Please update your cdf.toml file."
-                ).print_warning()
+                ).print_warning(console=Console(stderr=True))
                 alpha_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
 
             try:
